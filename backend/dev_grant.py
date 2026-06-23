@@ -1,6 +1,7 @@
-"""DEV helper — tự cấp gói + quyền admin cho 1 user để test cục bộ (chưa có cổng thanh toán).
+"""DEV helper — cấp gói cho 1 USER thường để test tạo video (chưa có cổng thanh toán).
+Không đụng quyền admin (admin tạo bằng make_admin.py).
 
-    python dev_grant.py you@email.com           # cấp gói 'pro' + admin
+    python dev_grant.py you@email.com           # cấp gói 'pro'
     python dev_grant.py you@email.com basic      # cấp gói khác
 """
 import asyncio
@@ -25,9 +26,8 @@ async def main():
             print(f"❌ Không thấy user {email} — đăng ký trên web trước đã.")
             return 1
         subscription.activate(u, plan)
-        u.is_admin = True
         await db.commit()
-        print(f"✅ {email}: plan={u.plan}, hết hạn {u.plan_expires_at}, is_admin=True")
+        print(f"✅ {email}: plan={u.plan}, hết hạn {u.plan_expires_at} (user thường, để test tạo video)")
     return 0
 
 

@@ -23,13 +23,15 @@ export function pushLog(msg: string, level = 'info') {
   logListeners.forEach(l => l())
 }
 
-const NAV = [
-  { path: '/', icon: Zap, label: 'Tạo Video', exact: true, adminOnly: false },
-  { path: '/projects', icon: FolderOpen, label: 'Dự án', adminOnly: false },
-  { path: '/videos', icon: Library, label: 'Thư viện', adminOnly: false },
-  { path: '/tools', icon: Wrench, label: 'Công cụ', adminOnly: false },
-  { path: '/billing', icon: Crown, label: 'Nâng gói', adminOnly: false },
-  { path: '/settings', icon: Settings, label: 'Cài đặt', adminOnly: false },
+type NavItem = { path: string; icon: any; label: string; exact?: boolean; userOnly?: boolean; adminOnly?: boolean }
+// userOnly = chỉ user thường (admin không tạo video, ẩn đi). adminOnly = chỉ admin.
+const NAV: NavItem[] = [
+  { path: '/', icon: Zap, label: 'Tạo Video', exact: true, userOnly: true },
+  { path: '/projects', icon: FolderOpen, label: 'Dự án', userOnly: true },
+  { path: '/videos', icon: Library, label: 'Thư viện', userOnly: true },
+  { path: '/tools', icon: Wrench, label: 'Công cụ', userOnly: true },
+  { path: '/billing', icon: Crown, label: 'Nâng gói', userOnly: true },
+  { path: '/settings', icon: Settings, label: 'Cài đặt' },
   { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
 ]
 
@@ -55,6 +57,11 @@ export default function Dashboard() {
       }
     }).catch(() => nav('/login'))
   }, [])
+
+  // Admin chỉ quản lý → vào thẳng trang Admin (không phải trang Tạo Video)
+  useEffect(() => {
+    if (user?.is_admin && loc.pathname === '/') nav('/admin', { replace: true })
+  }, [user, loc.pathname])
 
   // Load project list
   const loadProjects = useCallback(() => {
@@ -125,7 +132,7 @@ export default function Dashboard() {
           <Video size={17} color="#fff" strokeWidth={2.5} />
         </div>
 
-        {NAV.filter(n => !n.adminOnly || user?.is_admin).map(n => {
+        {NAV.filter(n => (!n.adminOnly || user?.is_admin) && (!n.userOnly || !user?.is_admin)).map(n => {
           const Icon = n.icon
           const active = isActive(n.path, n.exact)
           return (

@@ -1,9 +1,10 @@
-"""Tạo (hoặc nâng) 1 tài khoản admin + cấp gói active.
+"""Tạo (hoặc nâng) 1 tài khoản ADMIN. Admin chỉ quản lý hệ thống/người dùng — KHÔNG tạo
+video nên KHÔNG cần gói.
 
-    python make_admin.py <email> <password> [plan=pro]
+    python make_admin.py <email> <password>
 
 - Nếu email chưa có → tạo user mới.
-- Nếu đã có → set lại mật khẩu + bật admin + cấp gói.
+- Nếu đã có → set lại mật khẩu + bật admin.
 """
 import asyncio
 import sys
@@ -14,20 +15,18 @@ from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.auth.models import User
 from app.auth.utils import hash_password
-from app import subscription
 
 
 async def main():
     if len(sys.argv) < 3:
-        print("Dùng: python make_admin.py <email> <password> [plan=pro]")
+        print("Dùng: python make_admin.py <email> <password>")
         return 1
     email, password = sys.argv[1], sys.argv[2]
-    plan = sys.argv[3] if len(sys.argv) > 3 else "pro"
     async with AsyncSessionLocal() as db:
         u = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if u:
             u.hashed_password = hash_password(password)
-            print(f"User {email} đã tồn tại → cập nhật mật khẩu + admin + gói")
+            print(f"User {email} đã tồn tại → cập nhật mật khẩu + bật admin")
         else:
             username = email.split("@")[0]
             if (await db.execute(select(User).where(User.username == username))).scalar_one_or_none():
@@ -38,9 +37,8 @@ async def main():
         u.is_admin = True
         u.is_active = True
         u.is_banned = False
-        subscription.activate(u, plan)
         await db.commit()
-        print(f"✅ {email}: admin=True, plan={u.plan}, hết hạn {u.plan_expires_at}")
+        print(f"✅ {email}: admin=True (quản lý hệ thống, không cần gói)")
     return 0
 
 
