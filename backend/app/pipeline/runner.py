@@ -487,7 +487,8 @@ async def run_video_job(job_id: str, user_id: str):
             return
         await _update_job(job_id, status=JobStatus.done, progress=100,
                           output_files=json.dumps(outputs), thumbnails=json.dumps([]),
-                          error_msg=(last_err or None), completed_at=datetime.now(timezone.utc))
+                          error_msg=(last_err or None),
+                          completed_at=datetime.now(timezone.utc).replace(tzinfo=None))
         log.info("Job %s done: %d/%d videos", job_id, len(outputs), count)
     except Exception as e:
         log.exception("Job %s crashed: %s", job_id, e)

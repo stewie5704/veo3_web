@@ -62,7 +62,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không đúng")
 
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)  # cột là TIMESTAMP WITHOUT TZ (Postgres)
     await db.commit()
 
     token = create_access_token({"sub": user.id})
