@@ -73,19 +73,30 @@ export default function Tools({ user }: { user: any }) {
   const [imgAspect, setImgAspect] = useState('1:1')
   const [imgLoading, setImgLoading] = useState(false)
   const [imgResults, setImgResults] = useState<string[]>([])
-  const [imgChars, setImgChars] = useState<Set<string>>(new Set())
+  const imgPromptRef = useRef<HTMLTextAreaElement>(null)
 
   async function doImage() {
     if (!imgPrompt.trim()) return
     setError(''); setImgLoading(true); setImgResults([])
     pushLog('Đang tạo ảnh AI...')
     try {
-      const res = await toolsApi.image({ prompt: imgPrompt, count: imgCount, aspect_ratio: imgAspect,
-        char_ids: imgChars.size > 0 ? [...imgChars] : undefined })
+      // @Tên trong prompt -> backend tu resolve thanh anh giu mat (reference)
+      const res = await toolsApi.image({ prompt: imgPrompt, count: imgCount, aspect_ratio: imgAspect })
       setImgResults(res.image_urls)
       pushLog(`Tạo xong ${res.image_urls.length} ảnh`)
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setImgLoading(false) }
+  }
+
+  // Chèn @Tên vào prompt tại vị trí con trỏ (như mention)
+  function insertMention(name: string) {
+    const tag = `@${name} `
+    const ta = imgPromptRef.current
+    if (!ta) { setImgPrompt(p => (p && !p.endsWith(' ') ? p + ' ' : p) + tag); return }
+    const start = ta.selectionStart ?? imgPrompt.length
+    const end = ta.selectionEnd ?? start
+    setImgPrompt(imgPrompt.slice(0, start) + tag + imgPrompt.slice(end))
+    requestAnimationFrame(() => { ta.focus(); const pos = start + tag.length; ta.setSelectionRange(pos, pos) })
   }
 
   // Cut
@@ -280,8 +291,8 @@ export default function Tools({ user }: { user: any }) {
             <div className="card-header"><Image size={15} /> Image Generation <small style={{ color: 'var(--green)' }}>FREE · Ultra</small></div>
             <div className="form-group">
               <label className="form-label">Prompt (tiếng Anh)</label>
-              <textarea className="form-textarea" rows={4}
-                placeholder="A beautiful landscape, mountain lake at sunset, photorealistic, 8K..."
+              <textarea ref={imgPromptRef} className="form-textarea" rows={4}
+                placeholder="A beautiful landscape... (bấm chip @nhân vật bên dưới để chèn vào vị trí con trỏ)"
                 value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
             </div>
             <div className="form-row">
@@ -301,21 +312,22 @@ export default function Tools({ user }: { user: any }) {
             {/* Face ref */}
             {chars.length > 0 && (
               <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 9, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>🎭 Giữ mặt nhân vật (tùy chọn)</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>🎭 Chèn nhân vật giữ mặt</div>
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                   {chars.map(c => (
-                    <div key={c.id}
-                      onClick={() => setImgChars(prev => { const n = new Set(prev); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n })}
+                    <button key={c.id} type="button" title={`Chèn @${c.name} vào prompt`}
+                      onClick={() => insertMention(c.name)}
                       style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '3px 9px 3px 3px', borderRadius: 99,
-                        border: `1px solid ${imgChars.has(c.id) ? 'var(--accent)' : 'var(--border)'}`,
-                        background: imgChars.has(c.id) ? 'rgba(249,115,22,0.12)' : 'transparent', transition: 'all 0.15s' }}>
+                        border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(249,115,22,0.12)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' }}>
                       <img src={c.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
-                      <span style={{ fontSize: 12, fontWeight: 500, color: imgChars.has(c.id) ? 'var(--accent3)' : 'var(--text2)' }}>@{c.name}</span>
-                      {imgChars.has(c.id) && <span style={{ fontSize: 10, color: 'var(--accent2)' }}>✓</span>}
-                    </div>
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>@{c.name}</span>
+                      <Plus size={11} />
+                    </button>
                   ))}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Chọn nhân vật để AI giữ mặt trong ảnh (Image Reference)</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Đặt con trỏ trong prompt rồi bấm chip → chèn @tên. AI sẽ giữ mặt nhân vật được nhắc.</div>
               </div>
             )}
             <button className="btn btn-primary" onClick={doImage} disabled={imgLoading || !imgPrompt.trim()}>

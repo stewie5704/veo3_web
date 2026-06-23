@@ -167,6 +167,7 @@ async def gen_image(
     from app.pipeline.runner import generate_images_flow
     cookies = dec(user.google_cookies) or ""
     ref_paths = await _resolve_char_ref_paths(body.prompt, body.char_ids, user.id)  # giữ mặt
+    log.info("gen_image: char_ids=%s -> %d ref path(s): %s", body.char_ids, len(ref_paths), ref_paths)
     try:
         files = await generate_images_flow(
             user_id=user.id, cookies=cookies, project_id=user.google_project_id or "",
