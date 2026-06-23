@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Zap, FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
-  Video, Shield, Plus, RefreshCw, Crown
+  Video, Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react'
 import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
 import CreateVideo from './CreateVideo'
@@ -48,6 +48,9 @@ export default function Dashboard() {
   const logEndRef = useRef<HTMLDivElement>(null)
   const nav = useNavigate()
   const loc = useLocation()
+  const [navExpanded, setNavExpanded] = useState(() => localStorage.getItem('navExpanded') !== '0')
+  const navWidth = navExpanded ? 208 : 58
+  const toggleNav = () => setNavExpanded(v => { localStorage.setItem('navExpanded', v ? '0' : '1'); return !v })
 
   useEffect(() => {
     authApi.me().then(u => {
@@ -114,22 +117,38 @@ export default function Dashboard() {
   return (
     <div className="app-layout">
 
-      {/* ── Thin icon nav (left-most, 58px) ── */}
+      {/* ── Sidebar (thu gọn / xả ra) ── */}
       <nav style={{
-        width: 58, minHeight: '100vh', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 60,
+        width: navWidth, minHeight: '100vh', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 60,
         background: 'rgba(10,8,6,0.96)', borderRight: '1px solid rgba(249,115,22,0.08)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        paddingTop: 14, paddingBottom: 14, gap: 4,
+        display: 'flex', flexDirection: 'column', alignItems: navExpanded ? 'stretch' : 'center',
+        padding: navExpanded ? '14px 10px' : '14px 0', gap: 4,
+        transition: 'width 0.2s ease',
       }}>
-        {/* Logo dot */}
+        {/* Logo + brand + toggle */}
         <div style={{
-          width: 34, height: 34, borderRadius: 10, marginBottom: 16,
-          background: 'linear-gradient(135deg, #f97316, #ea580c)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 20px rgba(249,115,22,0.4)',
-          flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, width: '100%',
+          flexDirection: navExpanded ? 'row' : 'column',
+          justifyContent: navExpanded ? 'space-between' : 'center',
         }}>
-          <Video size={17} color="#fff" strokeWidth={2.5} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(249,115,22,0.4)',
+            }}>
+              <Video size={17} color="#fff" strokeWidth={2.5} />
+            </div>
+            {navExpanded && <span style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>AI AutoCut</span>}
+          </div>
+          <button onClick={toggleNav} title={navExpanded ? 'Thu gọn' : 'Mở rộng'} style={{
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a08060',
+          }}>
+            {navExpanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+          </button>
         </div>
 
         {NAV.filter(n => (!n.adminOnly || user?.is_admin) && (!n.userOnly || !user?.is_admin)).map(n => {
@@ -137,19 +156,22 @@ export default function Dashboard() {
           const active = isActive(n.path, n.exact)
           return (
             <Link key={n.path} to={n.path} title={n.label} style={{
-              width: 40, height: 40, borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: navExpanded ? '100%' : 40, height: 40, borderRadius: 10, boxSizing: 'border-box',
+              display: 'flex', alignItems: 'center', gap: 11,
+              justifyContent: navExpanded ? 'flex-start' : 'center',
+              padding: navExpanded ? '0 12px' : 0,
               background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
               border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-              color: active ? '#fb923c' : '#50402e',
-              transition: 'all 0.18s', textDecoration: 'none',
+              color: active ? '#fb923c' : '#80705c',
+              transition: 'background 0.18s, color 0.18s', textDecoration: 'none',
               position: 'relative',
             }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#a08060' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#50402e' } }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}
             >
-              <Icon size={16} strokeWidth={2} />
-              {active && (
+              <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
+              {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{n.label}</span>}
+              {active && !navExpanded && (
                 <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
               )}
             </Link>
@@ -207,8 +229,9 @@ export default function Dashboard() {
       {/* ── Left panel: project list (only on projects section) ── */}
       {isProjectsSection && (
         <div style={{
-          width: 280, minHeight: '100vh', position: 'fixed', top: 0, left: 58, bottom: 0, zIndex: 50,
+          width: 280, minHeight: '100vh', position: 'fixed', top: 0, left: navWidth, bottom: 0, zIndex: 50,
           background: 'rgba(12,9,6,0.9)', borderRight: '1px solid rgba(249,115,22,0.07)',
+          transition: 'left 0.2s ease',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           paddingBottom: logOpen ? 240 : 36,
         }}>
@@ -279,7 +302,7 @@ export default function Dashboard() {
 
       {/* ── Main content ── */}
       <div style={{
-        marginLeft: isProjectsSection ? 58 + 280 : 58,
+        marginLeft: navWidth + (isProjectsSection ? 280 : 0),
         flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
         transition: 'margin-left 0.2s',
       }}>
@@ -298,7 +321,7 @@ export default function Dashboard() {
 
         {/* ── Log console ── */}
         <div style={{
-          position: 'fixed', bottom: 0, left: isProjectsSection ? 58 + 280 : 58, right: 0,
+          position: 'fixed', bottom: 0, left: navWidth + (isProjectsSection ? 280 : 0), right: 0,
           background: 'rgba(8,6,4,0.97)', backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(249,115,22,0.08)', zIndex: 100,
           transition: 'left 0.2s',
