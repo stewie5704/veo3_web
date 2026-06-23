@@ -128,10 +128,31 @@ class ImageGenRequest(BaseModel):
     prompt: str
     count: int = 1
     aspect_ratio: str = "1:1"
+    char_ids: list[str] = []   # nhân vật "Giữ mặt" được chọn (id)
 
 
 class ImageGenResponse(BaseModel):
     image_urls: list[str]
+
+
+async def _resolve_char_ref_paths(prompt: str, char_ids: list[str], user_id: str) -> list[str]:
+    """Gom ảnh tham chiếu giữ mặt: theo char_ids đã chọn + theo @Tên gõ trong prompt."""
+    import re
+    from app.characters.models import Character
+    from app.pipeline.runner import CHAR_PATH
+    from sqlalchemy import select
+
+    mention_names = set(re.findall(r"@(\w+)", prompt or ""))
+    ids = set(char_ids or [])
+    paths: list[str] = []
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(select(Character).where(Character.user_id == user_id))
+        for c in res.scalars().all():
+            if c.id in ids or c.name in mention_names:
+                p = CHAR_PATH / c.image_file
+                if p.exists():
+                    paths.append(str(p))
+    return paths
 
 
 @router.post("/image", response_model=ImageGenResponse)
@@ -145,11 +166,13 @@ async def gen_image(
 
     from app.pipeline.runner import generate_images_flow
     cookies = dec(user.google_cookies) or ""
+    ref_paths = await _resolve_char_ref_paths(body.prompt, body.char_ids, user.id)  # giữ mặt
     try:
         files = await generate_images_flow(
             user_id=user.id, cookies=cookies, project_id=user.google_project_id or "",
             prompt=body.prompt, count=min(body.count, 4), aspect_ratio=body.aspect_ratio,
             out_dir=IMG_PATH, out_prefix=uuid.uuid4().hex[:12],
+            reference_image_paths=ref_paths or None,
         )
     except Exception as e:
         log.exception("Image gen error: %s", e)
