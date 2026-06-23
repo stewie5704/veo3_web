@@ -1,0 +1,44 @@
+name: Deploy (VPS)
+
+# CD: SSH vào VPS, pull code, cài deps, migrate DB, build frontend, restart service.
+# Yêu cầu Secrets trong repo (Settings → Secrets and variables → Actions):
+#   VPS_HOST     — IP/domain VPS
+#   VPS_USER     — user SSH (vd: deploy)
+#   VPS_SSH_KEY  — private key SSH (PEM)
+#   APP_DIR      — đường dẫn code trên VPS (vd: /opt/veo3-web)
+# (Tùy chọn) bảo vệ nhánh main + chỉ deploy khi CI xanh.
+
+on:
+  workflow_dispatch:        # bấm Deploy thủ công
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.APP_DIR }}"
+            git pull --ff-only
+            # --- backend ---
+            cd backend
+            python3 -m venv venv 2>/dev/null || true
+            ./venv/bin/pip install -r requirements.txt
+            ./venv/bin/python migrate.py
+            sudo systemctl restart veo3-api
+            # --- frontend ---
+            cd ../frontend
+            npm ci
+            npm run build           # nginx phục vụ frontend/dist
+            echo "✅ Deploy xong"
