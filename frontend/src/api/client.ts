@@ -108,3 +108,13 @@ export const adminApi = {
 export const statusApi = {
   get: () => api.get('/status').then(r => r.data),
 }
+
+export const billingApi = {
+  plans: () => api.get('/billing/plans').then(r => r.data),
+  me: () => api.get('/billing/me').then(r => r.data),
+  checkout: (plan: string) => api.post('/billing/checkout', { plan }).then(r => r.data),
+}
+
+export const extensionApi = {
+  status: () => api.get('/extension-status').then(r => r.data),
+}

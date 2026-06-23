@@ -3,9 +3,9 @@ import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Zap, FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
-  Video, Shield, Plus, RefreshCw
+  Video, Shield, Plus, RefreshCw, Crown
 } from 'lucide-react'
-import { authApi, mediaApi, projectsApi, statusApi } from '../api/client'
+import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
 import CreateVideo from './CreateVideo'
 import Projects from './Projects'
 import ProjectDetail from './ProjectDetail'
@@ -13,6 +13,7 @@ import MyVideos from './MyVideos'
 import Tools from './Tools'
 import Settings2 from './Settings'
 import Admin from './Admin'
+import Billing from './Billing'
 
 export const logStore: { msg: string; level: string; ts: string }[] = []
 export let logListeners: (() => void)[] = []
@@ -27,6 +28,7 @@ const NAV = [
   { path: '/projects', icon: FolderOpen, label: 'Dự án', adminOnly: false },
   { path: '/videos', icon: Library, label: 'Thư viện', adminOnly: false },
   { path: '/tools', icon: Wrench, label: 'Công cụ', adminOnly: false },
+  { path: '/billing', icon: Crown, label: 'Nâng gói', adminOnly: false },
   { path: '/settings', icon: Settings, label: 'Cài đặt', adminOnly: false },
   { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
 ]
@@ -70,16 +72,13 @@ export default function Dashboard() {
   }, [])
 
 
+  // Poll extension status (do NOT open a /ws/extension socket here — that would shadow the
+  // real extension's connection on the server and break captcha).
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) return
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/extension?token=${token}`)
-    ws.onmessage = e => {
-      try { const m = JSON.parse(e.data); if (m.type === 'connected' || m.type === 'ok') setExtConnected(true) } catch {}
-    }
-    ws.onclose = () => setExtConnected(false)
-    return () => ws.close()
+    const poll = () => extensionApi.status().then(s => setExtConnected(!!s.connected)).catch(() => setExtConnected(false))
+    poll()
+    const t = setInterval(poll, 5000)
+    return () => clearInterval(t)
   }, [])
 
   useEffect(() => {
@@ -284,6 +283,7 @@ export default function Dashboard() {
             <Route path="/projects/:id" element={<ProjectDetail user={user} onUpdate={loadProjects} />} />
             <Route path="/videos" element={<MyVideos />} />
             <Route path="/tools" element={<Tools user={user} />} />
+            <Route path="/billing" element={<Billing />} />
             <Route path="/settings" element={<Settings2 user={user} onUpdate={setUser} />} />
             {user?.is_admin && <Route path="/admin" element={<Admin />} />}
           </Routes>

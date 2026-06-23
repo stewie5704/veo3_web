@@ -129,14 +129,14 @@ export default function Admin() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Username', 'Email', 'Trạng thái', 'Google', 'Quota', 'Videos', 'Ngày tạo', 'Actions'].map(h => (
+                  {['Username', 'Email', 'Trạng thái', 'Google', 'Gói', 'Quota', 'Videos', 'Ngày tạo', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Đang tải...</td></tr>
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Đang tải...</td></tr>
                 ) : users.map(u => (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
@@ -170,6 +170,21 @@ export default function Admin() {
                         : u.has_gemini_key
                           ? <span className="badge badge-processing">Gemini</span>
                           : <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {u.plan_active
+                          ? <span className="badge badge-done" title={u.plan_expires_at ? `Hết hạn ${String(u.plan_expires_at).slice(0,10)}` : ''}>{u.plan}</span>
+                          : <span style={{ color: 'var(--text3)', fontSize: 11 }}>{u.plan || 'free'}</span>}
+                        <select defaultValue="" title="Cấp / gia hạn gói"
+                          onChange={e => { if (e.target.value) { patch(u.id, { grant_plan: e.target.value }); e.currentTarget.value = '' } }}
+                          style={{ fontSize: 11, padding: '2px 4px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text2)' }}>
+                          <option value="">+ Cấp</option>
+                          <option value="basic">basic · 30d</option>
+                          <option value="pro">pro · 30d</option>
+                          <option value="pro_year">pro · 365d</option>
+                        </select>
+                      </div>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       {editing === u.id ? (

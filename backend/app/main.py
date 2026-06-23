@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -16,6 +16,7 @@ from app.characters.router import router as characters_router
 from app.media.router import router as media_router
 from app.admin.router import router as admin_router
 from app.billing.router import router as billing_router
+from app.auth.router import get_current_user
 
 IMG_PATH = UPLOAD_PATH.parent / "images"
 AUDIO_PATH = UPLOAD_PATH.parent / "audio"
@@ -86,6 +87,13 @@ app.mount("/thumbnails", StaticFiles(directory=str(THUMB_PATH)), name="thumbnail
 @app.get("/api/v1/health")
 async def health():
     return {"ok": True, "version": "2.0.0"}
+
+
+@app.get("/api/v1/extension-status")
+async def extension_status_ep(user=Depends(get_current_user)):
+    """Trạng thái extension của user (Dashboard poll — KHÔNG mở WS để tránh chiếm kết nối extension)."""
+    from app.sessions.router import get_extension_status
+    return get_extension_status(user.id)
 
 
 @app.get("/api/v1/status")
