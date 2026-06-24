@@ -17,6 +17,7 @@ from app.auth.models import User
 from app.config import UPLOAD_PATH
 from app.crypto import dec
 from app import subscription
+from app.styles_catalog import list_styles, style_description
 
 log = logging.getLogger("veo3.tools")
 router = APIRouter(prefix="/tools", tags=["tools"])
@@ -53,6 +54,22 @@ class AutoPromptResponse(BaseModel):
 
 
 GEMINI_MODELS = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
+
+
+def _style_note(style: str | None) -> str:
+    """Style pack -> đoạn 'visual lock' inject vào prompt. Nếu là id/tên khớp pack thì dùng mô tả dày; else dùng tên."""
+    if not style:
+        return ""
+    desc = style_description(style)
+    if desc:
+        return f"PHONG CÁCH HÌNH ẢNH (bắt buộc áp dụng cho mọi cảnh):\n{desc}\n"
+    return f"Phong cách hình ảnh: {style}.\n"
+
+
+@router.get("/styles")
+async def get_styles(user: User = Depends(get_current_user)):
+    """Danh sách style pack (id + tên) cho dropdown."""
+    return [{"id": s["id"], "name": s["name"]} for s in list_styles()]
 
 
 def _gemini_text(api_key: str, prompt: str) -> str:
@@ -114,7 +131,7 @@ async def autoprompt(
         raise HTTPException(400, "Cần Gemini API key để dùng Auto-prompt")
 
     lang_label = "tiếng Việt" if body.language == "vi" else "English"
-    style_note = f"Phong cách hình ảnh: {body.style}. " if body.style else ""
+    style_note = _style_note(body.style)
 
     system = f"""Bạn là biên kịch video ngắn chuyên nghiệp (kiểu TikTok / Reels / YouTube Shorts).
 Viết KỊCH BẢN CHI TIẾT gồm ĐÚNG {body.scene_count} cảnh cho video tỉ lệ {body.aspect_ratio}, camera cố định, mỗi cảnh vài giây.
@@ -142,6 +159,7 @@ class ParseScriptRequest(BaseModel):
     scene_count: int = 0     # 0 = AI tự suy số cảnh từ kịch bản
     language: str = "vi"
     aspect_ratio: str = "9:16"
+    style: str | None = None
 
 
 @router.post("/parse-script", response_model=AutoPromptResponse)
@@ -162,6 +180,7 @@ async def parse_script(
 
     system = f"""Đây là KỊCH BẢN do người dùng tự viết cho video tỉ lệ {body.aspect_ratio}, camera cố định.
 Hãy chuyển kịch bản thành các cảnh có cấu trúc. {count_note}
+{_style_note(body.style)}
 GIỮ NGUYÊN lời thoại và TÊN NHÂN VẬT của người dùng — KHÔNG bịa thêm, KHÔNG đổi tên, KHÔNG sửa lời thoại.
 Với MỖI cảnh trả về object JSON:
 - "beat": nhãn ngắn vai trò cảnh ({lang_label}).

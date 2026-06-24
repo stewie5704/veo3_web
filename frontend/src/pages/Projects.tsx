@@ -5,14 +5,14 @@ import { pushLog } from './Dashboard'
 import { Loader2, Link2, ChevronRight, Trash2, Image, Users } from 'lucide-react'
 
 const MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 Lite (FREE)', cost: 0 },
-  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 Lite', cost: 10 },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 Fast', cost: 20 },
-  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 Quality', cost: 50 },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Ưu tiên thấp) — FREE', cost: 0 },
+  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite', cost: 5 },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast', cost: 10 },
+  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality', cost: 100 },
+  { key: 'abra_t2v_10s', label: 'Omni Flash (10s)', cost: 15 },
 ]
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
 const DURATIONS = [4, 6, 8, 10]
-const STYLES = ['', 'Cinematic', 'Anime', 'Documentary', 'Commercial', 'Music Video', 'Short Film']
 
 type Tab = 'new' | 'batch' | 'copy'
 
@@ -40,6 +40,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [prompts, setPrompts] = useState<string[]>([])
   const [narrations, setNarrations] = useState<string[]>([])
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
+  const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
   // Thêm nhân vật inline (giữ mặt) trong wizard
   const [addCharOpen, setAddCharOpen] = useState(false)
   const [newCharName, setNewCharName] = useState('')
@@ -68,6 +69,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   useEffect(() => {
     projectsApi.list().then(setProjects)
     charactersApi.list().then(setChars)
+    toolsApi.styles().then(setStyleList).catch(() => {})
   }, [])
 
   // Credit cost estimate
@@ -292,7 +294,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   <div className="cmp-label">Style</div>
                   <div className="selwrap">
                     <select className="cmp-sel" value={style} onChange={e => setStyle(e.target.value)}>
-                      {STYLES.map(s => <option key={s} value={s}>{s || 'Auto style'}</option>)}
+                      <option value="">Auto style</option>
+                      {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                     <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </div>
@@ -523,7 +526,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Visual Style (tùy chọn)</label>
               <select className="form-select" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
-                {STYLES.map(s => <option key={s} value={s}>{s || '(Giữ nguyên style)'}</option>)}
+                <option value="">(Giữ nguyên style)</option>
+                {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>

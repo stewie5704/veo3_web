@@ -75,6 +75,7 @@ export const toolsApi = {
     api.post('/tools/image', data).then(r => r.data),
   copyIdea: (data: { url: string; style?: string; scene_count?: number }) =>
     api.post('/tools/copy-idea', data).then(r => r.data),
+  styles: () => api.get('/tools/styles').then(r => r.data),  // [{id,name}]
 }
 
 export const charactersApi = {
