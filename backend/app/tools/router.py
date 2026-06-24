@@ -52,6 +52,42 @@ class AutoPromptResponse(BaseModel):
     scenes: list[SceneScript] = []
 
 
+def _scenes_from_gemini(api_key: str, prompt: str) -> AutoPromptResponse:
+    """Gọi Gemini -> parse JSON {scenes:[...]} -> AutoPromptResponse. Dùng chung cho autoprompt + parse-script."""
+    import google.generativeai as genai
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    resp = model.generate_content(prompt)
+    text = resp.text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    data = json.loads(text)
+    raw = data.get("scenes") or []
+    scenes: list[SceneScript] = []
+    for s in raw:
+        if not isinstance(s, dict):
+            continue
+        scenes.append(SceneScript(
+            beat=str(s.get("beat", "") or ""),
+            image=str(s.get("image", "") or ""),
+            action=str(s.get("action", "") or ""),
+            speaker=str(s.get("speaker", "") or ""),
+            dialogue=str(s.get("dialogue", "") or ""),
+            prompt=str(s.get("prompt", "") or s.get("image", "") or ""),
+        ))
+    # Fallback: format phẳng cũ
+    if not scenes and (data.get("prompts") or data.get("narrations")):
+        ps = data.get("prompts", []) or []
+        ns = data.get("narrations", []) or []
+        for i, p in enumerate(ps):
+            scenes.append(SceneScript(prompt=str(p), dialogue=str(ns[i]) if i < len(ns) else ""))
+    prompts = [s.prompt for s in scenes]
+    narrations = [((s.speaker + ": ") if s.speaker.strip() else "") + s.dialogue for s in scenes]
+    return AutoPromptResponse(prompts=prompts, narrations=narrations, scenes=scenes)
+
+
 @router.post("/autoprompt", response_model=AutoPromptResponse)
 async def autoprompt(
     body: AutoPromptRequest,
@@ -78,43 +114,57 @@ Giữ nhân vật NHẤT QUÁN xuyên suốt (cùng ngoại hình, trang phục,
 CHỈ trả về JSON hợp lệ: {{"scenes":[{{...}}, ...]}} — không kèm markdown."""
 
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=dec(user.gemini_api_key))
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        resp = model.generate_content(system)
-        text = resp.text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        data = json.loads(text)
-
-        raw = data.get("scenes") or []
-        scenes: list[SceneScript] = []
-        for s in raw:
-            if not isinstance(s, dict):
-                continue
-            scenes.append(SceneScript(
-                beat=str(s.get("beat", "") or ""),
-                image=str(s.get("image", "") or ""),
-                action=str(s.get("action", "") or ""),
-                speaker=str(s.get("speaker", "") or ""),
-                dialogue=str(s.get("dialogue", "") or ""),
-                prompt=str(s.get("prompt", "") or s.get("image", "") or ""),
-            ))
-        # Fallback: model lỡ trả về format phẳng cũ (prompts/narrations)
-        if not scenes and (data.get("prompts") or data.get("narrations")):
-            ps = data.get("prompts", []) or []
-            ns = data.get("narrations", []) or []
-            for i, p in enumerate(ps):
-                scenes.append(SceneScript(prompt=str(p), dialogue=str(ns[i]) if i < len(ns) else ""))
-
-        prompts = [s.prompt for s in scenes]
-        narrations = [((s.speaker + ": ") if s.speaker.strip() else "") + s.dialogue for s in scenes]
-        return AutoPromptResponse(prompts=prompts, narrations=narrations, scenes=scenes)
+        return _scenes_from_gemini(dec(user.gemini_api_key), system)
     except Exception as e:
         log.exception("autoprompt error: %s", e)
         raise HTTPException(500, f"Lỗi tạo prompt: {e}")
+
+
+class ParseScriptRequest(BaseModel):
+    script: str
+    scene_count: int = 0     # 0 = AI tự suy số cảnh từ kịch bản
+    language: str = "vi"
+    aspect_ratio: str = "9:16"
+
+
+@router.post("/parse-script", response_model=AutoPromptResponse)
+async def parse_script(
+    body: ParseScriptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Người dùng tự dán kịch bản -> AI cấu trúc thành cảnh, GIỮ NGUYÊN lời thoại + tên nhân vật, sinh prompt tiếng Anh cho Veo."""
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key để phân tích kịch bản")
+    if not body.script.strip():
+        raise HTTPException(400, "Nhập kịch bản trước")
+
+    lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    count_note = (f"Chia thành ĐÚNG {body.scene_count} cảnh."
+                  if body.scene_count and body.scene_count > 0
+                  else "Tự xác định số cảnh theo kịch bản (mỗi 'Scene' / 'Cảnh' = 1 cảnh).")
+
+    system = f"""Đây là KỊCH BẢN do người dùng tự viết cho video tỉ lệ {body.aspect_ratio}, camera cố định.
+Hãy chuyển kịch bản thành các cảnh có cấu trúc. {count_note}
+GIỮ NGUYÊN lời thoại và TÊN NHÂN VẬT của người dùng — KHÔNG bịa thêm, KHÔNG đổi tên, KHÔNG sửa lời thoại.
+Với MỖI cảnh trả về object JSON:
+- "beat": nhãn ngắn vai trò cảnh ({lang_label}).
+- "image": mô tả hình ảnh ({lang_label}) lấy từ kịch bản.
+- "action": hành động / diễn biến ({lang_label}).
+- "speaker": tên nhân vật nói (ĐÚNG như trong kịch bản) hoặc "".
+- "dialogue": lời thoại ĐÚNG NGUYÊN VĂN của người dùng.
+- "prompt": prompt ĐIỆN ẢNH bằng TIẾNG ANH cho model video AI (Veo) diễn tả hình ảnh + hành động của cảnh.
+CHỈ trả về JSON hợp lệ: {{"scenes":[{{...}}, ...]}} — không kèm markdown.
+
+KỊCH BẢN:
+\"\"\"
+{body.script}
+\"\"\""""
+
+    try:
+        return _scenes_from_gemini(dec(user.gemini_api_key), system)
+    except Exception as e:
+        log.exception("parse-script error: %s", e)
+        raise HTTPException(500, f"Lỗi phân tích kịch bản: {e}")
 
 
 # ── TTS ───────────────────────────────────────────────────────────────────────

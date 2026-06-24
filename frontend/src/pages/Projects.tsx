@@ -27,6 +27,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // NEW tab
   const [step, setStep] = useState<'setup' | 'review'>('setup')  // wizard: thiết lập -> duyệt kịch bản
+  const [mode, setMode] = useState<'ai' | 'manual'>('ai')        // AI viết | Tự nhập kịch bản
   const [name, setName] = useState('')
   const [idea, setIdea] = useState('')
   const [sceneCount, setSceneCount] = useState(6)
@@ -95,6 +96,25 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`Đã viết kịch bản ${(res.scenes || res.prompts).length} cảnh`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt') }
     finally { setLoadingPrompts(false) }
+  }
+
+  async function parseScript() {
+    if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
+    setError(''); setLoadingPrompts(true)
+    try {
+      const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
+      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
+      setStep('review')
+      pushLog(`Đã phân tích kịch bản ${(res.scenes || res.prompts).length} cảnh`)
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản') }
+    finally { setLoadingPrompts(false) }
+  }
+
+  function addScene() {
+    setScenes(prev => [...prev, { beat: '', image: '', action: '', speaker: '', dialogue: '', prompt: '' }])
+  }
+  function delScene(i: number) {
+    setScenes(prev => prev.filter((_, idx) => idx !== i))
   }
 
   async function addCharacter() {
@@ -219,10 +239,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <input className="cmp-titlein" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
               </div>
 
+              <div className="cmp-tabs" style={{ marginBottom: 16 }}>
+                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}>🤖 AI viết</button>
+                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}>✍️ Tự nhập kịch bản</button>
+              </div>
+
               <div className="cmp-herowrap">
                 <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
-                <textarea className="cmp-hero" value={idea} onChange={e => setIdea(e.target.value)}
-                  placeholder="Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát..." />
+                <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
+                  placeholder={mode === 'manual'
+                    ? 'Dán kịch bản của bạn (kèm lời thoại + tên nhân vật)...\nVD:\nCảnh 1: Mẹ ngồi gục ở quầy spa, mệt mỏi.\nLời thoại (Mẹ): "Cả ngày không có khách nào..."\nCảnh 2: Con trai bước vào...'
+                    : 'Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát...'} />
               </div>
 
               <div className="cmp-settings">
@@ -314,8 +341,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <span className={modelObjNew.cost === 0 ? 'free' : ''}>{modelObjNew.cost === 0 ? 'FREE' : `${modelObjNew.cost * sceneCount} 💎`}</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="cmp-cta" onClick={genPrompts} disabled={loadingPrompts || !idea.trim()}>
-                {loadingPrompts ? <><Loader2 size={14} className="spin" /> AI đang viết...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> Viết kịch bản →</>}
+              <button className="cmp-cta" onClick={mode === 'manual' ? parseScript : genPrompts} disabled={loadingPrompts || !idea.trim()}>
+                {loadingPrompts ? <><Loader2 size={14} className="spin" /> Đang xử lý...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích kịch bản →' : 'Viết kịch bản →'}</>}
               </button>
             </div>
           </>)}
@@ -357,6 +384,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
                     <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * duration)}–{fmtTC((i + 1) * duration)}</span>
                     {s.beat && <span style={{ fontSize: 11.5, color: 'var(--accent3)', fontWeight: 600 }}>· {s.beat}</span>}
+                    <button onClick={() => delScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
                   </div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.image} onChange={e => updateScene(i, 'image', e.target.value)} />
@@ -389,6 +417,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               ))}
             </div>
+            {scenes.length > 0 && (
+              <button className="cmp-ghost" onClick={addScene} style={{ width: '100%', borderStyle: 'dashed' }}>+ Thêm cảnh</button>
+            )}
             </div>
             <div className="cmp-actionbar">
               <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
