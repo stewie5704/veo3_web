@@ -436,9 +436,15 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         status = (((items[0].get("mediaMetadata") or {}).get("mediaStatus") or {})
                   .get("mediaGenerationStatus") or "").upper()
         if any(h in status for h in FAIL_HINTS):
-            log.error("Generation FAILED (user %s, key %s, refs %s) — full item: %s",
-                      user_id, key, ref_ids, str(items[0])[:2000])
-            raise RuntimeError(f"Render thất bại: {status}")
+            ms = ((items[0].get("mediaMetadata") or {}).get("mediaStatus") or {})
+            reasons = [str(r).upper() for r in (ms.get("failureReasons") or [])]
+            emsg = ((ms.get("error") or {}).get("message") or "")
+            log.error("Generation FAILED (user %s, key %s) reasons=%s err=%s — item: %s",
+                      user_id, key, reasons, emsg, str(items[0])[:1500])
+            if any("PROMINENT" in r for r in reasons) or "PROMINENT_PEOPLE" in emsg.upper():
+                raise RuntimeError("Google chặn vì ảnh giữ mặt là NGƯỜI THẬT (bộ lọc chống deepfake). "
+                                   "Dùng ảnh nhân vật AI/hoạt hình (không phải người thật), hoặc bỏ 'giữ mặt nhân vật'.")
+            raise RuntimeError(f"Render thất bại: {emsg or (', '.join(reasons)) or status}")
         if any(h in status for h in DONE_HINTS):
             break
     else:
