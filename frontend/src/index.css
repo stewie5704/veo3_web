@@ -194,6 +194,7 @@ body::after{
 .form-select{cursor:pointer}
 .form-select option{background:#1a1208;color:var(--text)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+input[type=range]{accent-color:var(--accent)}
 
 /* ── Auth ── */
 .auth-page{

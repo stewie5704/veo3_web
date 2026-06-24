@@ -46,8 +46,8 @@ export default function CreateVideo({ user }: { user: any }) {
     return () => clearInterval(interval)
   }, [currentJob?.id, currentJob?.status])
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleGenerate(e?: React.FormEvent) {
+    e?.preventDefault()
     if (!prompt.trim()) return
     setError(''); setLoading(true); setCurrentJob(null)
     try {
@@ -69,138 +69,115 @@ export default function CreateVideo({ user }: { user: any }) {
   const notReady = user && !user.google_connected && !user.has_gemini_key
 
   return (
-    <div>
-      <div className="page-header">
+    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div className="page-header" style={{ marginBottom: 18 }}>
         <div>
-          <div className="page-title">🎬 Tạo Video</div>
-          <div className="page-subtitle">Nhập prompt, chọn cấu hình và bấm Generate</div>
+          <div className="page-title">Tạo Video</div>
+          <div className="page-subtitle">Nhập prompt, chọn cấu hình rồi Generate</div>
         </div>
       </div>
 
       {notReady && (
-        <div className="alert alert-info" style={{ marginBottom: 20 }}>
-          ⚠️ Bạn chưa kết nối tài khoản Google Ultra. Vào{' '}
-          <a href="/settings" style={{ color: 'var(--accent2)' }}>⚙️ Cài đặt</a>{' '}
+        <div className="alert alert-info" style={{ marginBottom: 18 }}>
+          ⚠️ Bạn chưa kết nối Google Ultra. Vào{' '}
+          <a href="/settings" style={{ color: 'var(--accent2)' }}>Cài đặt</a>{' '}
           để cài Extension hoặc nhập Gemini API key.
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-        {/* Form */}
-        <div className="card">
-          <div className="card-header">✏️ Cấu hình</div>
-          <form onSubmit={handleGenerate}>
-            <div className="form-group">
-              <label className="form-label">Prompt mô tả video</label>
-              <textarea
-                className="form-textarea"
-                placeholder="Mô tả video bạn muốn tạo... Ví dụ: A cinematic shot of a mountain landscape at golden hour, with dramatic clouds rolling in..."
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                rows={5}
-                required
-              />
-            </div>
+      {/* Composer */}
+      <div className="composer">
+        <div className="cmp-body">
+          <div className="cmp-herowrap">
+            <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
+            <textarea className="cmp-hero" style={{ minHeight: 120 }} value={prompt} onChange={e => setPrompt(e.target.value)}
+              placeholder="Mô tả video bạn muốn tạo... VD: A cinematic shot of a mountain landscape at golden hour, dramatic clouds rolling in..." />
+          </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Model</label>
-                <select className="form-select" value={modelKey} onChange={e => setModelKey(e.target.value)}>
+          <div className="cmp-settings">
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Model</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={modelKey} onChange={e => setModelKey(e.target.value)}>
                   {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
                 </select>
+                <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
-              <div className="form-group">
-                <label className="form-label">Tỉ lệ khung hình</label>
-                <select className="form-select" value={aspectRatio} onChange={e => setAspectRatio(e.target.value)}>
+            </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Tỉ lệ khung hình</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={aspectRatio} onChange={e => setAspectRatio(e.target.value)}>
                   {ASPECTS.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
+                <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Thời lượng (giây)</label>
-                <select className="form-select" value={duration} onChange={e => setDuration(+e.target.value)}>
-                  {DURATIONS.map(d => <option key={d} value={d}>{d}s</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Số video ({count})</label>
-                <input
-                  className="form-input"
-                  type="range" min={1} max={4}
-                  value={count}
-                  onChange={e => setCount(+e.target.value)}
-                />
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Thời lượng <span className="rv">{duration}s</span></div>
+              <div className="seg2">
+                {DURATIONS.map(d => <button key={d} type="button" className={duration === d ? 'on' : ''} onClick={() => setDuration(d)}>{d}</button>)}
               </div>
             </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Số video <span className="rv">{count}</span></div>
+              <div className="seg2">
+                {[1, 2, 3, 4].map(c => <button key={c} type="button" className={count === c ? 'on' : ''} onClick={() => setCount(c)}>{c}</button>)}
+              </div>
+            </div>
+          </div>
 
-            {error && <div className="alert alert-error">{error}</div>}
-
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg"
-              style={{ width: '100%', justifyContent: 'center' }}
-              disabled={loading || !prompt.trim()}
-            >
-              {loading ? <><span className="spinner" /> Đang tạo...</> : '⚡ Generate Video'}
-            </button>
-          </form>
+          {error && <div className="alert alert-error" style={{ marginBottom: 0 }}>{error}</div>}
         </div>
 
-        {/* Result */}
-        <div>
-          {currentJob ? (
-            <div className="card">
-              <div className="card-header">
-                📽️ Kết quả
-                <span className={`badge badge-${currentJob.status}`} style={{ marginLeft: 'auto' }}>
-                  {currentJob.status === 'pending' && '⏳ Chờ xử lý'}
-                  {currentJob.status === 'processing' && '🔄 Đang tạo...'}
-                  {currentJob.status === 'done' && '✅ Hoàn thành'}
-                  {currentJob.status === 'failed' && '❌ Thất bại'}
-                </span>
+        <div className="cmp-actionbar">
+          <div style={{ flex: 1 }} />
+          <button className="cmp-cta" onClick={() => handleGenerate()} disabled={loading || !prompt.trim()}>
+            {loading ? <><span className="spinner" /> Đang tạo...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z" /></svg> Generate Video</>}
+          </button>
+        </div>
+      </div>
+
+      {/* Result (xuống dưới, full width) */}
+      {currentJob && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div className="card-header">
+            📽️ Kết quả
+            <span className={`badge badge-${currentJob.status}`} style={{ marginLeft: 'auto' }}>
+              {currentJob.status === 'pending' && '⏳ Chờ xử lý'}
+              {currentJob.status === 'processing' && '🔄 Đang tạo...'}
+              {currentJob.status === 'done' && '✅ Hoàn thành'}
+              {currentJob.status === 'failed' && '❌ Thất bại'}
+            </span>
+          </div>
+
+          {(currentJob.status === 'pending' || currentJob.status === 'processing') && (
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
+                {currentJob.progress}% hoàn thành... Video AI mất khoảng 2-5 phút.
               </div>
-
-              {(currentJob.status === 'pending' || currentJob.status === 'processing') && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
-                    {currentJob.progress}% hoàn thành... Video AI mất khoảng 2-5 phút.
-                  </div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${Math.max(currentJob.progress, 5)}%` }} />
-                  </div>
-                </div>
-              )}
-
-              {currentJob.status === 'failed' && (
-                <div className="alert alert-error">{currentJob.error_msg}</div>
-              )}
-
-              {currentJob.status === 'done' && currentJob.output_files.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
-                    🎉 Tạo được {currentJob.output_files.length} video! Xem preview và tải về cái bạn thích:
-                  </div>
-                  <div className="video-grid" style={{ gridTemplateColumns: '1fr' }}>
-                    {currentJob.output_files.map((_: string, i: number) => (
-                      <VideoCard key={i} job={currentJob} fileIndex={i} />
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${Math.max(currentJob.progress, 5)}%` }} />
+              </div>
             </div>
-          ) : (
-            <div className="card">
-              <div className="empty-state">
-                <div style={{ fontSize: 48 }}>🎬</div>
-                <h3>Chưa có video nào</h3>
-                <p>Nhập prompt và bấm Generate để bắt đầu tạo video AI</p>
+          )}
+
+          {currentJob.status === 'failed' && <div className="alert alert-error" style={{ marginBottom: 0 }}>{currentJob.error_msg}</div>}
+
+          {currentJob.status === 'done' && currentJob.output_files.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
+                🎉 Tạo được {currentJob.output_files.length} video — xem preview và tải về:
+              </div>
+              <div className="video-grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', display: 'grid', gap: 14 }}>
+                {currentJob.output_files.map((_: string, i: number) => (
+                  <VideoCard key={i} job={currentJob} fileIndex={i} />
+                ))}
               </div>
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   )
 }

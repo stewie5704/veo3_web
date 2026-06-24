@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Zap, FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
-  Video, Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen
+  Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen, Scissors
 } from 'lucide-react'
 import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
 import CreateVideo from './CreateVideo'
@@ -135,11 +135,11 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg, #f97316, #ea580c)',
+              background: 'var(--grad)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(249,115,22,0.4)',
+              boxShadow: '0 6px 18px -4px rgba(236,72,153,0.5)',
             }}>
-              <Video size={17} color="#fff" strokeWidth={2.5} />
+              <Scissors size={16} color="#fff" strokeWidth={2.2} />
             </div>
             {navExpanded && <span style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>AI AutoCut</span>}
           </div>
