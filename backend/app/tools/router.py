@@ -52,13 +52,30 @@ class AutoPromptResponse(BaseModel):
     scenes: list[SceneScript] = []
 
 
-def _scenes_from_gemini(api_key: str, prompt: str) -> AutoPromptResponse:
-    """Gọi Gemini -> parse JSON {scenes:[...]} -> AutoPromptResponse. Dùng chung cho autoprompt + parse-script."""
+GEMINI_MODELS = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
+
+
+def _gemini_text(api_key: str, prompt: str) -> str:
+    """Gọi Gemini; tự fallback sang model khác nếu model hiện tại hết quota / không khả dụng (429/404)."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    resp = model.generate_content(prompt)
-    text = resp.text.strip()
+    last = None
+    for mname in GEMINI_MODELS:
+        try:
+            return genai.GenerativeModel(mname).generate_content(prompt).text.strip()
+        except Exception as e:
+            last = e
+            low = str(e).lower()
+            if any(k in low for k in ("429", "quota", "exceeded", "404", "not found", "not supported", "unavailable")):
+                log.warning("gemini model %s unavailable (%s) -> thử model kế tiếp", mname, low[:80])
+                continue
+            raise
+    raise last if last else RuntimeError("Gemini không phản hồi")
+
+
+def _scenes_from_gemini(api_key: str, prompt: str) -> AutoPromptResponse:
+    """Gọi Gemini -> parse JSON {scenes:[...]} -> AutoPromptResponse. Dùng chung cho autoprompt + parse-script."""
+    text = _gemini_text(api_key, prompt)
     if text.startswith("```"):
         text = text.split("```")[1]
         if text.startswith("json"):
