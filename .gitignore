@@ -20,6 +20,7 @@ node_modules/
 frontend/dist/
 dist/
 .vite/
+*.tsbuildinfo
 
 # User-generated media (uploads can be huge & private)
 uploads/
