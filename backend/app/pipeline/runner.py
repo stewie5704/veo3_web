@@ -436,6 +436,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         status = (((items[0].get("mediaMetadata") or {}).get("mediaStatus") or {})
                   .get("mediaGenerationStatus") or "").upper()
         if any(h in status for h in FAIL_HINTS):
+            log.error("Generation FAILED (user %s, key %s, refs %s) — full item: %s",
+                      user_id, key, ref_ids, str(items[0])[:2000])
             raise RuntimeError(f"Render thất bại: {status}")
         if any(h in status for h in DONE_HINTS):
             break
