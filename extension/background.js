@@ -28,13 +28,33 @@ async function gatherCookies() {
   return cks.map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
+function _matchProject(url) {
+  const m = (url || "").match(/\/project\/([0-9a-fA-F-]{36})/);
+  return m ? m[1] : "";
+}
+
 async function getProjectId() {
+  // 1) Đã có tab labs.google đang mở 1 project
   const tabs = await chrome.tabs.query({ url: "https://labs.google/*" });
   for (const t of tabs) {
-    const m = (t.url || "").match(/\/project\/([0-9a-fA-F-]{36})/);
-    if (m) return m[1];
+    const pid = _matchProject(t.url);
+    if (pid) return pid;
   }
-  return "";
+  // 2) Fallback: mở Flow ngầm, đợi SPA redirect tới /project/<id> rồi đọc (tài khoản đã có project)
+  try {
+    const { tab, isNew } = await ensureLabsTab();
+    let pid = "";
+    for (let i = 0; i < 10; i++) {
+      const fresh = await chrome.tabs.get(tab.id).catch(() => null);
+      pid = _matchProject(fresh && fresh.url);
+      if (pid) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    if (isNew && !pid) chrome.tabs.remove(tab.id).catch(() => {});
+    return pid;
+  } catch (e) {
+    return "";
+  }
 }
 
 async function pushCookies() {
