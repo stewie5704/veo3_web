@@ -31,6 +31,9 @@ router = APIRouter(tags=["sessions"])
 _captcha_cache: Dict[str, dict] = {}
 # In-memory: user_id -> WebSocket (for sending requests to extension)
 _ws_connections: Dict[str, WebSocket] = {}
+# Per-user lock: chỉ giải 1 captcha tại 1 thời điểm (auto-render bắn nhiều scene cùng lúc
+# sẽ dồn captcha vào 1 extension -> timeout + 403; lock này xếp hàng cho giải tuần tự).
+_captcha_locks: Dict[str, asyncio.Lock] = {}
 
 
 @router.websocket("/ws/extension")
@@ -104,7 +107,7 @@ async def _solve_via_local_ws(user_id: str, action: str = "VIDEO_GENERATION") ->
     _captcha_cache.pop(user_id, None)  # force a fresh, single-use token
     try:
         await ws.send_json({"type": "get_captcha", "action": action})
-        for _ in range(20):  # up to ~10s
+        for _ in range(60):  # up to ~30s (extension có thể phải mở tab Flow + chờ grecaptcha)
             await asyncio.sleep(0.5)
             cached = _captcha_cache.get(user_id)
             if cached:
@@ -116,11 +119,14 @@ async def _solve_via_local_ws(user_id: str, action: str = "VIDEO_GENERATION") ->
 
 async def request_captcha(user_id: str, action: str = "VIDEO_GENERATION") -> str | None:
     """Fresh captcha token for a user. Local WS first; if it lives on another process,
-    route over Redis (no-op fallback when Redis isn't configured → single-process only)."""
-    if user_id in _ws_connections:
-        return await _solve_via_local_ws(user_id, action)
-    from app import captcha_bus
-    return await captcha_bus.request_remote(user_id, action)
+    route over Redis (no-op fallback when Redis isn't configured → single-process only).
+    Xếp hàng theo user: 1 captcha tại 1 thời điểm (tránh dồn nhiều scene → timeout/403)."""
+    lock = _captcha_locks.setdefault(user_id, asyncio.Lock())
+    async with lock:
+        if user_id in _ws_connections:
+            return await _solve_via_local_ws(user_id, action)
+        from app import captcha_bus
+        return await captcha_bus.request_remote(user_id, action)
 
 
 async def start_captcha_bus():
