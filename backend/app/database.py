@@ -18,6 +18,23 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
+def _lightweight_migrate(conn):
+    """create_all không ALTER bảng đã có -> tự thêm cột mới còn thiếu (idempotent,
+    chạy cho cả SQLite lẫn Postgres). Mỗi dòng = 1 cột thêm sau này."""
+    from sqlalchemy import inspect, text
+    insp = inspect(conn)
+    existing = {t: {c["name"] for c in insp.get_columns(t)} for t in insp.get_table_names()}
+    adds = [
+        ("characters", "project_id", "VARCHAR(36)"),
+    ]
+    for table, col, ddl in adds:
+        if table in existing and col not in existing[table]:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+    # index cho cột mới (IF NOT EXISTS chạy được trên cả SQLite & Postgres)
+    if "characters" in existing:
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_characters_project_id ON characters (project_id)"))
+
+
 async def init_db():
     async with engine.begin() as conn:
         from app.auth.models import User  # noqa: F401
@@ -27,3 +44,4 @@ async def init_db():
         from app.characters.models import Character  # noqa: F401
         from app.billing.models import Payment  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_lightweight_migrate)

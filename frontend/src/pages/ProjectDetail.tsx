@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { projectsApi, mediaApi } from '../api/client'
+import { projectsApi, mediaApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
 
 export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?: () => void }) {
@@ -14,6 +14,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [mergeUrl, setMergeUrl] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [copyToast, setCopyToast] = useState(false)
+  // Nhân vật của dự án
+  const [globalChars, setGlobalChars] = useState<any[]>([])
+  const [charMode, setCharMode] = useState<'' | 'upload' | 'pick'>('')
+  const [pcName, setPcName] = useState('')
+  const [pcFile, setPcFile] = useState<File | null>(null)
+  const [pcBusy, setPcBusy] = useState(false)
+  const pcFileRef = useRef<HTMLInputElement>(null)
 
   async function load(silent = false) {
     if (!id) return
@@ -66,6 +73,42 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     } finally {
       setMerging(false)
     }
+  }
+
+  async function uploadProjChar() {
+    if (!id || !pcName.trim() || !pcFile) return
+    setPcBusy(true)
+    try {
+      await charactersApi.add(pcName.trim(), pcFile, id)   // gắn riêng project này
+      setPcName(''); setPcFile(null); setCharMode('')
+      if (pcFileRef.current) pcFileRef.current.value = ''
+      pushLog(`Đã thêm nhân vật vào dự án`)
+      load(true)
+    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Thêm thất bại'}`, 'error') }
+    finally { setPcBusy(false) }
+  }
+
+  async function openPick() {
+    setCharMode('pick')
+    try { setGlobalChars(await charactersApi.list()) } catch { /* ignore */ }
+  }
+
+  async function pickFromKho(c: any) {
+    if (!id) return
+    setPcBusy(true)
+    try {
+      await charactersApi.copyInto(c.id, id, c.name)   // copy kho chung -> project
+      pushLog(`Đã thêm @${c.name} vào dự án`)
+      setCharMode('')
+      load(true)
+    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Thất bại'}`, 'error') }
+    finally { setPcBusy(false) }
+  }
+
+  async function delProjChar(charId: string) {
+    if (!confirm('Gỡ nhân vật này khỏi dự án?')) return
+    await charactersApi.delete(charId)
+    load(true)
   }
 
   async function doExport() {
@@ -156,6 +199,61 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Nhân vật giữ mặt của dự án */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>👤 Nhân vật giữ mặt của dự án</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setCharMode(m => m === 'upload' ? '' : 'upload')}>+ Upload</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => charMode === 'pick' ? setCharMode('') : openPick()}>+ Lấy từ kho</button>
+          </div>
+        </div>
+
+        {(project.characters?.length ?? 0) > 0 ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {project.characters.map((c: any) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 4px', borderRadius: 99, border: '1px solid var(--border)', background: 'rgba(249,115,22,0.08)' }}>
+                <img src={c.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--accent3)' }}>@{c.name}</span>
+                <button onClick={() => delProjChar(c.id)} title="Gỡ khỏi dự án"
+                  style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px' }}>✕</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text2)' }}>Chưa có nhân vật riêng. Thêm để dùng <strong>@tên</strong> trong prompt nhằm giữ mặt nhân vật.</div>
+        )}
+
+        {charMode === 'upload' && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <input className="form-input" placeholder="Tên (vd: hero)" value={pcName} onChange={e => setPcName(e.target.value)} style={{ flex: '0 0 160px', fontSize: 12 }} />
+            <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', fontSize: 12 }}>
+              {pcFile ? `📷 ${pcFile.name.slice(0, 16)}` : '📁 Chọn ảnh'}
+              <input ref={pcFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setPcFile(e.target.files?.[0] || null)} />
+            </label>
+            <button className="btn btn-primary btn-sm" onClick={uploadProjChar} disabled={pcBusy || !pcName.trim() || !pcFile} style={{ fontSize: 12 }}>
+              {pcBusy ? '...' : 'Lưu'}
+            </button>
+          </div>
+        )}
+
+        {charMode === 'pick' && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Chọn từ kho chung để copy vào dự án:</div>
+            {globalChars.length ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {globalChars.map(c => (
+                  <button key={c.id} className="btn btn-ghost btn-sm" disabled={pcBusy} onClick={() => pickFromKho(c)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                    <img src={c.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} /> @{c.name}
+                  </button>
+                ))}
+              </div>
+            ) : <div style={{ fontSize: 12, color: 'var(--text2)' }}>Kho chung trống.</div>}
+          </div>
+        )}
       </div>
 
       {/* Scenes list */}

@@ -151,8 +151,12 @@ async def _upload_image(token: str, project_id: str, path: Path) -> str | None:
     return _media_id_from_upload(resp)
 
 
-async def _resolve_char_ref_ids(prompt: str, user_id: str, token: str, project_id: str) -> list[str]:
-    """Parse @Name mentions -> upload each character's image to Flow -> media ids (R2V)."""
+async def _resolve_char_ref_ids(prompt: str, user_id: str, token: str, project_id: str,
+                                char_project_id: str | None = None) -> list[str]:
+    """Parse @Name mentions -> upload each character's image to Flow -> media ids (R2V).
+    Lai-model: ưu tiên nhân vật RIÊNG của project (char_project_id), nếu không có thì
+    fallback nhân vật kho chung (project_id IS NULL). Dùng .first() để không crash khi
+    user lỡ có cùng tên ở cả 2 phạm vi."""
     mentions = re.findall(r"@(\w+)", prompt)
     if not mentions:
         return []
@@ -161,10 +165,17 @@ async def _resolve_char_ref_ids(prompt: str, user_id: str, token: str, project_i
     ids: list[str] = []
     async with AsyncSessionLocal() as db:
         for name in dict.fromkeys(mentions):  # unique, order-preserving
-            res = await db.execute(
-                select(Character).where(Character.user_id == user_id, Character.name == name)
-            )
-            char = res.scalar_one_or_none()
+            base = select(Character).where(Character.user_id == user_id, Character.name == name)
+            char = None
+            if char_project_id:
+                res = await db.execute(base.where(Character.project_id == char_project_id))
+                char = res.scalars().first()
+            if char is None:  # fallback kho chung
+                res = await db.execute(base.where(Character.project_id.is_(None)))
+                char = res.scalars().first()
+            if char is None:  # cuối cùng: bất kỳ bản nào cùng tên
+                res = await db.execute(base)
+                char = res.scalars().first()
             if not char:
                 continue
             img_path = CHAR_PATH / char.image_file
@@ -363,7 +374,8 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
-                        out_stem: str, start_image_path: Path | None = None) -> str:
+                        out_stem: str, start_image_path: Path | None = None,
+                        char_project_id: str | None = None) -> str:
     """Generate ONE video on Flow and download it. Returns the output filename
     (relative to UPLOAD_PATH). Raises RuntimeError with a human message on failure."""
     from app.sessions.router import request_captcha
@@ -377,7 +389,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
 
     # Upload reference faces (@mentions) and the start frame (I2V) -> Flow media ids
-    ref_ids = await _resolve_char_ref_ids(prompt, user_id, token, project_id)
+    ref_ids = await _resolve_char_ref_ids(prompt, user_id, token, project_id, char_project_id)
     start_id = None
     if start_image_path:
         start_id = await _upload_image(token, project_id, start_image_path)
@@ -580,7 +592,8 @@ async def run_scene_job(scene_id: str, user_id: str):
             fname = await _generate_one(
                 user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                 aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
-                model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path)
+                model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
+                char_project_id=project_db_id)
         except Exception as e:
             await _update_scene(status=SceneStatus.failed, error_msg=str(e))
             return

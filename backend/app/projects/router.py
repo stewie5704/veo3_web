@@ -17,11 +17,39 @@ from app.database import get_db
 from app.auth.router import get_current_user
 from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
+from app.characters.models import Character
 from app.pipeline.runner import run_scene_job
 from app.config import UPLOAD_PATH
 from app import subscription
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+CHAR_PATH = UPLOAD_PATH.parent / "images" / "chars"
+
+
+async def _clone_chars_into_project(db: AsyncSession, user_id: str, char_ids: list[str], project_id: str) -> list[Character]:
+    """Lai-model: copy nhân vật từ kho chung (hoặc bất kỳ) thành bản RIÊNG của project.
+    Mỗi bản clone có project_id = project_id, dùng file ảnh copy riêng -> xoá project không đụng kho chung."""
+    cloned: list[Character] = []
+    for cid in dict.fromkeys(char_ids):  # unique, giữ thứ tự
+        src = await db.get(Character, cid)
+        if not src or src.user_id != user_id:
+            continue
+        # Đã thuộc đúng project rồi thì giữ nguyên
+        if src.project_id == project_id:
+            cloned.append(src)
+            continue
+        ext = Path(src.image_file).suffix or ".jpg"
+        fname = f"{uuid.uuid4().hex[:12]}{ext}"
+        srcp = CHAR_PATH / src.image_file
+        if srcp.exists():
+            shutil.copyfile(srcp, CHAR_PATH / fname)
+        else:
+            continue
+        c = Character(user_id=user_id, name=src.name, image_file=fname, project_id=project_id)
+        db.add(c)
+        cloned.append(c)
+    return cloned
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -39,6 +67,7 @@ class CreateProjectRequest(BaseModel):
     auto_render: bool = True        # False = manual (just save prompts, don't render)
     chain_mode: bool = False        # Each scene waits for prev, uses last frame as start
     character_names: list[str] = [] # chars to mention in prompts (for face-lock)
+    character_ids: list[str] = []   # id nhân vật (kho chung) -> clone thành nhân vật riêng của project
     start_image: str | None = None  # I2V: uploaded image filename for all scenes
 
 
@@ -82,8 +111,22 @@ class ProjectResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProjChar(BaseModel):
+    id: str
+    name: str
+    image_url: str
+
+    model_config = {"from_attributes": True}
+
+
 class ProjectDetailResponse(ProjectResponse):
     scenes: list[SceneResponse] = []
+    characters: list[ProjChar] = []
+
+
+async def _project_chars(db: AsyncSession, project_id: str) -> list[ProjChar]:
+    res = await db.execute(select(Character).where(Character.project_id == project_id))
+    return [ProjChar(id=c.id, name=c.name, image_url=f"/images/chars/{c.image_file}") for c in res.scalars().all()]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -131,6 +174,11 @@ async def create_project(
     db.add(proj)
     await db.flush()
 
+    # Lai-model: clone nhân vật được chọn (kho chung) thành nhân vật riêng của project.
+    # Phải xong TRƯỚC khi kick off auto-render để resolver @mention tìm được.
+    if body.character_ids:
+        await _clone_chars_into_project(db, user.id, body.character_ids, proj.id)
+
     scenes = []
     for i, p in enumerate(body.prompts):
         s = Scene(
@@ -164,6 +212,7 @@ async def create_project(
     return ProjectDetailResponse(
         **proj_to_resp(proj).__dict__,
         scenes=[scene_to_resp(s) for s in scenes],
+        characters=await _project_chars(db, proj.id),
     )
 
 
@@ -192,7 +241,11 @@ async def get_project(
         select(Scene).where(Scene.project_id == project_id).order_by(Scene.index)
     )
     scenes = res.scalars().all()
-    return ProjectDetailResponse(**proj_to_resp(proj).__dict__, scenes=[scene_to_resp(s) for s in scenes])
+    return ProjectDetailResponse(
+        **proj_to_resp(proj).__dict__,
+        scenes=[scene_to_resp(s) for s in scenes],
+        characters=await _project_chars(db, project_id),
+    )
 
 
 @router.delete("/{project_id}")
@@ -204,6 +257,17 @@ async def delete_project(
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
+    # Dọn nhân vật riêng của project (clone) + file ảnh; KHÔNG đụng kho chung
+    res = await db.execute(select(Character).where(Character.project_id == project_id))
+    for c in res.scalars().all():
+        fp = CHAR_PATH / c.image_file
+        if fp.exists():
+            fp.unlink()
+        await db.delete(c)
+    # Dọn scenes (không có ON DELETE CASCADE)
+    res = await db.execute(select(Scene).where(Scene.project_id == project_id))
+    for s in res.scalars().all():
+        await db.delete(s)
     await db.delete(proj)
     await db.commit()
     return {"ok": True}

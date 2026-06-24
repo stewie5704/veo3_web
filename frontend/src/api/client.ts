@@ -76,11 +76,22 @@ export const toolsApi = {
 }
 
 export const charactersApi = {
-  list: () => api.get('/characters/').then(r => r.data),
-  add: (name: string, image: File) => {
+  // projectId rỗng -> kho chung; có -> nhân vật riêng của project
+  list: (projectId?: string) =>
+    api.get('/characters/', { params: projectId ? { project_id: projectId } : {} }).then(r => r.data),
+  add: (name: string, image: File, projectId?: string) => {
     const fd = new FormData()
     fd.append('name', name)
     fd.append('image', image)
+    if (projectId) fd.append('project_id', projectId)
+    return api.post('/characters/', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
+  // Clone 1 nhân vật (vd kho chung) vào 1 project, không cần upload lại ảnh
+  copyInto: (copyFrom: string, projectId: string, name: string) => {
+    const fd = new FormData()
+    fd.append('name', name)
+    fd.append('copy_from', copyFrom)
+    fd.append('project_id', projectId)
     return api.post('/characters/', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
   delete: (id: string) => api.delete(`/characters/${id}`).then(r => r.data),
