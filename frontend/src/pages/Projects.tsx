@@ -345,7 +345,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               {prompts.map((p, i) => (
                 <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--accent)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
                     <span style={{ fontSize: 10, color: 'var(--text3)' }}>{duration}s</span>
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: narrations[i] !== undefined ? 6 : 0 }} value={p}

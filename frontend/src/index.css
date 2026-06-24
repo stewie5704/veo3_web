@@ -146,13 +146,13 @@ body::after{
   white-space:nowrap;letter-spacing:0.1px;
 }
 .btn-primary{
-  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);
+  background:var(--grad);
   color:#fff;
-  box-shadow:0 0 20px rgba(249,115,22,0.3),inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow:0 8px 22px -6px rgba(236,72,153,0.5),inset 0 1px 0 rgba(255,255,255,0.18);
 }
 .btn-primary:hover:not(:disabled){
-  background:linear-gradient(135deg,var(--accent2) 0%,var(--accent) 100%);
-  box-shadow:0 0 32px rgba(249,115,22,0.5),inset 0 1px 0 rgba(255,255,255,0.15);
+  filter:brightness(1.08);
+  box-shadow:0 12px 30px -6px rgba(236,72,153,0.6),inset 0 1px 0 rgba(255,255,255,0.2);
   transform:translateY(-1px);
 }
 .btn-primary:active:not(:disabled){transform:translateY(0)}
