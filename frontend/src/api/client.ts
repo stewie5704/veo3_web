@@ -65,7 +65,7 @@ export const projectsApi = {
 
 
 export const toolsApi = {
-  autoprompt: (data: { idea: string; scene_count?: number; style?: string; language?: string }) =>
+  autoprompt: (data: { idea: string; scene_count?: number; style?: string; language?: string; aspect_ratio?: string }) =>
     api.post('/tools/autoprompt', data).then(r => r.data),
   tts: (data: { text: string; voice?: string }) =>
     api.post('/tools/tts', data).then(r => r.data),

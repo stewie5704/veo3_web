@@ -34,11 +34,22 @@ class AutoPromptRequest(BaseModel):
     scene_count: int = 6
     style: str | None = None
     language: str = "vi"
+    aspect_ratio: str = "9:16"
+
+
+class SceneScript(BaseModel):
+    beat: str = ""          # vai trò cảnh: Hook / Nỗi đau / Giải pháp / Twist & CTA...
+    image: str = ""         # Mô tả hình ảnh
+    action: str = ""        # Hành động
+    speaker: str = ""       # ai nói
+    dialogue: str = ""      # lời thoại
+    prompt: str = ""        # prompt tiếng Anh cho Veo
 
 
 class AutoPromptResponse(BaseModel):
     prompts: list[str]
     narrations: list[str]
+    scenes: list[SceneScript] = []
 
 
 @router.post("/autoprompt", response_model=AutoPromptResponse)
@@ -49,19 +60,22 @@ async def autoprompt(
     if not user.gemini_api_key:
         raise HTTPException(400, "Cần Gemini API key để dùng Auto-prompt")
 
-    lang_note = "in Vietnamese" if body.language == "vi" else "in English"
-    style_note = f"Visual style: {body.style}. " if body.style else ""
+    lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    style_note = f"Phong cách hình ảnh: {body.style}. " if body.style else ""
 
-    system = f"""You are a professional video scriptwriter. Generate exactly {body.scene_count} scenes for a short video.
-{style_note}Write all prompts {lang_note} for narrations, but ALWAYS write video prompts in English (they go to an AI video model).
-
-Return a JSON object with two arrays:
-- "prompts": list of {body.scene_count} English video prompts for Veo AI model (vivid, cinematic, descriptive)
-- "narrations": list of {body.scene_count} narration texts {lang_note} (voiceover script)
-
-Topic/Idea: {body.idea}
-
-Return ONLY valid JSON, no markdown."""
+    system = f"""Bạn là biên kịch video ngắn chuyên nghiệp (kiểu TikTok / Reels / YouTube Shorts).
+Viết KỊCH BẢN CHI TIẾT gồm ĐÚNG {body.scene_count} cảnh cho video tỉ lệ {body.aspect_ratio}, camera cố định, mỗi cảnh vài giây.
+Chủ đề / ý tưởng: {body.idea}
+{style_note}
+Với MỖI cảnh, trả về object JSON gồm:
+- "beat": nhãn ngắn vai trò cảnh ({lang_label}) — ví dụ "Hook", "Nỗi đau", "Giải pháp", "Cao trào", "Twist & CTA".
+- "image": mô tả hình ảnh chi tiết ({lang_label}) — bối cảnh, nhân vật, trang phục, ánh sáng, cảm xúc.
+- "action": mô tả hành động / diễn biến trong cảnh ({lang_label}).
+- "speaker": ai nói ({lang_label}, ví dụ "Mẹ", "Con", "Người dẫn") hoặc "" nếu không có thoại.
+- "dialogue": câu thoại ({lang_label}).
+- "prompt": prompt ĐIỆN ẢNH bằng TIẾNG ANH cho model video AI (Veo) mô tả hình ảnh + hành động của cảnh (camera, bối cảnh, nhân vật, ánh sáng, tâm trạng). LUÔN viết bằng tiếng Anh.
+Giữ nhân vật NHẤT QUÁN xuyên suốt (cùng ngoại hình, trang phục, tên gọi).
+CHỈ trả về JSON hợp lệ: {{"scenes":[{{...}}, ...]}} — không kèm markdown."""
 
     try:
         import google.generativeai as genai
@@ -74,10 +88,30 @@ Return ONLY valid JSON, no markdown."""
             if text.startswith("json"):
                 text = text[4:]
         data = json.loads(text)
-        return AutoPromptResponse(
-            prompts=data.get("prompts", []),
-            narrations=data.get("narrations", []),
-        )
+
+        raw = data.get("scenes") or []
+        scenes: list[SceneScript] = []
+        for s in raw:
+            if not isinstance(s, dict):
+                continue
+            scenes.append(SceneScript(
+                beat=str(s.get("beat", "") or ""),
+                image=str(s.get("image", "") or ""),
+                action=str(s.get("action", "") or ""),
+                speaker=str(s.get("speaker", "") or ""),
+                dialogue=str(s.get("dialogue", "") or ""),
+                prompt=str(s.get("prompt", "") or s.get("image", "") or ""),
+            ))
+        # Fallback: model lỡ trả về format phẳng cũ (prompts/narrations)
+        if not scenes and (data.get("prompts") or data.get("narrations")):
+            ps = data.get("prompts", []) or []
+            ns = data.get("narrations", []) or []
+            for i, p in enumerate(ps):
+                scenes.append(SceneScript(prompt=str(p), dialogue=str(ns[i]) if i < len(ns) else ""))
+
+        prompts = [s.prompt for s in scenes]
+        narrations = [((s.speaker + ": ") if s.speaker.strip() else "") + s.dialogue for s in scenes]
+        return AutoPromptResponse(prompts=prompts, narrations=narrations, scenes=scenes)
     except Exception as e:
         log.exception("autoprompt error: %s", e)
         raise HTTPException(500, f"Lỗi tạo prompt: {e}")

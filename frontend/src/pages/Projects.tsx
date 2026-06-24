@@ -38,6 +38,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [prompts, setPrompts] = useState<string[]>([])
   const [narrations, setNarrations] = useState<string[]>([])
+  const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   // Thêm nhân vật inline (giữ mặt) trong wizard
   const [addCharOpen, setAddCharOpen] = useState(false)
   const [newCharName, setNewCharName] = useState('')
@@ -74,21 +75,24 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const estimatedCost = modelObj.cost * bLines * bCount
   const modelObjNew = MODELS.find(m => m.key === model) || MODELS[0]
   const fmtLen = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}p${s % 60 ? ` ${s % 60}s` : ''}`
-  // Bước thiết lập: dùng số cảnh đang chọn trên slider
+  const fmtTC = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  // Bước thiết lập: dùng số cảnh đang chọn
   const setupLenSec = sceneCount * duration
   // Bước duyệt: dùng số cảnh THỰC TẾ AI đã sinh ra
-  const reviewN = prompts.length || sceneCount
+  const reviewN = (scenes.length || prompts.length) || sceneCount
   const reviewCost = modelObjNew.cost * reviewN
   const reviewLenSec = reviewN * duration
+  const updateScene = (i: number, key: string, val: string) =>
+    setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
   async function genPrompts() {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
-      const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language })
-      setPrompts(res.prompts); setNarrations(res.narrations)
+      const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
+      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
       setStep('review')
-      pushLog(`Đã tạo ${res.prompts.length} scene prompts`)
+      pushLog(`Đã viết kịch bản ${(res.scenes || res.prompts).length} cảnh`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt') }
     finally { setLoadingPrompts(false) }
   }
@@ -109,10 +113,15 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   async function createNew(autoRender: boolean) {
-    if (!prompts.length) { setError('Tạo prompts trước'); return }
+    // Nếu có kịch bản chi tiết -> lấy prompt (tiếng Anh) + lời thoại từ scenes (đã chỉnh sửa); else dùng format phẳng (Copy Idea)
+    const basePrompts = scenes.length ? scenes.map(s => s.prompt || s.image || '') : prompts
+    const baseNarr = scenes.length
+      ? scenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
+      : narrations
+    if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
-    const enriched = prompts.map(p => {
+    const enriched = basePrompts.map(p => {
       const mentions = [...selectedChars].map(c => `@${c}`).join(' ')
       return selectedChars.size > 0 && !p.includes('@') ? `${mentions} ${p}` : p
     })
@@ -121,7 +130,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         name: name || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
         idea, style: style || undefined, model_key: model,
         aspect_ratio: aspect, duration_seconds: duration, language,
-        prompts: enriched, narrations, auto_render: autoRender,
+        prompts: enriched, narrations: baseNarr, auto_render: autoRender,
         character_names: [...selectedChars],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
@@ -163,7 +172,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setError(''); setCopyLoading(true)
     try {
       const res = await toolsApi.copyIdea({ url: copyUrl, style: copyStyle || undefined, scene_count: copyCount })
-      setName(res.title); setPrompts(res.prompts); setNarrations(res.narrations)
+      setName(res.title); setPrompts(res.prompts); setNarrations(res.narrations); setScenes([])
       setIdea(`Clone từ: ${copyUrl}`); setTab('new'); setStep('review')
       pushLog(`Copy idea: ${res.prompts.length} scenes`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại') }
@@ -339,10 +348,31 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             </div>
 
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
-              📝 {prompts.length} cảnh — sửa prompt / lời thoại trước khi tạo:
+              📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:
             </div>
-            <div style={{ maxHeight: 360, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {prompts.map((p, i) => (
+            <div style={{ maxHeight: 440, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {scenes.length > 0 ? scenes.map((s, i) => (
+                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * duration)}–{fmtTC((i + 1) * duration)}</span>
+                    {s.beat && <span style={{ fontSize: 11.5, color: 'var(--accent3)', fontWeight: 600 }}>· {s.beat}</span>}
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.image} onChange={e => updateScene(i, 'image', e.target.value)} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Hành động</div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.action} onChange={e => updateScene(i, 'action', e.target.value)} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🔊 Lời thoại</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 120px' }} placeholder="Người nói" value={s.speaker} onChange={e => updateScene(i, 'speaker', e.target.value)} />
+                    <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
+                  </div>
+                  <details style={{ marginTop: 8 }}>
+                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Prompt Veo (English) — sửa nếu cần</summary>
+                    <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
+                  </details>
+                </div>
+              )) : prompts.map((p, i) => (
                 <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
