@@ -26,6 +26,8 @@ def _lightweight_migrate(conn):
     existing = {t: {c["name"] for c in insp.get_columns(t)} for t in insp.get_table_names()}
     adds = [
         ("characters", "project_id", "VARCHAR(36)"),
+        ("projects", "voiceover", "BOOLEAN DEFAULT FALSE"),
+        ("projects", "voice", "VARCHAR(40) DEFAULT 'Kore'"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:

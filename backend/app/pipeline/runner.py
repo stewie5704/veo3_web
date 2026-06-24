@@ -535,6 +535,55 @@ async def _extract_last_frame(video_path: Path) -> Path | None:
         return None
 
 
+def _tts_pcm(api_key: str, text: str, voice: str):
+    """Gemini TTS -> (audio_bytes, is_wav). is_wav=True nếu có RIFF header; else raw PCM s16le 24kHz mono."""
+    import base64
+    import google.generativeai as genai
+    genai.configure(api_key=api_key)
+    m = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
+    resp = m.generate_content(text, generation_config={
+        "response_modalities": ["AUDIO"],
+        "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": voice or "Kore"}}},
+    })
+    data = resp.candidates[0].content.parts[0].inline_data.data
+    raw = base64.b64decode(data) if isinstance(data, str) else bytes(data)
+    return raw, raw[:4] == b"RIFF"
+
+
+async def _voice_over(video_fname: str, narration: str, voice: str, api_key: str) -> str | None:
+    """Tạo giọng đọc tiếng Việt cho thoại của cảnh rồi ghép vào video. Trả tên file mới (hoặc None nếu lỗi)."""
+    spoken = re.sub(r"^\s*[^:\n]{1,24}:\s*", "", narration or "").strip() or (narration or "").strip()
+    if not spoken:
+        return None
+    try:
+        out = await asyncio.to_thread(_tts_pcm, api_key, spoken, voice)
+    except Exception as e:
+        log.warning("TTS failed: %s", e)
+        return None
+    if not out:
+        return None
+    raw, is_wav = out
+    stem = Path(video_fname).stem
+    audio_path = UPLOAD_PATH / (stem + (".wav" if is_wav else ".pcm"))
+    audio_path.write_bytes(raw)
+    voiced = UPLOAD_PATH / f"{stem}_vi.mp4"
+    cmd = ["ffmpeg", "-y", "-i", str(UPLOAD_PATH / video_fname)]
+    cmd += ["-i", str(audio_path)] if is_wav else ["-f", "s16le", "-ar", "24000", "-ac", "1", "-i", str(audio_path)]
+    cmd += ["-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
+    try:
+        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await asyncio.wait_for(proc.communicate(), timeout=120)
+    except Exception as e:
+        log.warning("ffmpeg voiceover merge failed: %s", e)
+        return None
+    finally:
+        try:
+            audio_path.unlink()
+        except Exception:
+            pass
+    return voiced.name if voiced.exists() else None
+
+
 async def run_scene_job(scene_id: str, user_id: str):
     from app.projects.models import Scene, SceneStatus, Project
     from sqlalchemy import select
@@ -566,6 +615,11 @@ async def run_scene_job(scene_id: str, user_id: str):
             chain_mode = proj.chain_mode if proj else False
             scene_index = scene.index
             project_db_id = scene.project_id
+            # Auto lồng tiếng Việt (TTS) — bật theo project
+            narration = scene.narration or ""
+            voiceover = bool(getattr(proj, "voiceover", False)) if proj else False
+            voice = (getattr(proj, "voice", "") or "Kore") if proj else "Kore"
+            gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
 
         if not cookies or not project_id:
             await _update_scene(status=SceneStatus.failed, error_msg="Chưa kết nối Google Ultra")
@@ -605,6 +659,16 @@ async def run_scene_job(scene_id: str, user_id: str):
         except Exception as e:
             await _update_scene(status=SceneStatus.failed, error_msg=str(e))
             return
+
+        # Lồng tiếng Việt: TTS đọc thoại + ghép vào video (lỗi thì giữ video gốc, không fail cảnh)
+        if voiceover and narration.strip() and gemini_key:
+            try:
+                voiced = await _voice_over(fname, narration, voice, gemini_key)
+                if voiced:
+                    fname = voiced
+                    log.info("Scene %s voiced (vi) -> %s", scene_id, voiced)
+            except Exception as e:
+                log.warning("voiceover scene %s failed: %s", scene_id, e)
 
         await _update_scene(status=SceneStatus.done, video_file=fname)
         log.info("Scene %s done", scene_id)

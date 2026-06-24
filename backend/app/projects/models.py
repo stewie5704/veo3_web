@@ -28,6 +28,9 @@ class Project(Base):
     scene_count: Mapped[int] = mapped_column(Integer, default=0)
     # chain mode — each scene uses last frame of previous as start image
     chain_mode: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Auto lồng tiếng Việt: TTS đọc thoại từng cảnh rồi ghép vào video
+    voiceover: Mapped[bool] = mapped_column(Boolean, default=False)
+    voice: Mapped[str] = mapped_column(String(40), default="Kore")
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

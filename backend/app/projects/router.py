@@ -69,6 +69,8 @@ class CreateProjectRequest(BaseModel):
     character_names: list[str] = [] # chars to mention in prompts (for face-lock)
     character_ids: list[str] = []   # id nhân vật (kho chung) -> clone thành nhân vật riêng của project
     start_image: str | None = None  # I2V: uploaded image filename for all scenes
+    voiceover: bool = False         # Auto lồng tiếng Việt (TTS đọc thoại + ghép)
+    voice: str = "Kore"
 
 
 class UpdateSceneRequest(BaseModel):
@@ -105,6 +107,8 @@ class ProjectResponse(BaseModel):
     language: str
     scene_count: int
     chain_mode: bool
+    voiceover: bool = False
+    voice: str = "Kore"
     created_at: datetime
     updated_at: datetime
 
@@ -147,6 +151,8 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         model_key=p.model_key, aspect_ratio=p.aspect_ratio,
         duration_seconds=p.duration_seconds, language=p.language,
         scene_count=p.scene_count, chain_mode=p.chain_mode,
+        voiceover=bool(getattr(p, "voiceover", False)),
+        voice=getattr(p, "voice", "Kore") or "Kore",
         created_at=p.created_at, updated_at=p.updated_at,
     )
 
@@ -170,6 +176,7 @@ async def create_project(
         aspect_ratio=body.aspect_ratio, duration_seconds=body.duration_seconds,
         language=body.language, scene_count=len(body.prompts),
         chain_mode=body.chain_mode,
+        voiceover=body.voiceover, voice=body.voice or "Kore",
     )
     db.add(proj)
     await db.flush()

@@ -13,6 +13,14 @@ const MODELS = [
 ]
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
 const DURATIONS = [4, 6, 8, 10]
+const VOICES = [
+  { id: 'Kore', label: 'Kore (nữ)' },
+  { id: 'Aoede', label: 'Aoede (nữ)' },
+  { id: 'Leda', label: 'Leda (nữ)' },
+  { id: 'Puck', label: 'Puck (nam)' },
+  { id: 'Charon', label: 'Charon (nam)' },
+  { id: 'Orus', label: 'Orus (nam)' },
+]
 
 type Tab = 'new' | 'batch' | 'copy'
 
@@ -41,6 +49,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [narrations, setNarrations] = useState<string[]>([])
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
+  const [voiceover, setVoiceover] = useState(false)  // Auto lồng tiếng Việt
+  const [voice, setVoice] = useState('Kore')
   // Thêm nhân vật inline (giữ mặt) trong wizard
   const [addCharOpen, setAddCharOpen] = useState(false)
   const [newCharName, setNewCharName] = useState('')
@@ -156,6 +166,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         character_names: [...selectedChars],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
+        voiceover, voice,
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
@@ -335,6 +346,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </button>
                 </div>
               )}
+
+              {/* Auto lồng tiếng Việt */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
+                  <input type="checkbox" checked={voiceover} onChange={e => setVoiceover(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
+                  🔊 Lồng tiếng Việt (AI đọc thoại từng cảnh)
+                </label>
+                {voiceover && (
+                  <div className="selwrap" style={{ width: 170 }}>
+                    <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
+                      {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="cmp-actionbar">
