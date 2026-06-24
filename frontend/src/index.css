@@ -8,11 +8,12 @@
 @keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 8px var(--green)}50%{opacity:.5;box-shadow:0 0 3px var(--green)}}
 
 :root{
-  /* ── Warm dark background ── */
-  --bg:#08070a;
+  /* ── Krea Pro dark background ── */
+  --bg:#0B0911;
   --bg2:rgba(255,255,255,0.03);
   --bg3:rgba(255,255,255,0.055);
   --bg4:rgba(255,255,255,0.08);
+  --inset:#100D19;
 
   /* ── Orange / Amber palette ── */
   --accent:#f97316;
@@ -21,6 +22,11 @@
   --accent-dim:rgba(249,115,22,0.15);
   --accent-glow:rgba(249,115,22,0.25);
   --accent-dark:#ea580c;
+
+  /* ── Krea signature gradient (cam -> hồng -> tím) ── */
+  --pink:#EC4899;
+  --violet:#A855F7;
+  --grad:linear-gradient(115deg,#F97316,#EC4899 56%,#A855F7);
 
   /* ── Neutral ── */
   --border:rgba(255,255,255,0.07);
@@ -50,15 +56,20 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 
-/* ── Warm animated mesh + vignette ── */
+/* ── Krea aurora (cam / hồng / tím) + vignette ── */
 body::before{
   content:'';
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background:
-    radial-gradient(ellipse 70% 55% at 18% -5%, rgba(249,115,22,0.11) 0%,transparent 60%),
-    radial-gradient(ellipse 55% 45% at 90% 95%, rgba(234,88,12,0.07) 0%,transparent 58%),
-    radial-gradient(ellipse 60% 60% at 50% 45%, rgba(251,146,60,0.035) 0%,transparent 70%),
-    radial-gradient(ellipse 130% 120% at 50% 0%, transparent 55%, rgba(0,0,0,0.45) 100%);
+    radial-gradient(ellipse 50% 42% at 10% -4%, rgba(249,115,22,0.15) 0%,transparent 60%),
+    radial-gradient(ellipse 46% 42% at 94% 10%, rgba(236,72,153,0.13) 0%,transparent 60%),
+    radial-gradient(ellipse 58% 52% at 66% 106%, rgba(168,85,247,0.13) 0%,transparent 64%),
+    radial-gradient(ellipse 130% 120% at 50% 0%, transparent 55%, rgba(0,0,0,0.4) 100%);
+}
+/* ── premium matte grain ── */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.04;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 #root{position:relative;z-index:1}
 
@@ -322,3 +333,66 @@ body::before{
 
 /* ── Focus ring ── */
 button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ══════════════════════════════════════════════════════════════
+   Composer — "Tạo dự án" (Krea Pro). Dùng trong Projects.tsx.
+   ══════════════════════════════════════════════════════════════ */
+.composer{width:100%;max-width:760px;margin:0 auto;background:linear-gradient(180deg,#1A1526,#141020);
+  border:1px solid var(--border);border-radius:18px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 30px 80px -28px rgba(0,0,0,.8),0 4px 14px -6px rgba(0,0,0,.5)}
+.cmp-steps{display:flex;align-items:center;gap:10px;padding:15px 24px;border-bottom:1px solid var(--border);font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text3)}
+.cmp-steps .on{color:var(--text)}.cmp-steps .on i{color:var(--pink);font-style:normal;font-weight:700}
+.cmp-steps .arr{opacity:.4}
+.cmp-body{padding:24px 26px}
+.cmp-titlerow{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.cmp-tlabel{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.cmp-titlein{flex:1;background:transparent;border:0;border-bottom:1px solid var(--border);color:#fff;font-size:19px;font-weight:700;letter-spacing:-.3px;padding:6px 2px;outline:none;font-family:inherit}
+.cmp-titlein:focus{border-color:var(--pink)}
+.cmp-herowrap{position:relative;margin-bottom:22px}
+.cmp-spark{position:absolute;top:14px;left:15px;width:16px;height:16px;color:var(--pink);opacity:.85}
+.cmp-hero{width:100%;min-height:96px;background:var(--inset);border:1px solid var(--border);border-radius:13px;
+  color:var(--text);font-size:15px;line-height:1.6;padding:13px 15px 13px 40px;resize:vertical;outline:none;font-family:inherit;box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.cmp-hero:focus{border-color:var(--pink);box-shadow:inset 0 1px 3px rgba(0,0,0,.4),0 0 0 3px rgba(236,72,153,.14)}
+.cmp-hero::placeholder{color:var(--text3)}
+.cmp-settings{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin-bottom:22px}
+.cmp-ctrl{min-width:0}
+.cmp-label{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:.1em}
+.cmp-label .rv{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--text2);letter-spacing:0}
+.stepper{display:flex;align-items:stretch;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--inset);box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.stepper button{width:42px;border:0;background:transparent;color:var(--text2);font-size:17px;cursor:pointer;font-family:inherit;display:grid;place-items:center}
+.stepper button:first-child{border-right:1px solid var(--border)}
+.stepper button:last-child{border-left:1px solid var(--border)}
+.stepper button:hover{background:rgba(236,72,153,.12);color:#fff}
+.stepper input{flex:1;background:transparent;border:0;color:#fff;font-family:ui-monospace,Menlo,monospace;font-weight:700;font-size:15px;text-align:center;outline:none;-moz-appearance:textfield;min-width:0}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.seg2{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--inset);box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.seg2 button{flex:1;border:0;border-right:1px solid var(--border);background:transparent;color:var(--text2);padding:9px 0;font-size:13px;font-weight:600;cursor:pointer;font-family:ui-monospace,Menlo,monospace}
+.seg2 button:last-child{border-right:0}
+.seg2 button.on{background:var(--grad);color:#fff}
+.selwrap{position:relative}
+.selwrap .chev{position:absolute;right:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text3);pointer-events:none}
+.cmp-sel{width:100%;background:var(--inset);border:1px solid var(--border);border-radius:10px;padding:11px 34px 11px 13px;color:var(--text);font-size:13.5px;font-weight:600;font-family:inherit;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.cmp-sel:focus{border-color:var(--pink)}
+.cmp-sel option{background:#1b1630}
+.cmp-chiprow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cmp-clab{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.cmp-chip{display:flex;align-items:center;gap:8px;padding:4px 13px 4px 4px;border-radius:99px;border:1px solid var(--border);background:var(--inset);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s}
+.cmp-chip img{width:24px;height:24px;border-radius:50%;object-fit:cover}
+.cmp-chip.on{border-color:transparent;background:rgba(236,72,153,.14);color:#fff;box-shadow:inset 0 0 0 1px rgba(236,72,153,.5)}
+.cmp-chip.add{border-style:dashed;color:var(--text3);padding:7px 14px}
+.cmp-chip.add:hover{border-color:var(--border2);color:var(--text2)}
+.cmp-actionbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:17px 26px;border-top:1px solid var(--border);background:rgba(15,12,24,0.55)}
+.cmp-est{display:flex;align-items:baseline;gap:9px;font-family:ui-monospace,Menlo,monospace}
+.cmp-est .big{font-size:23px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px}
+.cmp-est .meta{font-size:12px;color:var(--text3)}
+.cmp-est .free{color:var(--green);font-weight:700}
+.cmp-ghost{border:1px solid var(--border);border-radius:12px;padding:11px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--inset);color:var(--text2)}
+.cmp-ghost:hover{border-color:var(--border2);color:var(--text)}
+.cmp-cta{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:12px 22px;font-size:14px;font-weight:750;cursor:pointer;font-family:inherit;
+  background:var(--grad);color:#fff;box-shadow:0 10px 26px -6px rgba(236,72,153,.55),inset 0 1px 0 rgba(255,255,255,.22)}
+.cmp-cta:hover:not(:disabled){filter:brightness(1.07);transform:translateY(-1px)}
+.cmp-cta:disabled{opacity:.5;cursor:not-allowed}
+/* tab bar trên đầu trang tạo (segmented gradient) */
+.cmp-tabs{display:inline-flex;gap:4px;background:var(--inset);border:1px solid var(--border);border-radius:99px;padding:4px}
+.cmp-tabs button{border:0;background:transparent;color:var(--text2);font-size:13px;font-weight:650;padding:8px 17px;border-radius:99px;cursor:pointer;font-family:inherit}
+.cmp-tabs button.on{background:var(--grad);color:#fff;box-shadow:0 5px 16px -4px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.2)}

@@ -178,166 +178,142 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   return (
-    <div style={{ maxWidth: 920, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: 'var(--accent2)', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>AI AUTOCUT</div>
-        <div className="page-title" style={{ marginBottom: 4 }}>Tạo dự án mới</div>
-        <div className="page-subtitle">Từ ý tưởng → AI viết kịch bản → Render tự động</div>
-      </div>
-
-      {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, border: '1px solid var(--border)' }}>
-        {(['new', 'batch', 'copy'] as Tab[]).map(t => (
-          <button key={t} onClick={() => { setTab(t); setError('') }} style={{
-            flex: 1, padding: '9px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, transition: 'all 0.18s',
-            background: tab === t ? 'linear-gradient(135deg, var(--accent), var(--accent-dark))' : 'transparent',
-            color: tab === t ? '#fff' : 'var(--text3)',
-            boxShadow: tab === t ? '0 4px 14px rgba(249,115,22,0.3)' : 'none',
-          }}>
-            {t === 'new' ? '✦ Tạo từ ý tưởng' : t === 'batch' ? '⚡ Hàng loạt' : '🔍 Copy Idea'}
-          </button>
-        ))}
+    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      {/* Header + tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div className="page-title" style={{ margin: 0 }}>Tạo dự án mới</div>
+        <div className="cmp-tabs" style={{ marginLeft: 'auto' }}>
+          {(['new', 'batch', 'copy'] as Tab[]).map(t => (
+            <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setError('') }}>
+              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Hàng loạt' : 'Copy Idea'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {/* NEW — Wizard 2 bước */}
+      {/* NEW — Composer 2 bước */}
       {tab === 'new' && (
-        <div className="card" style={{ marginBottom: 24 }}>
-          {/* Thanh tiến trình 2 bước */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            {[{ k: 'setup', n: 1, label: 'Ý tưởng & Thiết lập' }, { k: 'review', n: 2, label: 'Duyệt kịch bản & Tạo' }].map((s, i) => (
-              <div key={s.k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {i > 0 && <div style={{ width: 24, height: 1, background: 'var(--border2)' }} />}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: step === s.k ? 1 : 0.45 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
-                    background: step === s.k ? 'var(--accent)' : 'var(--bg3)', color: step === s.k ? '#fff' : 'var(--text3)' }}>{s.n}</div>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: step === s.k ? 'var(--text)' : 'var(--text3)' }}>{s.label}</span>
-                </div>
-              </div>
-            ))}
+        <div className="composer">
+          <div className="cmp-steps">
+            <span className={step === 'setup' ? 'on' : ''}><i>01</i> Ý tưởng &amp; thiết lập</span>
+            <span className="arr">→</span>
+            <span className={step === 'review' ? 'on' : ''}>02 Duyệt kịch bản &amp; tạo</span>
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
           {step === 'setup' && (<>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Tên dự án</label>
-                <input className="form-input" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
+            <div className="cmp-body">
+              <div className="cmp-titlerow">
+                <span className="cmp-tlabel">Tên dự án</span>
+                <input className="cmp-titlein" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Style · Ngôn ngữ</label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <select className="form-select" value={style} onChange={e => setStyle(e.target.value)} style={{ flex: 1 }}>
-                    {STYLES.map(s => <option key={s} value={s}>{s || 'Auto style'}</option>)}
-                  </select>
-                  <select className="form-select" value={language} onChange={e => setLanguage(e.target.value)} style={{ width: 130 }}>
-                    <option value="vi">🇻🇳 Việt</option>
-                    <option value="en">🇺🇸 English</option>
-                  </select>
+
+              <div className="cmp-herowrap">
+                <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
+                <textarea className="cmp-hero" value={idea} onChange={e => setIdea(e.target.value)}
+                  placeholder="Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát..." />
+              </div>
+
+              <div className="cmp-settings">
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Số cảnh</div>
+                  <div className="stepper">
+                    <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
+                    <input type="number" min={1} max={60} value={sceneCount}
+                      onChange={e => setSceneCount(Math.min(60, Math.max(1, +e.target.value || 1)))} />
+                    <button type="button" onClick={() => setSceneCount(c => Math.min(60, c + 1))}>+</button>
+                  </div>
+                </div>
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Thời lượng / cảnh <span className="rv">{duration}s</span></div>
+                  <div className="seg2">
+                    {DURATIONS.map(d => (
+                      <button key={d} type="button" className={duration === d ? 'on' : ''} onClick={() => setDuration(d)}>{d}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Model</div>
+                  <div className="selwrap">
+                    <select className="cmp-sel" value={model} onChange={e => setModel(e.target.value)}>
+                      {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Tỉ lệ</div>
+                  <div className="selwrap">
+                    <select className="cmp-sel" value={aspect} onChange={e => setAspect(e.target.value)}>
+                      {ASPECTS.map(a => <option key={a}>{a}</option>)}
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Style</div>
+                  <div className="selwrap">
+                    <select className="cmp-sel" value={style} onChange={e => setStyle(e.target.value)}>
+                      {STYLES.map(s => <option key={s} value={s}>{s || 'Auto style'}</option>)}
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <div className="cmp-ctrl">
+                  <div className="cmp-label">Ngôn ngữ</div>
+                  <div className="selwrap">
+                    <select className="cmp-sel" value={language} onChange={e => setLanguage(e.target.value)}>
+                      <option value="vi">🇻🇳 Việt</option>
+                      <option value="en">🇺🇸 English</option>
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label className="form-label">Ý tưởng — mô tả càng chi tiết càng tốt</label>
-              <textarea className="form-textarea" rows={3} value={idea} onChange={e => setIdea(e.target.value)}
-                placeholder="VD: Một chàng trai trẻ bỗng khám phá mình có sức mạnh siêu nhiên ở Tokyo tương lai 2087..." />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Số cảnh: <strong style={{ color: 'var(--accent3)' }}>{sceneCount}</strong></label>
-                <input type="range" min={2} max={20} value={sceneCount} onChange={e => setSceneCount(+e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--accent)', marginTop: 8 }} />
+              {/* Nhân vật của dự án — giữ mặt */}
+              <div className="cmp-chiprow" style={{ marginBottom: 10 }}>
+                <span className="cmp-clab">Giữ mặt</span>
+                {chars.map(c => (
+                  <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
+                    onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}>
+                    <img src={c.image_url} alt="" />@{c.name}
+                  </div>
+                ))}
+                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)}>{addCharOpen ? '✕ đóng' : '+ thêm nhân vật'}</div>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Model</label>
-                <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
-                  {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Tỉ lệ</label>
-                <select className="form-select" value={aspect} onChange={e => setAspect(e.target.value)}>
-                  {ASPECTS.map(a => <option key={a}>{a}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Thời lượng/cảnh</label>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {DURATIONS.map(d => (
-                    <button key={d} type="button" onClick={() => setDuration(d)}
-                      className={duration === d ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                      style={{ flex: 1, padding: '7px 0' }}>{d}s</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Nhân vật của dự án — giữ mặt (kho chung + upload riêng) */}
-            <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 9, border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                  <Users size={11} style={{ verticalAlign: '-1px', marginRight: 4 }} />Nhân vật của dự án — giữ mặt
-                </div>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAddCharOpen(o => !o)} style={{ fontSize: 11, padding: '3px 9px' }}>
-                  {addCharOpen ? '✕ Đóng' : '+ Thêm nhân vật'}
-                </button>
-              </div>
-
-              {chars.length > 0 ? (
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {chars.map(c => (
-                    <div key={c.id} onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '3px 9px 3px 3px', borderRadius: 99,
-                        border: `1px solid ${selectedChars.has(c.name) ? 'var(--accent)' : 'var(--border)'}`,
-                        background: selectedChars.has(c.name) ? 'rgba(249,115,22,0.12)' : 'transparent', transition: 'all 0.15s' }}>
-                      <img src={c.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
-                      <span style={{ fontSize: 12, fontWeight: 500, color: selectedChars.has(c.name) ? 'var(--accent3)' : 'var(--text2)' }}>@{c.name}</span>
-                      {selectedChars.has(c.name) && <span style={{ fontSize: 10, color: 'var(--accent2)' }}>✓</span>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>Chưa có nhân vật nào. Bấm <strong>+ Thêm nhân vật</strong> để upload ảnh giữ mặt.</div>
-              )}
-
               {addCharOpen && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <input className="form-input" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 150px', fontSize: 12 }} />
-                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', fontSize: 12 }}>
-                    {newCharFile ? `📷 ${newCharFile.name.slice(0, 16)}` : '📁 Chọn ảnh'}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                  <input className="cmp-sel" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
+                  <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
+                    {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : '📁 Chọn ảnh'}
                     <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
                   </label>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ fontSize: 12 }}>
-                    {addingChar ? <Loader2 size={12} className="spin" /> : 'Lưu'}
+                  <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
+                    {addingChar ? <Loader2 size={13} className="spin" /> : 'Lưu'}
                   </button>
                 </div>
               )}
-
-              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 8, lineHeight: 1.5 }}>
-                Chọn nhân vật để <strong>giữ mặt</strong> xuyên suốt video. Khi tạo, nhân vật được chọn sẽ lưu <strong>riêng cho dự án này</strong> (ảnh trong kho chung vẫn còn để tái sử dụng).
-              </div>
             </div>
 
-            {/* Ước tính nhanh + nút sang bước 2 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                Dự kiến: <strong style={{ color: 'var(--accent3)', fontSize: 13 }}>~{fmtLen(setupLenSec)}</strong>
-                <span> ({sceneCount} cảnh × {duration}s)</span>
+            <div className="cmp-actionbar">
+              <div className="cmp-est">
+                <span className="big">~{fmtLen(setupLenSec)}</span>
+                <span className="meta">· {sceneCount}×{duration}s ·</span>
+                <span className={modelObjNew.cost === 0 ? 'free' : ''}>{modelObjNew.cost === 0 ? 'FREE' : `${modelObjNew.cost * sceneCount} 💎`}</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="btn btn-primary" onClick={genPrompts} disabled={loadingPrompts || !idea.trim()} style={{ minWidth: 220 }}>
-                {loadingPrompts ? <><Loader2 size={13} className="spin" /> AI đang viết...</> : '🤖 Viết kịch bản & xem trước →'}
+              <button className="cmp-cta" onClick={genPrompts} disabled={loadingPrompts || !idea.trim()}>
+                {loadingPrompts ? <><Loader2 size={14} className="spin" /> AI đang viết...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> Viết kịch bản →</>}
               </button>
             </div>
           </>)}
 
           {/* ─── BƯỚC 2: DUYỆT KỊCH BẢN ─── */}
           {step === 'review' && (<>
+            <div className="cmp-body">
             {/* Banner ước tính */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '14px 16px', marginBottom: 16,
               background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 10 }}>
@@ -383,11 +359,13 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => createNew(false)} disabled={creating}>💾 Lưu nháp</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => createNew(true)} disabled={creating}>
-                {creating ? <><Loader2 size={13} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
+            </div>
+            <div className="cmp-actionbar">
+              <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
+              <div style={{ flex: 1 }} />
+              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating}>💾 Lưu nháp</button>
+              <button className="cmp-cta" onClick={() => createNew(true)} disabled={creating}>
+                {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
               </button>
             </div>
           </>)}

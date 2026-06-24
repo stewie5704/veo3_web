@@ -112,7 +112,8 @@ export default function Dashboard() {
     return exact ? loc.pathname === path : loc.pathname === path || loc.pathname.startsWith(path + '/')
   }
 
-  const isProjectsSection = loc.pathname === '/projects' || loc.pathname.startsWith('/projects/')
+  // Panel danh sách dự án chỉ hiện khi XEM chi tiết 1 dự án; màn "Tạo dự án" (/projects) để trống cho composer rộng.
+  const isProjectDetail = /^\/projects\/[^/]+/.test(loc.pathname)
 
   return (
     <div className="app-layout">
@@ -226,8 +227,8 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* ── Left panel: project list (only on projects section) ── */}
-      {isProjectsSection && (
+      {/* ── Left panel: project list (chỉ khi xem chi tiết dự án) ── */}
+      {isProjectDetail && (
         <div style={{
           width: 280, minHeight: '100vh', position: 'fixed', top: 0, left: navWidth, bottom: 0, zIndex: 50,
           background: 'rgba(12,9,6,0.9)', borderRight: '1px solid rgba(249,115,22,0.07)',
@@ -312,7 +313,7 @@ export default function Dashboard() {
 
       {/* ── Main content ── */}
       <div style={{
-        marginLeft: navWidth + (isProjectsSection ? 280 : 0),
+        marginLeft: navWidth + (isProjectDetail ? 280 : 0),
         flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
         transition: 'margin-left 0.2s',
       }}>
@@ -331,7 +332,7 @@ export default function Dashboard() {
 
         {/* ── Log console ── */}
         <div style={{
-          position: 'fixed', bottom: 0, left: navWidth + (isProjectsSection ? 280 : 0), right: 0,
+          position: 'fixed', bottom: 0, left: navWidth + (isProjectDetail ? 280 : 0), right: 0,
           background: 'rgba(8,6,4,0.97)', backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(249,115,22,0.08)', zIndex: 100,
           transition: 'left 0.2s',
