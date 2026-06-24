@@ -178,10 +178,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto' }}>
+    <div style={{ maxWidth: 920, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: 'var(--accent2)', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>VEO3 STUDIO</div>
+        <div style={{ fontSize: 11, color: 'var(--accent2)', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>AI AUTOCUT</div>
         <div className="page-title" style={{ marginBottom: 4 }}>Tạo dự án mới</div>
         <div className="page-subtitle">Từ ý tưởng → AI viết kịch bản → Render tự động</div>
       </div>

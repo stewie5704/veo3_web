@@ -264,9 +264,19 @@ export default function Dashboard() {
           {/* Project list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px' }}>
             {projects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 12px', color: 'var(--text3)', fontSize: 12 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
-                Chưa có dự án
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text3)', fontSize: 12 }}>
+                <div style={{
+                  width: 46, height: 46, margin: '0 auto 12px', borderRadius: 14,
+                  background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <FolderOpen size={20} color="#fb923c" />
+                </div>
+                <div style={{ color: 'var(--text2)', fontWeight: 600, marginBottom: 4 }}>Chưa có dự án</div>
+                <div style={{ marginBottom: 14, lineHeight: 1.5 }}>Tạo dự án đầu tiên để bắt đầu làm phim AI</div>
+                <button className="btn btn-primary btn-sm" onClick={() => nav('/projects')}>
+                  <Plus size={12} /> Tạo dự án
+                </button>
               </div>
             ) : projects.map(p => {
               const isSelected = activeProject === p.id
