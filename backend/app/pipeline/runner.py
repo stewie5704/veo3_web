@@ -535,6 +535,17 @@ async def _extract_last_frame(video_path: Path) -> Path | None:
         return None
 
 
+def _pcm_to_wav(pcm: bytes, path: Path, *, rate: int = 24000, channels: int = 1, bits: int = 16) -> None:
+    """Bọc PCM little-endian thô vào WAV header chuẩn (Gemini TTS = 24kHz mono s16) — y cách VEO Max."""
+    import struct
+    byte_rate = rate * channels * bits // 8
+    block_align = channels * bits // 8
+    header = b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVE"
+    header += b"fmt " + struct.pack("<IHHIIHH", 16, 1, channels, rate, byte_rate, block_align, bits)
+    header += b"data" + struct.pack("<I", len(pcm))
+    path.write_bytes(header + pcm)
+
+
 def _tts_pcm(api_key: str, text: str, voice: str):
     """Gemini TTS -> (audio_bytes, is_wav). is_wav=True nếu có RIFF header; else raw PCM s16le 24kHz mono."""
     import base64
@@ -564,12 +575,14 @@ async def _voice_over(video_fname: str, narration: str, voice: str, api_key: str
         return None
     raw, is_wav = out
     stem = Path(video_fname).stem
-    audio_path = UPLOAD_PATH / (stem + (".wav" if is_wav else ".pcm"))
-    audio_path.write_bytes(raw)
+    audio_path = UPLOAD_PATH / f"{stem}.tts.wav"
+    if is_wav:
+        audio_path.write_bytes(raw)
+    else:
+        _pcm_to_wav(raw, audio_path)   # bọc WAV header chuẩn (giống VEO Max) -> khỏi méo tiếng
     voiced = UPLOAD_PATH / f"{stem}_vi.mp4"
-    cmd = ["ffmpeg", "-y", "-i", str(UPLOAD_PATH / video_fname)]
-    cmd += ["-i", str(audio_path)] if is_wav else ["-f", "s16le", "-ar", "24000", "-ac", "1", "-i", str(audio_path)]
-    cmd += ["-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
+    cmd = ["ffmpeg", "-y", "-i", str(UPLOAD_PATH / video_fname), "-i", str(audio_path),
+           "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
     try:
         proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await asyncio.wait_for(proc.communicate(), timeout=120)
