@@ -96,9 +96,9 @@ class AutoPromptResponse(BaseModel):
     characters: list[CharacterBible] = []   # bible cho UI hiển thị/sửa
 
 
-# gemini-2.5-flash = đang chạy ổn (primary). gemini-2.0-flash/1.5-flash đã bị Google tắt
-# (2026-06) -> bỏ; thêm 2.5-flash-lite (rẻ, RPM cao) làm fallback rẻ cho fan-out map-reduce.
-GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash")
+# gemini-3.5-flash = primary (mới + nhanh, VeoMax cũng dùng key này); 2.5-flash = fallback đã xác nhận
+# chạy; 2.5-flash-lite = fallback rẻ/RPM cao cho fan-out map-reduce. Vòng lặp tự bỏ model chết.
+GEMINI_MODELS = ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite")
 MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-reduce dùng MAX_SCENES_MR
 MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song

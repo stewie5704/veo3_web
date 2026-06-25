@@ -103,31 +103,32 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   async function genPrompts() {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
-    setError(''); setLoadingPrompts(true)
+    // Nhảy thẳng sang bước Duyệt + hiện skeleton NGAY (cảm giác tức thì, không màn hình trắng chờ)
+    setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
+    setLoadingPrompts(true); setStep('review')
     try {
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
       const bc = res.characters || []
       setBibleChars(bc)
       setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
-      setStep('review')
       pushLog(`Đã viết kịch bản ${(res.scenes || res.prompts).length} cảnh`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt') }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setStep('setup') }
     finally { setLoadingPrompts(false) }
   }
 
   async function parseScript() {
     if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
-    setError(''); setLoadingPrompts(true)
+    setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
+    setLoadingPrompts(true); setStep('review')
     try {
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
       const bc = res.characters || []
       setBibleChars(bc)
       setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
-      setStep('review')
       pushLog(`Đã phân tích kịch bản ${(res.scenes || res.prompts).length} cảnh`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản') }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setStep('setup') }
     finally { setLoadingPrompts(false) }
   }
 
@@ -427,10 +428,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             )}
 
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
-              📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:
+              {loadingPrompts
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--accent2)' }}>
+                    <Loader2 size={13} className="spin" /> 🪄 AI đang viết kịch bản {sceneCount} cảnh — vài giây...
+                  </span>
+                : <>📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:</>}
             </div>
             <div style={{ maxHeight: 440, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {scenes.length > 0 ? scenes.map((s, i) => (
+              {loadingPrompts ? Array.from({ length: Math.min(sceneCount, 8) }).map((_, i) => (
+                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                  <div className="skel" style={{ height: 14, width: 96, marginBottom: 10 }} />
+                  <div className="skel" style={{ height: 28, width: '100%', marginBottom: 8 }} />
+                  <div className="skel" style={{ height: 28, width: '85%' }} />
+                </div>
+              )) : scenes.length > 0 ? scenes.map((s, i) => (
                 <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
@@ -476,8 +487,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <div className="cmp-actionbar">
               <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
               <div style={{ flex: 1 }} />
-              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating}>💾 Lưu nháp</button>
-              <button className="cmp-cta" onClick={() => createNew(true)} disabled={creating}>
+              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
+              <button className="cmp-cta" onClick={() => createNew(true)} disabled={creating || loadingPrompts}>
                 {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
               </button>
             </div>
