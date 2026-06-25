@@ -447,6 +447,11 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 # One generation (shared by job + scene runners)
 # ─────────────────────────────────────────────────────────────────────────────
+class _ProminentBlocked(Exception):
+    """Render bị bộ lọc người (PROMINENT_PEOPLE) chặn — thường là dương-tính-giả, đổi seed render
+    lại hay qua. Bắt riêng để retry thay vì fail luôn."""
+
+
 def _stable_seed(s: str) -> int:
     """Seed ổn định suy từ chuỗi (vd project id) — dùng cho dự án cũ chưa có Project.seed,
     để mọi cảnh vẫn dùng chung 1 seed => mặt nhân vật nhất quán."""
@@ -550,8 +555,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
             log.error("Generation FAILED (user %s, key %s) reasons=%s err=%s — item: %s",
                       user_id, key, reasons, emsg, str(items[0])[:1500])
             if any("PROMINENT" in r for r in reasons) or "PROMINENT_PEOPLE" in emsg.upper():
-                raise RuntimeError("Google chặn vì ảnh giữ mặt là NGƯỜI THẬT (bộ lọc chống deepfake). "
-                                   "Dùng ảnh nhân vật AI/hoạt hình (không phải người thật), hoặc bỏ 'giữ mặt nhân vật'.")
+                raise _ProminentBlocked()   # caller đổi seed retry (thường dương-tính-giả)
             raise RuntimeError(f"Render thất bại: {emsg or (', '.join(reasons)) or status}")
         if any(h in status for h in DONE_HINTS):
             break
@@ -819,12 +823,27 @@ async def run_scene_job(scene_id: str, user_id: str):
                 return
             await _update_scene(status=SceneStatus.processing)
             start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
-            try:
-                fname = await _generate_one(
+
+            async def _gen(sd):
+                return await _generate_one(
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
-                    char_project_id=project_db_id, seed=use_seed, extra_ref_paths=extra_ref_paths)
+                    char_project_id=project_db_id, seed=sd, extra_ref_paths=extra_ref_paths)
+
+            try:
+                try:
+                    fname = await _gen(use_seed)
+                except _ProminentBlocked:
+                    # bộ lọc người thường là dương-tính-giả -> đổi seed render lại 1 lần (hay qua).
+                    # Ảnh ref khoá danh tính nên đổi seed không lệch mặt.
+                    log.warning("scene %s PROMINENT -> thử lại seed mới", scene_id)
+                    fname = await _gen((use_seed * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
+            except _ProminentBlocked:
+                await _update_scene(status=SceneStatus.failed, error_msg=(
+                    "Google chặn ảnh giữ mặt: thường do người NỔI TIẾNG hoặc bộ lọc nhận nhầm "
+                    "(mặt người thường vẫn qua — đã thử lại). Đổi ảnh nhân vật AI khác, hoặc bỏ giữ mặt."))
+                return
             except Exception as e:
                 await _update_scene(status=SceneStatus.failed, error_msg=str(e))
                 return
