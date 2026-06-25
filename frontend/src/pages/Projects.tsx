@@ -50,7 +50,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
   const [voiceover, setVoiceover] = useState(true)   // Auto lồng tiếng Việt — MẶC ĐỊNH BẬT
-  const [voice, setVoice] = useState('Kore')         // giọng mặc định (fallback)
+  const voice = 'Kore'                               // giọng mặc định (fallback) cho cảnh không rõ ai nói
   const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
   // Thêm nhân vật inline (giữ mặt) trong wizard
@@ -362,12 +362,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   🔊 Lồng tiếng Việt (AI đọc thoại từng cảnh)
                 </label>
                 {voiceover && (
-                  <div className="selwrap" style={{ width: 170 }}>
-                    <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
-                      {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                    </select>
-                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                  </div>
+                  <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>· Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — xem &amp; chỉnh ở bước Duyệt</span>
                 )}
               </div>
             </div>
