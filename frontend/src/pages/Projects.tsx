@@ -49,7 +49,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [narrations, setNarrations] = useState<string[]>([])
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
-  const [voiceover, setVoiceover] = useState(false)  // Auto lồng tiếng Việt
+  const [voiceover, setVoiceover] = useState(true)   // Auto lồng tiếng Việt — MẶC ĐỊNH BẬT
   const [voice, setVoice] = useState('Kore')         // giọng mặc định (fallback)
   const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
@@ -69,7 +69,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [bAspect, setBAspect] = useState('16:9')
   const [bDuration, setBDuration] = useState(8)
   const [bChain, setBChain] = useState(false)
-  const [bVoiceover, setBVoiceover] = useState(false)
+  const [bVoiceover, setBVoiceover] = useState(true)   // mặc định bật lồng tiếng
   const [bVoice, setBVoice] = useState('Kore')
 
   // COPY tab
