@@ -110,6 +110,7 @@ class ProjectResponse(BaseModel):
     chain_mode: bool
     voiceover: bool = False
     voice: str = "Kore"
+    stopped: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -154,6 +155,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         scene_count=p.scene_count, chain_mode=p.chain_mode,
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
+        stopped=bool(getattr(p, "stopped", False)),
         created_at=p.created_at, updated_at=p.updated_at,
     )
 
@@ -280,6 +282,76 @@ async def delete_project(
     await db.delete(proj)
     await db.commit()
     return {"ok": True}
+
+
+class RenameProjectRequest(BaseModel):
+    name: str
+
+
+@router.patch("/{project_id}", response_model=ProjectResponse)
+async def rename_project(
+    project_id: str,
+    body: RenameProjectRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    if body.name.strip():
+        proj.name = body.name.strip()
+    await db.commit()
+    await db.refresh(proj)
+    return proj_to_resp(proj)
+
+
+@router.post("/{project_id}/stop")
+async def stop_project(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Dừng dự án: runner bỏ qua các cảnh chưa/đang render (đang render sẽ tự huỷ ở vòng poll kế)."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    proj.stopped = True
+    res = await db.execute(select(Scene).where(
+        Scene.project_id == project_id,
+        Scene.status.in_([SceneStatus.pending, SceneStatus.processing])))
+    n = 0
+    for s in res.scalars().all():
+        s.status = SceneStatus.failed
+        s.error_msg = "⏸ Đã dừng"
+        n += 1
+    await db.commit()
+    return {"ok": True, "stopped_scenes": n}
+
+
+@router.post("/{project_id}/resume")
+async def resume_project(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tiếp tục: render lại các cảnh chưa có video (failed/pending)."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    subscription.ensure_can_generate(user)
+    proj.stopped = False
+    res = await db.execute(select(Scene).where(
+        Scene.project_id == project_id, Scene.video_file.is_(None)).order_by(Scene.index))
+    todo = res.scalars().all()
+    for s in todo:
+        s.status = SceneStatus.pending
+        s.error_msg = None
+    await db.commit()
+    for s in todo:
+        await db.refresh(s)
+        background_tasks.add_task(run_scene_job, s.id, user.id)
+    return {"ok": True, "resumed": len(todo)}
 
 
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneResponse)

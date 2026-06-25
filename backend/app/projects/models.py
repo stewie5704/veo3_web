@@ -31,6 +31,8 @@ class Project(Base):
     # Auto lồng tiếng Việt: TTS đọc thoại từng cảnh rồi ghép vào video
     voiceover: Mapped[bool] = mapped_column(Boolean, default=False)
     voice: Mapped[str] = mapped_column(String(40), default="Kore")
+    # Người dùng bấm "Dừng" -> runner bỏ qua các cảnh chưa/đang chạy
+    stopped: Mapped[bool] = mapped_column(Boolean, default=False)
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

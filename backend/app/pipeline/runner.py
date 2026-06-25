@@ -372,6 +372,17 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 # One generation (shared by job + scene runners)
 # ─────────────────────────────────────────────────────────────────────────────
+async def _is_stopped(project_db_id: str) -> bool:
+    """Người dùng đã bấm 'Dừng dự án'? (đọc cờ Project.stopped)."""
+    try:
+        from app.projects.models import Project
+        async with AsyncSessionLocal() as db:
+            p = await db.get(Project, project_db_id)
+            return bool(p and getattr(p, "stopped", False))
+    except Exception:
+        return False
+
+
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
                         out_stem: str, start_image_path: Path | None = None,
@@ -425,8 +436,10 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
 
     # Poll
     poll_body = {"media": [{"name": media_id, "projectId": project_id}]}
-    for _ in range(POLL_MAX_TRIES):
+    for _i in range(POLL_MAX_TRIES):
         await asyncio.sleep(POLL_INTERVAL)
+        if char_project_id and _i % 2 == 1 and await _is_stopped(char_project_id):
+            raise RuntimeError("⏸ Đã dừng")   # người dùng bấm Dừng dự án
         code, poll = await _api_post("video:batchCheckAsyncVideoGenerationStatus", poll_body, token)
         if code != 200 or not isinstance(poll, dict):
             continue
@@ -634,7 +647,11 @@ async def run_scene_job(scene_id: str, user_id: str):
             voice = (getattr(proj, "voice", "") or "Kore") if proj else "Kore"
             scene_voice = getattr(scene, "voice", "") or ""   # giọng riêng theo nhân vật nói
             gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
+            proj_stopped = bool(getattr(proj, "stopped", False)) if proj else False
 
+        if proj_stopped:
+            await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")
+            return
         if not cookies or not project_id:
             await _update_scene(status=SceneStatus.failed, error_msg="Chưa kết nối Google Ultra")
             return

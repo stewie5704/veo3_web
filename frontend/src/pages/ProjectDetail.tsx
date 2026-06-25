@@ -127,12 +127,34 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
+  async function stopProject() {
+    if (!id) return
+    await projectsApi.stop(id); pushLog('⏸ Đã dừng dự án'); load(true)
+  }
+  async function resumeProject() {
+    if (!id) return
+    try { const r = await projectsApi.resume(id); pushLog(`▶ Tiếp tục: ${r.resumed} cảnh`); load(true) }
+    catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Lỗi tiếp tục'}`, 'error') }
+  }
+  async function renameProject() {
+    if (!id) return
+    const name = window.prompt('Tên dự án mới:', project?.name || '')
+    if (name && name.trim()) { await projectsApi.rename(id, name.trim()); load(true) }
+  }
+  async function removeProject() {
+    if (!id) return
+    if (!confirm('Xoá dự án này? Không thể hoàn tác.')) return
+    await projectsApi.delete(id); onUpdate?.(); nav('/projects')
+  }
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>
   if (!project) return null
 
   const doneCount = project.scenes.filter((s: any) => s.status === 'done').length
   const totalCount = project.scenes.length
   const allDone = doneCount === totalCount && totalCount > 0
+  const hasActive = project.scenes.some((s: any) => s.status === 'pending' || s.status === 'processing')
+  const hasUnrendered = project.scenes.some((s: any) => !s.video_file)
 
   return (
     <div>
@@ -163,6 +185,16 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           <button className="btn btn-ghost btn-sm" onClick={doExport} disabled={exporting}>
             📋 Export prompts
           </button>
+          {hasActive ? (
+            <button className="btn btn-danger btn-sm" onClick={stopProject} title="Dừng render các cảnh chưa xong">
+              ⏸ Dừng
+            </button>
+          ) : (project.stopped || hasUnrendered) && totalCount > 0 ? (
+            <button className="btn btn-ghost btn-sm" onClick={resumeProject} title="Render lại các cảnh chưa xong">
+              ▶ Tiếp tục
+            </button>
+          ) : null}
+          <button className="btn btn-ghost btn-sm" onClick={renameProject} title="Đổi tên dự án">✏️ Đổi tên</button>
           <button
             className="btn btn-primary btn-sm"
             onClick={doMerge}
@@ -171,6 +203,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           >
             {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : '🎬 Ghép phim'}
           </button>
+          <button className="btn btn-danger btn-sm" onClick={removeProject} title="Xoá dự án">🗑 Xoá</button>
         </div>
       </div>
 

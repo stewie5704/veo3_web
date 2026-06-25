@@ -43,6 +43,9 @@ export const projectsApi = {
   list: () => api.get('/projects/').then(r => r.data),
   get: (id: string) => api.get(`/projects/${id}`).then(r => r.data),
   delete: (id: string) => api.delete(`/projects/${id}`).then(r => r.data),
+  stop: (id: string) => api.post(`/projects/${id}/stop`).then(r => r.data),
+  resume: (id: string) => api.post(`/projects/${id}/resume`).then(r => r.data),
+  rename: (id: string, name: string) => api.patch(`/projects/${id}`, { name }).then(r => r.data),
   updateScene: (projectId: string, sceneId: string, data: any) =>
     api.put(`/projects/${projectId}/scenes/${sceneId}`, data).then(r => r.data),
   rerenderScene: (projectId: string, sceneId: string) =>

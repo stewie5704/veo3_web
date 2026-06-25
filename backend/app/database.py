@@ -28,6 +28,7 @@ def _lightweight_migrate(conn):
         ("characters", "project_id", "VARCHAR(36)"),
         ("projects", "voiceover", "BOOLEAN DEFAULT FALSE"),
         ("projects", "voice", "VARCHAR(40) DEFAULT 'Kore'"),
+        ("projects", "stopped", "BOOLEAN DEFAULT FALSE"),
         ("scenes", "voice", "VARCHAR(40) DEFAULT ''"),
     ]
     for table, col, ddl in adds:
