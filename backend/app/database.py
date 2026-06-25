@@ -31,6 +31,8 @@ def _lightweight_migrate(conn):
         ("projects", "stopped", "BOOLEAN DEFAULT FALSE"),
         ("projects", "seed", "INTEGER DEFAULT 0"),
         ("scenes", "voice", "VARCHAR(40) DEFAULT ''"),
+        ("video_jobs", "start_image", "VARCHAR(500)"),
+        ("video_jobs", "ref_images", "TEXT"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:

@@ -594,21 +594,39 @@ async def run_video_job(job_id: str, user_id: str):
             project_id = user.google_project_id or ""
             prompt, aspect_ratio = job.prompt, job.aspect_ratio
             duration_seconds, count, model_key = job.duration_seconds, max(1, job.count), job.model_key
+            # Tool lẻ I2V / R2V: ảnh khung đầu / ảnh tham chiếu giữ mặt
+            start_image = getattr(job, "start_image", None)
+            ref_images = json.loads(getattr(job, "ref_images", None) or "[]")
 
         if not cookies or not project_id:
             await _update_job(job_id, status=JobStatus.failed, error_msg="Chưa kết nối Google Ultra")
             return
 
+        start_path = Path(start_image) if start_image else None
+        extra_ref_paths = ref_images or None
+
         await _update_job(job_id, status=JobStatus.processing, progress=5)
         outputs: list[str] = []
         last_err = ""
         for i in range(count):
-            try:
-                fname = await _generate_one(
+            seed0 = random.randint(1, 2 ** 31 - 1)
+
+            async def _gen(sd):
+                return await _generate_one(
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
-                    model_key=model_key, out_stem=f"{job_id}_{i}")
+                    model_key=model_key, out_stem=f"{job_id}_{i}", start_image_path=start_path,
+                    extra_ref_paths=extra_ref_paths, seed=sd)
+            try:
+                try:
+                    fname = await _gen(seed0)
+                except _ProminentBlocked:   # ảnh giữ mặt: dương-tính-giả -> đổi seed thử lại 1 lần
+                    fname = await _gen((seed0 * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
                 outputs.append(fname)
+            except _ProminentBlocked:
+                last_err = ("Google chặn ảnh tham chiếu: người NỔI TIẾNG hoặc lọc nhầm "
+                            "(mặt thường vẫn qua). Đổi ảnh nhân vật AI khác.")
+                log.warning("job %s variant %d PROMINENT", job_id, i)
             except Exception as e:
                 last_err = str(e)
                 log.warning("job %s variant %d failed: %s", job_id, i, e)

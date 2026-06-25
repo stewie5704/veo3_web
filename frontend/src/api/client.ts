@@ -30,8 +30,28 @@ export const authApi = {
   saveGeminiKey: (api_key: string) => api.post('/auth/gemini-key', { api_key }).then(r => r.data),
 }
 
+type GenFields = { prompt: string; model_key?: string; aspect_ratio?: string; duration_seconds?: number }
+function genFormData(fields: GenFields): FormData {
+  const fd = new FormData()
+  fd.append('prompt', fields.prompt)
+  if (fields.model_key) fd.append('model_key', fields.model_key)
+  if (fields.aspect_ratio) fd.append('aspect_ratio', fields.aspect_ratio)
+  if (fields.duration_seconds) fd.append('duration_seconds', String(fields.duration_seconds))
+  return fd
+}
+
 export const videosApi = {
   create: (data: any) => api.post('/videos/create', data).then(r => r.data),
+  // Frames -> Video (I2V): 1 ảnh khung đầu + mô tả chuyển động
+  createI2V: (image: File, fields: GenFields) => {
+    const fd = genFormData(fields); fd.append('image', image)
+    return api.post('/videos/create-i2v', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
+  // Ingredients -> Video (R2V): 1-3 ảnh tham chiếu (giữ mặt) + prompt
+  createR2V: (images: File[], fields: GenFields) => {
+    const fd = genFormData(fields); images.forEach(im => fd.append('images', im))
+    return api.post('/videos/create-r2v', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
   list: (limit = 20, offset = 0) => api.get(`/videos/?limit=${limit}&offset=${offset}`).then(r => r.data),
   get: (id: string) => api.get(`/videos/${id}`).then(r => r.data),
   delete: (id: string) => api.delete(`/videos/${id}`).then(r => r.data),

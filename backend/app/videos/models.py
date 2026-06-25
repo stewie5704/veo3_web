@@ -25,6 +25,9 @@ class VideoJob(Base):
     duration_seconds: Mapped[int] = mapped_column(Integer, default=8)
     count: Mapped[int] = mapped_column(Integer, default=1)
     model_key: Mapped[str] = mapped_column(String(100), default="veo_3_1_t2v_lite_low_priority")
+    # Tool lẻ: I2V (ảnh khung đầu) / R2V (ảnh tham chiếu giữ mặt) — đường dẫn tuyệt đối
+    start_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    ref_images: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON list path
 
     # Status
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.pending)

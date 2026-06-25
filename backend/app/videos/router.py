@@ -1,5 +1,7 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+import uuid
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -16,6 +18,26 @@ from app.pipeline.runner import run_video_job
 from app import subscription
 
 router = APIRouter(prefix="/videos", tags=["videos"])
+
+JOB_IMG_DIR = UPLOAD_PATH.parent / "images" / "jobs"
+JOB_IMG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _save_job_image(f: UploadFile) -> str:
+    """Lưu ảnh upload cho tool I2V/R2V -> trả đường dẫn tuyệt đối (cho _generate_one upload lên Flow)."""
+    ext = (Path(f.filename or "").suffix or ".jpg").lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        ext = ".jpg"
+    dest = JOB_IMG_DIR / f"{uuid.uuid4().hex[:12]}{ext}"
+    with open(dest, "wb") as out:
+        shutil.copyfileobj(f.file, out)
+    return str(dest)
+
+
+def _ensure_can_render(user: User):
+    subscription.ensure_can_generate(user)   # 402 nếu chưa có gói còn hạn
+    if not user.google_connected and not user.gemini_api_key:
+        raise HTTPException(400, "Cần kết nối Google Ultra hoặc nhập Gemini API key trước")
 
 
 class CreateJobRequest(BaseModel):
@@ -91,6 +113,51 @@ async def create_job(
     # Run in background
     background_tasks.add_task(run_video_job, job.id, user.id)
 
+    return _job_to_response(job)
+
+
+@router.post("/create-i2v", response_model=JobResponse)
+async def create_i2v(
+    background_tasks: BackgroundTasks,
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+    aspect_ratio: str = Form("16:9"),
+    duration_seconds: int = Form(8),
+    model_key: str = Form("veo_3_1_t2v_lite_low_priority"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Frames → Video (I2V): 1 ảnh = khung hình đầu, video chuyển động TỪ nó."""
+    _ensure_can_render(user)
+    job = VideoJob(user_id=user.id, prompt=prompt, aspect_ratio=aspect_ratio,
+                   duration_seconds=duration_seconds, count=1, model_key=model_key,
+                   start_image=_save_job_image(image))
+    db.add(job); await db.commit(); await db.refresh(job)
+    background_tasks.add_task(run_video_job, job.id, user.id)
+    return _job_to_response(job)
+
+
+@router.post("/create-r2v", response_model=JobResponse)
+async def create_r2v(
+    background_tasks: BackgroundTasks,
+    images: list[UploadFile] = File(...),
+    prompt: str = Form(...),
+    aspect_ratio: str = Form("16:9"),
+    duration_seconds: int = Form(8),
+    model_key: str = Form("veo_3_1_t2v_lite_low_priority"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ingredients → Video (R2V): 1-3 ảnh tham chiếu (giữ mặt nhân vật/vật thể) -> cảnh mới."""
+    _ensure_can_render(user)
+    if not images:
+        raise HTTPException(400, "Cần ít nhất 1 ảnh tham chiếu")
+    paths = [_save_job_image(f) for f in images[:3]]   # Veo cap 3 ảnh
+    job = VideoJob(user_id=user.id, prompt=prompt, aspect_ratio=aspect_ratio,
+                   duration_seconds=duration_seconds, count=1, model_key=model_key,
+                   ref_images=json.dumps(paths))
+    db.add(job); await db.commit(); await db.refresh(job)
+    background_tasks.add_task(run_video_job, job.id, user.id)
     return _job_to_response(job)
 
 

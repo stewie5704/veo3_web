@@ -1,20 +1,31 @@
 import { useState, useEffect, useRef } from 'react'
-import { toolsApi, charactersApi, mediaApi } from '../api/client'
+import { toolsApi, charactersApi, mediaApi, videosApi } from '../api/client'
 import { pushLog } from './Dashboard'
 import {
   Users, Plus, Trash2, Mic, Image, Scissors, Download,
   Volume2, AlertCircle, CheckCircle, Loader2, ExternalLink,
-  Upload, Sparkles
+  Upload, Sparkles, Film, Layers
 } from 'lucide-react'
 
-type ToolTab = 'chars' | 'tts' | 'image' | 'cut' | 'download'
+type ToolTab = 'chars' | 'i2v' | 'r2v' | 'tts' | 'image' | 'cut' | 'download'
 
 const TABS = [
   { key: 'chars' as ToolTab, label: 'Nhân vật', icon: Users },
+  { key: 'i2v' as ToolTab, label: 'Ảnh → Video', icon: Film },
+  { key: 'r2v' as ToolTab, label: 'Giữ mặt → Video', icon: Layers },
   { key: 'tts' as ToolTab, label: 'TTS Audio', icon: Volume2 },
   { key: 'image' as ToolTab, label: 'Tạo ảnh', icon: Image },
   { key: 'cut' as ToolTab, label: 'Cắt video', icon: Scissors },
   { key: 'download' as ToolTab, label: 'Tải video', icon: Download },
+]
+
+// Model gen video (t2v key — runner tự đổi sang i2v/r2v khi render)
+const GEN_MODELS = [
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Lite — FREE (chậm)' },
+  { key: 'veo_3_1_t2v_lite', label: 'Lite — 5💎' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Fast — 10💎' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Quality — 100💎' },
+  { key: 'abra_t2v_10s', label: 'Omni 10s — 15💎' },
 ]
 
 export default function Tools({ user }: { user: any }) {
@@ -88,6 +99,45 @@ export default function Tools({ user }: { user: any }) {
     finally { setImgLoading(false) }
   }
 
+  // Cài đặt chung cho I2V/R2V
+  const [genModel, setGenModel] = useState(GEN_MODELS[0].key)
+  const [genAspect, setGenAspect] = useState('16:9')
+  const [genDur, setGenDur] = useState(8)
+
+  // Ảnh → Video (I2V)
+  const [i2vImg, setI2vImg] = useState<File | null>(null)
+  const [i2vPrompt, setI2vPrompt] = useState('')
+  const [i2vLoading, setI2vLoading] = useState(false)
+  const [i2vSent, setI2vSent] = useState(false)
+  const i2vRef = useRef<HTMLInputElement>(null)
+  async function doI2V() {
+    if (!i2vImg || !i2vPrompt.trim()) { setError('Chọn ảnh + nhập mô tả chuyển động'); return }
+    setError(''); setI2vLoading(true); setI2vSent(false)
+    try {
+      await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setI2vSent(true); setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
+      pushLog('Đã gửi Ảnh→Video — xem ở Thư viện')
+    } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
+    finally { setI2vLoading(false) }
+  }
+
+  // Giữ mặt → Video (R2V)
+  const [r2vImgs, setR2vImgs] = useState<File[]>([])
+  const [r2vPrompt, setR2vPrompt] = useState('')
+  const [r2vLoading, setR2vLoading] = useState(false)
+  const [r2vSent, setR2vSent] = useState(false)
+  const r2vRef = useRef<HTMLInputElement>(null)
+  async function doR2V() {
+    if (!r2vImgs.length || !r2vPrompt.trim()) { setError('Chọn 1-3 ảnh nhân vật + nhập prompt'); return }
+    setError(''); setR2vLoading(true); setR2vSent(false)
+    try {
+      await videosApi.createR2V(r2vImgs, { prompt: r2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setR2vSent(true); setR2vImgs([]); setR2vPrompt(''); if (r2vRef.current) r2vRef.current.value = ''
+      pushLog('Đã gửi Giữ-mặt→Video — xem ở Thư viện')
+    } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
+    finally { setR2vLoading(false) }
+  }
+
   // Chèn @Tên vào prompt tại vị trí con trỏ (như mention)
   function insertMention(name: string) {
     const tag = `@${name} `
@@ -132,6 +182,28 @@ export default function Tools({ user }: { user: any }) {
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setDlLoading(false) }
   }
+
+  const genSettings = (
+    <div className="form-row">
+      <div className="form-group"><label className="form-label">Model</label>
+        <select className="form-select" value={genModel} onChange={e => setGenModel(e.target.value)}>
+          {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </select></div>
+      <div className="form-group"><label className="form-label">Tỉ lệ</label>
+        <select className="form-select" value={genAspect} onChange={e => setGenAspect(e.target.value)}>
+          {['16:9', '9:16', '1:1'].map(a => <option key={a}>{a}</option>)}
+        </select></div>
+      <div className="form-group"><label className="form-label">Thời lượng</label>
+        <select className="form-select" value={genDur} onChange={e => setGenDur(+e.target.value)}>
+          {[4, 6, 8, 10].map(d => <option key={d} value={d}>{d}s</option>)}
+        </select></div>
+    </div>
+  )
+  const sentBanner = (
+    <div className="alert alert-success" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <CheckCircle size={15} /> Đã gửi! Video đang render — xem ở <a href="/videos" style={{ color: 'var(--accent2)', fontWeight: 600 }}>Thư viện → Video lẻ</a>.
+    </div>
+  )
 
   return (
     <div>
@@ -238,6 +310,63 @@ export default function Tools({ user }: { user: any }) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Ảnh → Video (I2V) */}
+      {tab === 'i2v' && (
+        <div style={{ maxWidth: 600 }}>
+          <div className="card">
+            <div className="card-header"><Film size={15} /> Ảnh → Video <small>I2V · ảnh là khung hình ĐẦU, video chuyển động từ nó</small></div>
+            <div className="form-group">
+              <label className="form-label">Ảnh gốc</label>
+              <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+                {i2vImg ? `📷 ${i2vImg.name.slice(0, 30)}` : '📁 Chọn ảnh'}
+                <input ref={i2vRef} type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => setI2vImg(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mô tả chuyển động (English)</label>
+              <textarea className="form-textarea" rows={3} value={i2vPrompt} onChange={e => setI2vPrompt(e.target.value)}
+                placeholder="The camera slowly pushes in as she turns toward us and smiles, hair moving in the wind..." />
+            </div>
+            {genSettings}
+            <button className="btn btn-primary" onClick={doI2V} disabled={i2vLoading || !i2vImg || !i2vPrompt.trim()}>
+              {i2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Film size={14} /> Tạo video từ ảnh</>}
+            </button>
+            {i2vSent && sentBanner}
+          </div>
+        </div>
+      )}
+
+      {/* Giữ mặt → Video (R2V) */}
+      {tab === 'r2v' && (
+        <div style={{ maxWidth: 600 }}>
+          <div className="card">
+            <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>R2V · 1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh MỚI</small></div>
+            <div className="form-group">
+              <label className="form-label">Ảnh tham chiếu (1-3 ảnh nhân vật)</label>
+              <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+                {r2vImgs.length ? `📷 ${r2vImgs.length} ảnh` : '📁 Chọn ảnh (giữ Ctrl chọn nhiều)'}
+                <input ref={r2vRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+                  onChange={e => setR2vImgs(Array.from(e.target.files || []).slice(0, 3))} />
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                Mặt người THƯỜNG vẫn qua (chỉ người nổi tiếng bị chặn). Dính lọc thì hệ thống tự thử lại.
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Prompt cảnh (English)</label>
+              <textarea className="form-textarea" rows={3} value={r2vPrompt} onChange={e => setR2vPrompt(e.target.value)}
+                placeholder="The same character walks through a neon-lit Tokyo street at night, medium shot, cinematic..." />
+            </div>
+            {genSettings}
+            <button className="btn btn-primary" onClick={doR2V} disabled={r2vLoading || !r2vImgs.length || !r2vPrompt.trim()}>
+              {r2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Layers size={14} /> Tạo video giữ mặt</>}
+            </button>
+            {r2vSent && sentBanner}
           </div>
         </div>
       )}
