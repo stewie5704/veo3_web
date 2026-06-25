@@ -689,20 +689,33 @@ async def _voice_over(video_fname: str, narration: str, voice: str, api_key: str
     else:
         _pcm_to_wav(raw, audio_path)   # bọc WAV header chuẩn (giống VEO Max) -> khỏi méo tiếng
     voiced = UPLOAD_PATH / f"{stem}_vi.mp4"
-    cmd = ["ffmpeg", "-y", "-i", str(UPLOAD_PATH / video_fname), "-i", str(audio_path),
-           "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
+    vin = str(UPLOAD_PATH / video_fname)
+    # Trộn: giữ NỀN âm thanh Veo (ambient/foley/nhạc) ducked xuống dưới giọng đọc tiếng Việt
+    # -> điện ảnh hơn hẳn so với thay sạch. Clip câm (Veo silent) thì fallback chỉ-giọng-đọc.
+    mix_cmd = ["ffmpeg", "-y", "-i", vin, "-i", str(audio_path), "-filter_complex",
+               "[0:a]volume=0.28[bg];[bg][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]",
+               "-map", "0:v:0", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
+    repl_cmd = ["ffmpeg", "-y", "-i", vin, "-i", str(audio_path),
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", str(voiced)]
+
+    async def _run(cmd) -> bool:
+        try:
+            proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE,
+                                                        stderr=asyncio.subprocess.PIPE)
+            await asyncio.wait_for(proc.communicate(), timeout=120)
+            return proc.returncode == 0 and voiced.exists()
+        except Exception as e:
+            log.warning("ffmpeg voiceover failed: %s", e)
+            return False
+
     try:
-        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await asyncio.wait_for(proc.communicate(), timeout=120)
-    except Exception as e:
-        log.warning("ffmpeg voiceover merge failed: %s", e)
-        return None
+        ok = await _run(mix_cmd) or await _run(repl_cmd)
     finally:
         try:
             audio_path.unlink()
         except Exception:
             pass
-    return voiced.name if voiced.exists() else None
+    return voiced.name if (ok and voiced.exists()) else None
 
 
 async def run_scene_job(scene_id: str, user_id: str):
