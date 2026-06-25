@@ -18,7 +18,7 @@ from app.auth.router import get_current_user
 from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
 from app.characters.models import Character
-from app.pipeline.runner import run_scene_job
+from app.pipeline.runner import dispatch_scene
 from app.config import UPLOAD_PATH
 from app import subscription
 
@@ -209,16 +209,12 @@ async def create_project(
     await db.refresh(proj)
 
     if body.auto_render:
+        # Bắn tất cả cảnh thành task song song thật; semaphore per-user (SCENE_CONCURRENCY)
+        # giới hạn số cảnh render cùng lúc. Chain mode: cảnh sau tự chờ cảnh trước bên trong
+        # run_scene_job (không chiếm slot khi đang chờ).
         for s in scenes:
             await db.refresh(s)
-            if body.chain_mode:
-                # Chain: only kick off scene 0 immediately; rest will wait
-                if s.index == 0:
-                    background_tasks.add_task(run_scene_job, s.id, user.id)
-                else:
-                    background_tasks.add_task(run_scene_job, s.id, user.id)
-            else:
-                background_tasks.add_task(run_scene_job, s.id, user.id)
+            dispatch_scene(s.id, user.id)
 
     return ProjectDetailResponse(
         **proj_to_resp(proj).__dict__,
@@ -350,7 +346,7 @@ async def resume_project(
     await db.commit()
     for s in todo:
         await db.refresh(s)
-        background_tasks.add_task(run_scene_job, s.id, user.id)
+        dispatch_scene(s.id, user.id)
     return {"ok": True, "resumed": len(todo)}
 
 
@@ -387,7 +383,7 @@ async def rerender_scene(
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await db.commit()
-    background_tasks.add_task(run_scene_job, scene_id, user.id)
+    dispatch_scene(scene_id, user.id)
     return {"ok": True}
 
 
@@ -408,7 +404,7 @@ async def render_scene(
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await db.commit()
-    background_tasks.add_task(run_scene_job, scene_id, user.id)
+    dispatch_scene(scene_id, user.id)
     return {"ok": True}
 
 

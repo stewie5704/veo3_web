@@ -27,7 +27,7 @@ async def test_add_char_goes_to_kho_chung(client, make_user):
 
 
 async def test_create_project_clones_char(client, make_user, monkeypatch):
-    monkeypatch.setattr("app.projects.router.run_scene_job", lambda *a, **k: None)
+    monkeypatch.setattr("app.projects.router.dispatch_scene", lambda *a, **k: None)
     u = await make_user(google=True, plan="pro")
     g = await _add_global_char(client, u["headers"], "hero")
 
@@ -64,7 +64,7 @@ async def test_create_project_clones_char(client, make_user, monkeypatch):
 
 
 async def test_delete_project_removes_clone_keeps_kho(client, make_user, monkeypatch):
-    monkeypatch.setattr("app.projects.router.run_scene_job", lambda *a, **k: None)
+    monkeypatch.setattr("app.projects.router.dispatch_scene", lambda *a, **k: None)
     u = await make_user(google=True, plan="pro")
     g = await _add_global_char(client, u["headers"], "villain")
     proj = (await client.post("/api/v1/projects/", json={
@@ -87,7 +87,7 @@ async def test_delete_project_removes_clone_keeps_kho(client, make_user, monkeyp
 
 
 async def test_copy_from_kho_into_project(client, make_user, monkeypatch):
-    monkeypatch.setattr("app.projects.router.run_scene_job", lambda *a, **k: None)
+    monkeypatch.setattr("app.projects.router.dispatch_scene", lambda *a, **k: None)
     u = await make_user(google=True, plan="pro")
     g = await _add_global_char(client, u["headers"], "boss")
 

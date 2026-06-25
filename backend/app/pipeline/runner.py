@@ -55,6 +55,32 @@ POLL_MAX_TRIES = 60
 
 active_workers: int = 0
 
+# Render concurrency PER USER: how many scenes generate at once for ONE Ultra account.
+# The captcha lock already serializes the ~few-second token grab; this caps the long
+# poll loops that overlap. 3 = matches the desktop tool's small pool (safe for 1 ext).
+SCENE_CONCURRENCY = 3
+_user_sems: dict[str, asyncio.Semaphore] = {}
+_inflight_tasks: set = set()  # keep create_task refs alive (else GC may cancel mid-render)
+
+
+def _user_sem(user_id: str) -> asyncio.Semaphore:
+    sem = _user_sems.get(user_id)
+    if sem is None:
+        sem = asyncio.Semaphore(SCENE_CONCURRENCY)
+        _user_sems[user_id] = sem
+    return sem
+
+
+def dispatch_scene(scene_id: str, user_id: str) -> None:
+    """Fire a scene render as a REAL concurrent task. Do NOT use FastAPI BackgroundTasks
+    for this — Starlette awaits added tasks one-after-another, so each scene's full
+    poll loop (up to ~10 min) would block the next scene from even starting. Here every
+    scene starts immediately; the per-user semaphore in run_scene_job caps how many hit
+    Google's render queue at once."""
+    task = asyncio.create_task(run_scene_job(scene_id, user_id))
+    _inflight_tasks.add(task)
+    task.add_done_callback(_inflight_tasks.discard)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Credentials / HTTP
@@ -679,30 +705,37 @@ async def run_scene_job(scene_id: str, user_id: str):
                 await _update_scene(status=SceneStatus.failed, error_msg="Timeout chờ scene trước")
                 return
 
-        await _update_scene(status=SceneStatus.processing)
-        start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
-        try:
-            fname = await _generate_one(
-                user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
-                aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
-                model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
-                char_project_id=project_db_id)
-        except Exception as e:
-            await _update_scene(status=SceneStatus.failed, error_msg=str(e))
-            return
-
-        # Lồng tiếng Việt: TTS đọc thoại + ghép vào video (lỗi thì giữ video gốc, không fail cảnh)
-        if voiceover and narration.strip() and gemini_key:
+        # Giữ slot render PER-USER chỉ quanh lúc gen thật. Cảnh đang chờ scene trước (ở trên)
+        # KHÔNG chiếm slot -> cảnh đầu luôn có slot, chain không deadlock; tối đa
+        # SCENE_CONCURRENCY cảnh bắn lên Google cùng lúc.
+        async with _user_sem(user_id):
+            if await _is_stopped(project_db_id):   # user có thể bấm Dừng trong lúc xếp hàng
+                await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")
+                return
+            await _update_scene(status=SceneStatus.processing)
+            start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
             try:
-                voiced = await _voice_over(fname, narration, scene_voice or voice, gemini_key)
-                if voiced:
-                    fname = voiced
-                    log.info("Scene %s voiced (vi) -> %s", scene_id, voiced)
+                fname = await _generate_one(
+                    user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
+                    aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
+                    model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
+                    char_project_id=project_db_id)
             except Exception as e:
-                log.warning("voiceover scene %s failed: %s", scene_id, e)
+                await _update_scene(status=SceneStatus.failed, error_msg=str(e))
+                return
 
-        await _update_scene(status=SceneStatus.done, video_file=fname)
-        log.info("Scene %s done", scene_id)
+            # Lồng tiếng Việt: TTS đọc thoại + ghép vào video (lỗi thì giữ video gốc, không fail cảnh)
+            if voiceover and narration.strip() and gemini_key:
+                try:
+                    voiced = await _voice_over(fname, narration, scene_voice or voice, gemini_key)
+                    if voiced:
+                        fname = voiced
+                        log.info("Scene %s voiced (vi) -> %s", scene_id, voiced)
+                except Exception as e:
+                    log.warning("voiceover scene %s failed: %s", scene_id, e)
+
+            await _update_scene(status=SceneStatus.done, video_file=fname)
+            log.info("Scene %s done", scene_id)
         await _try_auto_merge(project_db_id)
     except Exception as e:
         log.exception("Scene %s crashed: %s", scene_id, e)
