@@ -275,12 +275,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
               <div className="cmp-settings">
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Số cảnh</div>
+                  <div className="cmp-label">Số cảnh {sceneCount > 30 && <span className="rv" style={{ color: 'var(--accent2)' }}>tạo nhanh ⚡</span>}</div>
                   <div className="stepper">
                     <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
-                    <input type="number" min={1} max={60} value={sceneCount}
-                      onChange={e => setSceneCount(Math.min(60, Math.max(1, +e.target.value || 1)))} />
-                    <button type="button" onClick={() => setSceneCount(c => Math.min(60, c + 1))}>+</button>
+                    <input type="number" min={1} max={600} value={sceneCount}
+                      onChange={e => setSceneCount(Math.min(600, Math.max(1, +e.target.value || 1)))} />
+                    <button type="button" onClick={() => setSceneCount(c => Math.min(600, c + 1))}>+</button>
                   </div>
                 </div>
                 <div className="cmp-ctrl">
