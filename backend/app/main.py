@@ -32,6 +32,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     from app.sessions.router import start_captcha_bus
     await start_captcha_bus()   # cross-process captcha bridge (no-op without Redis)
+    # Phục hồi scene mồ côi: worker trước bị deploy/kill giữa chừng -> scene kẹt 'processing'.
+    try:
+        from app.pipeline.runner import recover_orphan_scenes
+        await recover_orphan_scenes()
+    except Exception as e:
+        import logging
+        logging.getLogger("veo3").warning("recover_orphan_scenes failed: %s", e)
     yield
 
 

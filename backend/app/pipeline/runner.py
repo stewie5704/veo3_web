@@ -60,7 +60,9 @@ active_workers: int = 0
 # poll loops that overlap. 3 = matches the desktop tool's small pool (safe for 1 ext).
 SCENE_CONCURRENCY = 3
 _user_sems: dict[str, asyncio.Semaphore] = {}
-_inflight_tasks: set = set()  # keep create_task refs alive (else GC may cancel mid-render)
+_inflight_tasks: set = set()        # keep create_task refs alive (else GC may cancel mid-render)
+_inflight_scene_ids: set = set()    # single-flight: chống 2 task cùng 1 scene (resume/rerender khi đang chạy)
+_merge_locks: dict[str, asyncio.Lock] = {}  # 1 merge/project tại 1 thời điểm (chống double-merge)
 
 
 def _user_sem(user_id: str) -> asyncio.Semaphore:
@@ -71,15 +73,62 @@ def _user_sem(user_id: str) -> asyncio.Semaphore:
     return sem
 
 
+def _merge_lock(project_id: str) -> asyncio.Lock:
+    lock = _merge_locks.get(project_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _merge_locks[project_id] = lock
+    return lock
+
+
 def dispatch_scene(scene_id: str, user_id: str) -> None:
     """Fire a scene render as a REAL concurrent task. Do NOT use FastAPI BackgroundTasks
     for this — Starlette awaits added tasks one-after-another, so each scene's full
     poll loop (up to ~10 min) would block the next scene from even starting. Here every
     scene starts immediately; the per-user semaphore in run_scene_job caps how many hit
-    Google's render queue at once."""
+    Google's render queue at once.
+
+    Single-flight: nếu scene đang chạy thì bỏ qua (resume/rerender/retry bấm trùng sẽ KHÔNG
+    tạo task thứ 2 -> tránh render đôi = tốn gấp đôi credit Google + status loạn)."""
+    if scene_id in _inflight_scene_ids:
+        log.info("Scene %s đang chạy -> bỏ qua dispatch trùng", scene_id)
+        return
+    _inflight_scene_ids.add(scene_id)
     task = asyncio.create_task(run_scene_job(scene_id, user_id))
     _inflight_tasks.add(task)
-    task.add_done_callback(_inflight_tasks.discard)
+
+    def _done(t):
+        _inflight_tasks.discard(t)
+        _inflight_scene_ids.discard(scene_id)
+    task.add_done_callback(_done)
+
+
+async def recover_orphan_scenes() -> int:
+    """Chạy lúc khởi động: worker cũ bị kill/deploy giữa chừng -> task asyncio chết, để lại
+    scene kẹt 'processing' (video chưa có) vĩnh viễn — UI hiển thị "đang render" mãi mãi.
+
+    Chỉ RESET các scene đó về 'pending' để xoá trạng thái giả; KHÔNG dispatch lại ở đây vì hàm
+    này chạy trước `yield` (server chưa phục vụ -> extension chưa kết nối -> captcha sẽ fail).
+    User bấm 'Tiếp tục' khi extension đã lên (route /resume re-dispatch các scene video=NULL).
+    Project đang 'Dừng' để nguyên."""
+    from app.projects.models import Scene, SceneStatus, Project
+    from sqlalchemy import select
+    n = 0
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(select(Scene).where(
+            Scene.status == SceneStatus.processing, Scene.video_file.is_(None)))
+        for s in res.scalars().all():
+            proj = await db.get(Project, s.project_id)
+            if proj and getattr(proj, "stopped", False):
+                continue  # project đang Dừng -> để nguyên
+            s.status = SceneStatus.pending
+            s.error_msg = None
+            n += 1
+        if n:
+            await db.commit()
+    if n:
+        log.info("Reset %d scene mồ côi ('processing'->'pending') sau restart", n)
+    return n
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -683,10 +732,17 @@ async def run_scene_job(scene_id: str, user_id: str):
             return
 
         # Chain mode: wait for the previous scene, then use its last frame as the start image.
+        # KHÔNG đặt đồng hồ timeout cứng 30' từ lúc dispatch: prev có thể đang xếp hàng sau
+        # semaphore (vẫn pending/processing) -> chờ tiếp, không fail giả. Chỉ fail khi prev
+        # thực sự lỗi, biến mất hẳn, hoặc treo bất động quá lâu. Cap tuyệt đối ~3h là backstop.
         if wait_for_prev and scene_index > 0:
             ok_prev = False
-            for _ in range(360):  # up to 30 min
+            stale = 0  # số vòng prev biến mất / không nhúc nhích
+            for _ in range(2160):  # backstop ~3h (sleep 5s); restart sẽ tự phục hồi nếu treo thật
                 await asyncio.sleep(5)
+                if await _is_stopped(project_db_id):
+                    await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")
+                    return
                 async with AsyncSessionLocal() as db:
                     res = await db.execute(select(Scene).where(
                         Scene.project_id == project_db_id, Scene.index == scene_index - 1))
@@ -701,6 +757,14 @@ async def run_scene_job(scene_id: str, user_id: str):
                 if prev and prev.status == SceneStatus.failed:
                     await _update_scene(status=SceneStatus.failed, error_msg="Scene trước bị lỗi")
                     return
+                # prev pending/processing = đang xếp hàng hoặc đang render -> chờ tiếp.
+                # Chỉ bỏ cuộc nếu prev biến mất hẳn (~1 phút) — dữ liệu hỏng/đã xoá.
+                if prev is None:
+                    stale += 1
+                    if stale >= 12:
+                        break
+                else:
+                    stale = 0
             if not ok_prev:
                 await _update_scene(status=SceneStatus.failed, error_msg="Timeout chờ scene trước")
                 return
@@ -737,6 +801,11 @@ async def run_scene_job(scene_id: str, user_id: str):
             await _update_scene(status=SceneStatus.done, video_file=fname)
             log.info("Scene %s done", scene_id)
         await _try_auto_merge(project_db_id)
+    except asyncio.CancelledError:
+        # Worker shutdown/deploy: KHÔNG ghi DB (event loop đang đóng), để nguyên trạng thái và
+        # để recover_orphan_scenes() phục hồi ở lần khởi động sau. Re-raise đúng chuẩn asyncio.
+        log.warning("Scene %s bị huỷ (shutdown/deploy?) — sẽ phục hồi khi khởi động lại", scene_id)
+        raise
     except Exception as e:
         log.exception("Scene %s crashed: %s", scene_id, e)
         await _update_scene(status=SceneStatus.failed, error_msg=str(e))
@@ -745,47 +814,58 @@ async def run_scene_job(scene_id: str, user_id: str):
 
 
 async def _try_auto_merge(project_id: str):
-    """If all scenes are done, concat them into final.mp4."""
+    """If all scenes are done, concat them into final.mp4.
+
+    Single-flight + idempotent: nhiều scene xong gần như cùng lúc đều gọi hàm này. Lock
+    per-project + check merged_file đảm bảo CHỈ 1 ffmpeg chạy cho 1 project (trước đây 2 scene
+    cùng thấy 'all done' -> 2 ffmpeg ghi đè cùng final.mp4 -> video cuối hỏng). Ghi ra file tạm
+    rồi rename nguyên tử để người xem không bao giờ thấy file ghi dở."""
     from sqlalchemy import select
     from app.projects.models import Scene, SceneStatus, Project
-    async with AsyncSessionLocal() as db:
-        res = await db.execute(select(Scene).where(Scene.project_id == project_id))
-        scenes = res.scalars().all()
-        if not scenes or not all(s.status == SceneStatus.done for s in scenes):
-            return
-        video_files = [s.video_file for s in sorted(scenes, key=lambda s: s.index) if s.video_file]
-    if not video_files:
-        return
-
-    log.info("Auto-merging project %s (%d scenes)", project_id, len(video_files))
-    out_name = f"final_{project_id[:8]}.mp4"
-    out_path = UPLOAD_PATH / out_name
     import tempfile, os
-    list_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
-            for vf in video_files:
-                f.write(f"file '{str(UPLOAD_PATH / vf)}'\n")
-            list_path = f.name
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path,
-            "-c", "copy", str(out_path),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(proc.communicate(), timeout=600)
-        if out_path.exists():
-            async with AsyncSessionLocal() as db:
-                from app.projects.models import Project
-                proj = await db.get(Project, project_id)
-                if proj:
-                    proj.merged_file = out_name
-                    await db.commit()
-            log.info("Auto-merge done: %s", out_name)
-    except Exception as e:
-        log.warning("Auto-merge failed: %s", e)
-    finally:
-        if list_path:
-            try:
-                os.unlink(list_path)
-            except OSError:
-                pass
+    async with _merge_lock(project_id):
+        async with AsyncSessionLocal() as db:
+            res = await db.execute(select(Scene).where(Scene.project_id == project_id))
+            scenes = res.scalars().all()
+            if not scenes or not all(s.status == SceneStatus.done for s in scenes):
+                return
+            proj0 = await db.get(Project, project_id)
+            if proj0 and proj0.merged_file:   # đã ghép rồi -> bỏ qua (idempotent)
+                return
+            video_files = [s.video_file for s in sorted(scenes, key=lambda s: s.index) if s.video_file]
+        if not video_files:
+            return
+
+        log.info("Auto-merging project %s (%d scenes)", project_id, len(video_files))
+        out_name = f"final_{project_id[:8]}.mp4"
+        out_path = UPLOAD_PATH / out_name
+        tmp_path = UPLOAD_PATH / f"final_{project_id[:8]}.tmp.mp4"
+        list_path = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                for vf in video_files:
+                    f.write(f"file '{str(UPLOAD_PATH / vf)}'\n")
+                list_path = f.name
+            proc = await asyncio.create_subprocess_exec(
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path,
+                "-c", "copy", str(tmp_path),
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            )
+            await asyncio.wait_for(proc.communicate(), timeout=600)
+            if tmp_path.exists():
+                os.replace(tmp_path, out_path)   # rename nguyên tử
+                async with AsyncSessionLocal() as db:
+                    proj = await db.get(Project, project_id)
+                    if proj:
+                        proj.merged_file = out_name
+                        await db.commit()
+                log.info("Auto-merge done: %s", out_name)
+        except Exception as e:
+            log.warning("Auto-merge failed: %s", e)
+        finally:
+            for p in (list_path, str(tmp_path)):
+                try:
+                    if p and os.path.exists(p):
+                        os.remove(p)
+                except OSError:
+                    pass
