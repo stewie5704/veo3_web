@@ -13,7 +13,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [merging, setMerging] = useState(false)
   const [mergeUrl, setMergeUrl] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [copyToast, setCopyToast] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null)
+  const toastTimer = useRef<any>(null)
+  const prevStatus = useRef<Record<string, string>>({})   // scene id -> status đã thấy lần trước
+  const seeded = useRef(false)                             // đã ghi nhận trạng thái ban đầu chưa
+  const notifiedDone = useRef(false)                       // đã báo "dự án xong" chưa (báo 1 lần)
   // Nhân vật của dự án
   const [globalChars, setGlobalChars] = useState<any[]>([])
   const [charMode, setCharMode] = useState<'' | 'upload' | 'pick'>('')
@@ -26,6 +30,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (!id) return
     try {
       const p = await projectsApi.get(id)
+      detectTransitions(p)
       setProject(p)
     } catch {
       if (!silent) nav('/projects')
@@ -34,13 +39,55 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
+  // Toast trong app + thông báo trình duyệt khi cảnh xong / dự án xong / cảnh lỗi.
+  function notify(msg: string, kind: 'success' | 'error' = 'success', browser = false) {
+    pushLog(msg, kind === 'error' ? 'error' : undefined)
+    setToast({ msg, kind })
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 4500)
+    if (browser && 'Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('AI AutoCut 🎬', { body: msg }) } catch { /* ignore */ }
+    }
+  }
+
+  // So trạng thái cảnh lần này với lần trước -> bắn thông báo khi có cảnh chuyển done/failed.
+  function detectTransitions(p: any) {
+    const scenes: any[] = p?.scenes || []
+    if (!seeded.current) {   // lần load đầu: chỉ ghi nhận, KHÔNG báo cho cảnh đã xong từ trước
+      scenes.forEach(s => { prevStatus.current[s.id] = s.status })
+      notifiedDone.current = scenes.length > 0 && scenes.every(s => s.status === 'done')
+      seeded.current = true
+      return
+    }
+    let newlyDone = 0
+    scenes.forEach(s => {
+      const prev = prevStatus.current[s.id]
+      if (prev && prev !== 'done' && s.status === 'done') newlyDone++
+      if (prev && prev !== 'failed' && s.status === 'failed') notify(`❌ Cảnh ${s.index + 1} lỗi`, 'error', document.hidden)
+      prevStatus.current[s.id] = s.status
+    })
+    const allDone = scenes.length > 0 && scenes.every(s => s.status === 'done')
+    if (allDone && !notifiedDone.current) {
+      notifiedDone.current = true
+      notify(`🎬 Dự án "${p.name}" đã render xong toàn bộ ${scenes.length} cảnh!`, 'success', true)
+    } else if (newlyDone > 0) {
+      const doneN = scenes.filter(s => s.status === 'done').length
+      notify(`✅ Xong cảnh ${doneN}/${scenes.length}`, 'success', document.hidden)
+    }
+  }
+
   useEffect(() => { load() }, [id])
+  useEffect(() => () => clearTimeout(toastTimer.current), [])   // dọn timer khi rời trang
 
   // Auto-poll while scenes are active
   useEffect(() => {
     if (!project) return
     const hasActive = project.scenes.some((s: any) => s.status === 'pending' || s.status === 'processing')
     if (!hasActive) return
+    // Xin quyền thông báo 1 lần khi đang render -> để báo lúc xong dù user đang ở tab/app khác.
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
     const t = setInterval(() => load(true), 4000)
     return () => clearInterval(t)
   }, [project])
@@ -117,9 +164,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     try {
       const res = await projectsApi.exportPrompts(id)
       await navigator.clipboard.writeText(res.text)
-      setCopyToast(true)
-      setTimeout(() => setCopyToast(false), 2500)
-      pushLog(`📋 Đã copy ${res.scene_count} prompts`)
+      notify(`📋 Đã copy ${res.scene_count} prompts`)
     } catch {
       pushLog('❌ Không copy được', 'error')
     } finally {
@@ -159,13 +204,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   return (
     <div>
       {/* Toast */}
-      {copyToast && (
+      {toast && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 9999,
-          background: 'var(--green)', color: '#fff', borderRadius: 8,
-          padding: '10px 16px', fontSize: 13, fontWeight: 500,
+          background: toast.kind === 'error' ? 'var(--red)' : 'var(--green)', color: '#fff', borderRadius: 8,
+          padding: '10px 16px', fontSize: 13, fontWeight: 500, maxWidth: 360,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}>✅ Đã copy toàn bộ prompts!</div>
+        }}>{toast.msg}</div>
       )}
 
       {/* Header */}
