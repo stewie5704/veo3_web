@@ -619,6 +619,7 @@ async def run_scene_job(scene_id: str, user_id: str):
             narration = scene.narration or ""
             voiceover = bool(getattr(proj, "voiceover", False)) if proj else False
             voice = (getattr(proj, "voice", "") or "Kore") if proj else "Kore"
+            scene_voice = getattr(scene, "voice", "") or ""   # giọng riêng theo nhân vật nói
             gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
 
         if not cookies or not project_id:
@@ -663,7 +664,7 @@ async def run_scene_job(scene_id: str, user_id: str):
         # Lồng tiếng Việt: TTS đọc thoại + ghép vào video (lỗi thì giữ video gốc, không fail cảnh)
         if voiceover and narration.strip() and gemini_key:
             try:
-                voiced = await _voice_over(fname, narration, voice, gemini_key)
+                voiced = await _voice_over(fname, narration, scene_voice or voice, gemini_key)
                 if voiced:
                     fname = voiced
                     log.info("Scene %s voiced (vi) -> %s", scene_id, voiced)

@@ -70,7 +70,8 @@ class CreateProjectRequest(BaseModel):
     character_ids: list[str] = []   # id nhân vật (kho chung) -> clone thành nhân vật riêng của project
     start_image: str | None = None  # I2V: uploaded image filename for all scenes
     voiceover: bool = False         # Auto lồng tiếng Việt (TTS đọc thoại + ghép)
-    voice: str = "Kore"
+    voice: str = "Kore"             # giọng mặc định (fallback)
+    voices: list[str] = []          # giọng RIÊNG theo từng cảnh (song song prompts; "" = dùng mặc định)
 
 
 class UpdateSceneRequest(BaseModel):
@@ -197,6 +198,7 @@ async def create_project(
             duration_seconds=body.duration_seconds,
             start_image=body.start_image,           # I2V: same start for all
             wait_for_prev=body.chain_mode and i > 0, # Chain: wait for previous
+            voice=(body.voices[i] if i < len(body.voices) else ""),  # giọng riêng cảnh (theo nhân vật nói)
         )
         db.add(s)
         scenes.append(s)

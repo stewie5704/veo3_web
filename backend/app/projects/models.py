@@ -54,6 +54,8 @@ class Scene(Base):
     duration_seconds: Mapped[int] = mapped_column(Integer, default=8)
     # I2V: start image (local file path relative to UPLOAD_PATH)
     start_image: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Giọng TTS riêng cho cảnh (theo nhân vật nói); rỗng = dùng giọng mặc định của project
+    voice: Mapped[str] = mapped_column(String(40), default="")
     # Chain: wait for previous scene to complete before rendering
     wait_for_prev: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -50,7 +50,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
   const [voiceover, setVoiceover] = useState(false)  // Auto lồng tiếng Việt
-  const [voice, setVoice] = useState('Kore')
+  const [voice, setVoice] = useState('Kore')         // giọng mặc định (fallback)
+  const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
+  const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
   // Thêm nhân vật inline (giữ mặt) trong wizard
   const [addCharOpen, setAddCharOpen] = useState(false)
   const [newCharName, setNewCharName] = useState('')
@@ -105,6 +107,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
+      const bc = res.characters || []
+      setBibleChars(bc)
+      setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
       setStep('review')
       pushLog(`Đã viết kịch bản ${(res.scenes || res.prompts).length} cảnh`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt') }
@@ -117,6 +122,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
+      const bc = res.characters || []
+      setBibleChars(bc)
+      setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
       setStep('review')
       pushLog(`Đã phân tích kịch bản ${(res.scenes || res.prompts).length} cảnh`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản') }
@@ -151,6 +159,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const baseNarr = scenes.length
       ? scenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
       : narrations
+    // giọng riêng theo nhân vật nói trong mỗi cảnh (fallback giọng mặc định)
+    const baseVoices = scenes.length ? scenes.map(s => charVoices[(s.speaker || '').trim()] || voice) : []
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
@@ -167,7 +177,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         character_names: [...selectedChars],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
-        voiceover, voice,
+        voiceover, voice, voices: baseVoices,
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
@@ -401,6 +411,25 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 {selectedChars.size > 0 && <><br />🔒 khoá {selectedChars.size} mặt</>}
               </div>
             </div>
+
+            {voiceover && bibleChars.length > 0 && (
+              <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Giọng nhân vật</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  {bibleChars.map((c: any) => (
+                    <div key={c.char_key || c.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{c.name || c.char_key}</span>
+                      <div className="selwrap" style={{ width: 150 }}>
+                        <select className="cmp-sel" value={charVoices[c.name] || c.tts_voice || voice} onChange={e => setCharVoices(v => ({ ...v, [c.name]: e.target.value }))}>
+                          {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
+                        </select>
+                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
               📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:
