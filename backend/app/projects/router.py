@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, delete
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -264,18 +264,40 @@ async def delete_project(
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
-    # Dọn nhân vật riêng của project (clone) + file ảnh; KHÔNG đụng kho chung
-    res = await db.execute(select(Character).where(Character.project_id == project_id))
-    for c in res.scalars().all():
-        fp = CHAR_PATH / c.image_file
-        if fp.exists():
-            fp.unlink()
-        await db.delete(c)
-    # Dọn scenes (không có ON DELETE CASCADE)
+
+    # 1) Dọn FILE trên đĩa: video từng cảnh (+ bản lồng tiếng), ảnh nhân vật riêng, final đã ghép.
     res = await db.execute(select(Scene).where(Scene.project_id == project_id))
     for s in res.scalars().all():
-        await db.delete(s)
-    await db.delete(proj)
+        if s.video_file:
+            try:
+                fp = UPLOAD_PATH / s.video_file
+                if fp.exists():
+                    fp.unlink()
+            except OSError:
+                pass
+    res = await db.execute(select(Character).where(Character.project_id == project_id))
+    for c in res.scalars().all():   # nhân vật riêng (clone) — KHÔNG đụng kho chung (project_id=NULL)
+        try:
+            fp = CHAR_PATH / c.image_file
+            if c.image_file and fp.exists():
+                fp.unlink()
+        except OSError:
+            pass
+    if proj.merged_file:
+        try:
+            fp = UPLOAD_PATH / proj.merged_file
+            if fp.exists():
+                fp.unlink()
+        except OSError:
+            pass
+
+    # 2) Xoá DB theo ĐÚNG thứ tự con-trước-cha bằng bulk DELETE thực thi ngay. Không dùng ORM
+    #    db.delete() loop nữa: unit-of-work gom vào 1 commit và sắp xếp lại -> xoá project trước
+    #    scenes -> ForeignKeyViolationError (scenes_project_id_fkey). Bulk delete chạy tuần tự,
+    #    chắc chắn FK-safe.
+    await db.execute(delete(Scene).where(Scene.project_id == project_id))
+    await db.execute(delete(Character).where(Character.project_id == project_id))
+    await db.execute(delete(Project).where(Project.id == project_id))
     await db.commit()
     return {"ok": True}
 

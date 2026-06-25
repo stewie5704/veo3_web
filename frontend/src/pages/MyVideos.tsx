@@ -43,9 +43,13 @@ export default function MyVideos() {
   async function delProject(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     if (!confirm('Xoá dự án này?')) return
-    await projectsApi.delete(id)
-    setProjects(ps => ps.filter(p => p.id !== id))
-    toast('Đã xoá dự án', 'success')
+    try {
+      await projectsApi.delete(id)
+      setProjects(ps => ps.filter(p => p.id !== id))
+      toast('Đã xoá dự án', 'success')
+    } catch (err: any) {
+      toast(err?.response?.data?.detail || 'Xoá thất bại', 'error')
+    }
   }
 
   const doneCount = (p: any) => (p.scenes || []).filter((s: any) => s.video_file).length

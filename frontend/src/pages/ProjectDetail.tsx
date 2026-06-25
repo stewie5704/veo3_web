@@ -189,7 +189,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   async function removeProject() {
     if (!id) return
     if (!confirm('Xoá dự án này? Không thể hoàn tác.')) return
-    await projectsApi.delete(id); onUpdate?.(); nav('/projects')
+    try {
+      await projectsApi.delete(id); onUpdate?.(); nav('/projects')
+    } catch (e: any) {
+      notify(e?.response?.data?.detail || 'Xoá thất bại', 'error')
+    }
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>
