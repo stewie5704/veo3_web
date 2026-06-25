@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Loader2, Link2, ChevronRight, Trash2, Image, Users } from 'lucide-react'
+import { Loader2, Link2 } from 'lucide-react'
 
 const MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Ưu tiên thấp) — FREE', cost: 0 },
@@ -58,17 +58,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [addingChar, setAddingChar] = useState(false)
   const charFileRef = useRef<HTMLInputElement>(null)
 
-  // BATCH tab
+  // "Từ prompt" tab: mỗi ô = 1 CẢNH của CÙNG 1 video -> render rồi ghép
   const [bName, setBName] = useState('')
-  const [bPrompts, setBPrompts] = useState('')
+  const [bScenes, setBScenes] = useState<{ prompt: string; narration: string }[]>([
+    { prompt: '', narration: '' }, { prompt: '', narration: '' },
+  ])
   const [bModel, setBModel] = useState(MODELS[0].key)
   const [bAspect, setBAspect] = useState('16:9')
   const [bDuration, setBDuration] = useState(8)
-  const [bCount, setBCount] = useState(1)
   const [bChain, setBChain] = useState(false)
-  const [bI2V, setBI2V] = useState(false)
-  const [bStartImg, setBStartImg] = useState<File | null>(null)
-  const bStartRef = useRef<HTMLInputElement>(null)
+  const [bVoiceover, setBVoiceover] = useState(false)
+  const [bVoice, setBVoice] = useState('Kore')
 
   // COPY tab
   const [copyUrl, setCopyUrl] = useState('')
@@ -84,8 +84,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // Credit cost estimate
   const modelObj = MODELS.find(m => m.key === bModel) || MODELS[0]
-  const bLines = bPrompts.split('\n').filter(l => l.trim()).length
-  const estimatedCost = modelObj.cost * bLines * bCount
+  const bValid = bScenes.filter(s => s.prompt.trim())   // cảnh có prompt
+  const bCost = modelObj.cost * bValid.length
+  const bLenSec = bValid.length * bDuration
   const modelObjNew = MODELS.find(m => m.key === model) || MODELS[0]
   const fmtLen = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}p${s % 60 ? ` ${s % 60}s` : ''}`
   const fmtTC = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
@@ -174,30 +175,27 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     } catch (e: any) { setError(e.response?.data?.detail || 'Tạo dự án thất bại'); setCreating(false) }
   }
 
+  const addBScene = () => setBScenes(s => [...s, { prompt: '', narration: '' }])
+  const delBScene = (i: number) => setBScenes(s => s.filter((_, idx) => idx !== i))
+  const updBScene = (i: number, key: 'prompt' | 'narration', v: string) =>
+    setBScenes(s => s.map((x, idx) => idx === i ? { ...x, [key]: v } : x))
+
   async function createBatch() {
-    const lines = bPrompts.split('\n').map(l => l.trim()).filter(Boolean)
-    if (!lines.length) { setError('Nhập ít nhất 1 prompt'); return }
-    const expanded = lines.flatMap(l => Array(bCount).fill(l))
+    const valid = bScenes.filter(s => s.prompt.trim())
+    if (!valid.length) { setError('Nhập ít nhất 1 cảnh có prompt'); return }
     setError(''); setCreating(true)
-
-    let startImgName: string | undefined
-    // Upload start image if I2V
-    if (bI2V && bStartImg) {
-      // Upload as temp file
-      const fd = new FormData(); fd.append('file', bStartImg)
-      // We'll just use the file name approach — store locally
-      startImgName = undefined // Will be handled via scene.start_image
-    }
-
     try {
       const proj = await projectsApi.create({
-        name: bName || `Batch ${new Date().toLocaleDateString('vi-VN')}`,
+        name: bName || `Video ${new Date().toLocaleDateString('vi-VN')}`,
         model_key: bModel, aspect_ratio: bAspect, duration_seconds: bDuration,
-        prompts: expanded, auto_render: true, chain_mode: bChain,
+        prompts: valid.map(s => s.prompt.trim()),
+        narrations: valid.map(s => s.narration.trim()),
+        auto_render: true, chain_mode: bChain,
+        voiceover: bVoiceover, voice: bVoice,
       })
-      pushLog(`Batch ${bChain ? 'chain' : ''}: ${expanded.length} scenes`)
+      pushLog(`Tạo video từ ${valid.length} cảnh prompt${bChain ? ' (chain)' : ''}`)
       nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo batch thất bại'); setCreating(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo video thất bại'); setCreating(false) }
   }
 
   async function doCopy() {
@@ -227,7 +225,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         <div className="cmp-tabs" style={{ marginLeft: 'auto' }}>
           {(['new', 'batch', 'copy'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setError('') }}>
-              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Hàng loạt' : 'Copy Idea'}
+              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ prompt' : 'Copy Idea'}
             </button>
           ))}
         </div>
@@ -463,73 +461,93 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         </div>
       )}
 
-      {/* BATCH */}
+      {/* TỪ PROMPT — mỗi ô = 1 cảnh của CÙNG 1 video -> ghép */}
       {tab === 'batch' && (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="form-group">
-            <label className="form-label">Tên dự án</label>
-            <input className="form-input" placeholder="Batch Project" value={bName} onChange={e => setBName(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Prompts (mỗi dòng = 1 video · dùng @Tên để khoá mặt)</label>
-            <textarea className="form-textarea" rows={8}
-              placeholder={"@Naruto chạy trên mái nhà lúc hoàng hôn\n@Naruto và @Sasuke đối đầu giữa rừng tre\nCon rồng vàng bay qua thành phố đêm"}
-              value={bPrompts} onChange={e => setBPrompts(e.target.value)} />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{bLines} prompts</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Model</label>
-              <select className="form-select" value={bModel} onChange={e => setBModel(e.target.value)}>
-                {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-              </select>
+        <div className="composer">
+          <div className="cmp-body">
+            <div className="cmp-titlerow">
+              <span className="cmp-tlabel">Tên dự án</span>
+              <input className="cmp-titlein" placeholder="Tên video của bạn..." value={bName} onChange={e => setBName(e.target.value)} />
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Tỉ lệ</label>
-              <select className="form-select" value={bAspect} onChange={e => setBAspect(e.target.value)}>
-                {ASPECTS.map(a => <option key={a}>{a}</option>)}
-              </select>
+
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
+              🎬 Mỗi ô = 1 <strong>CẢNH</strong> của video — render xong tự ghép thành 1 phim. Dùng <strong>@Tên</strong> để giữ mặt nhân vật.
             </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Thời lượng/scene</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {DURATIONS.map(d => <button key={d} type="button" onClick={() => setBDuration(d)} className={bDuration === d ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{ flex: 1 }}>{d}s</button>)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              {bScenes.map((s, i) => (
+                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * bDuration)}–{fmtTC((i + 1) * bDuration)}</span>
+                    {bScenes.length > 1 && <button onClick={() => delBScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>}
+                  </div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 8 }}
+                    placeholder="Prompt cảnh này (mô tả hình ảnh + hành động)..." value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
+                  <input className="form-input" style={{ fontSize: 12.5 }} placeholder="🔊 Lời thoại (tuỳ chọn — để lồng tiếng)" value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
+                </div>
+              ))}
+            </div>
+            <button className="cmp-ghost" onClick={addBScene} style={{ width: '100%', borderStyle: 'dashed', marginBottom: 18 }}>+ Thêm cảnh</button>
+
+            <div className="cmp-settings">
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Model</div>
+                <div className="selwrap">
+                  <select className="cmp-sel" value={bModel} onChange={e => setBModel(e.target.value)}>
+                    {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Tỉ lệ</div>
+                <div className="selwrap">
+                  <select className="cmp-sel" value={bAspect} onChange={e => setBAspect(e.target.value)}>
+                    {ASPECTS.map(a => <option key={a}>{a}</option>)}
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Thời lượng / cảnh <span className="rv">{bDuration}s</span></div>
+                <div className="seg2">
+                  {DURATIONS.map(d => <button key={d} type="button" className={bDuration === d ? 'on' : ''} onClick={() => setBDuration(d)}>{d}</button>)}
+                </div>
+              </div>
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Tuỳ chọn</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', height: 38 }}>
+                  <input type="checkbox" checked={bChain} onChange={e => setBChain(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+                  <Link2 size={13} color="var(--accent2)" /> Chain (nối khung hình)
+                </label>
               </div>
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Số bản/prompt</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {[1,2,3,4].map(c => <button key={c} type="button" onClick={() => setBCount(c)} className={bCount === c ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{ flex: 1 }}>x{c}</button>)}
-              </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
+                <input type="checkbox" checked={bVoiceover} onChange={e => setBVoiceover(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
+                🔊 Lồng tiếng Việt (đọc lời thoại)
+              </label>
+              {bVoiceover && (
+                <div className="selwrap" style={{ width: 170 }}>
+                  <select className="cmp-sel" value={bVoice} onChange={e => setBVoice(e.target.value)}>
+                    {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 20, marginBottom: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
-              <input type="checkbox" checked={bChain} onChange={e => setBChain(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-              <Link2 size={13} color="var(--accent2)" /> Chain mode
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
-              <input type="checkbox" checked={bI2V} onChange={e => setBI2V(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-              <Image size={13} color="var(--accent2)" /> I2V (animate ảnh)
-            </label>
-          </div>
-          {bI2V && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg3)', border: '1px dashed var(--border2)', borderRadius: 9, cursor: 'pointer', marginBottom: 16 }}>
-              <Image size={16} color="var(--text3)" />
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>{bStartImg ? bStartImg.name : 'Chọn ảnh gốc...'}</span>
-              <input ref={bStartRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setBStartImg(e.target.files?.[0] || null)} />
-            </label>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-              Ước tính: <strong style={{ color: estimatedCost === 0 ? 'var(--green)' : 'var(--yellow)' }}>
-                {estimatedCost === 0 ? 'FREE' : `${estimatedCost} 💎`}
-              </strong> · {bLines * bCount} videos
+
+          <div className="cmp-actionbar">
+            <div className="cmp-est">
+              <span className="big">~{fmtLen(bLenSec)}</span>
+              <span className="meta">· {bValid.length}×{bDuration}s ·</span>
+              <span className={bCost === 0 ? 'free' : ''}>{bCost === 0 ? 'FREE' : `${bCost} 💎`}</span>
             </div>
-            <button className="btn btn-primary" style={{ marginLeft: 'auto', minWidth: 200 }} onClick={createBatch} disabled={creating || !bLines}>
-              {creating ? <><Loader2 size={13} className="spin" /> Đang tạo...</> : `⚡ Render ${bLines * bCount} videos${bChain ? ' ⛓' : ''}`}
+            <div style={{ flex: 1 }} />
+            <button className="cmp-cta" onClick={createBatch} disabled={creating || !bValid.length}>
+              {creating ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : '🚀 Tạo & Ghép video'}
             </button>
           </div>
         </div>
