@@ -1,4 +1,5 @@
 import uuid
+import random
 from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, Text, Enum, ForeignKey, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -33,6 +34,9 @@ class Project(Base):
     voice: Mapped[str] = mapped_column(String(40), default="Kore")
     # Người dùng bấm "Dừng" -> runner bỏ qua các cảnh chưa/đang chạy
     stopped: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Seed CỐ ĐỊNH cho cả dự án -> mọi cảnh dùng chung 1 seed => mặt nhân vật ổn định
+    # giữa các cảnh (Veo re-roll mặt mới mỗi seed). 0 = dự án cũ -> runner suy seed ổn định từ id.
+    seed: Mapped[int] = mapped_column(Integer, default=lambda: random.randint(1, 2 ** 31 - 1))
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

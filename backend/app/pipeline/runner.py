@@ -447,6 +447,13 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 # One generation (shared by job + scene runners)
 # ─────────────────────────────────────────────────────────────────────────────
+def _stable_seed(s: str) -> int:
+    """Seed ổn định suy từ chuỗi (vd project id) — dùng cho dự án cũ chưa có Project.seed,
+    để mọi cảnh vẫn dùng chung 1 seed => mặt nhân vật nhất quán."""
+    import hashlib
+    return int(hashlib.md5((s or "x").encode()).hexdigest()[:8], 16) % (2 ** 31 - 1) + 1
+
+
 async def _is_stopped(project_db_id: str) -> bool:
     """Người dùng đã bấm 'Dừng dự án'? (đọc cờ Project.stopped)."""
     try:
@@ -461,7 +468,9 @@ async def _is_stopped(project_db_id: str) -> bool:
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
                         out_stem: str, start_image_path: Path | None = None,
-                        char_project_id: str | None = None) -> str:
+                        char_project_id: str | None = None,
+                        seed: int | None = None,
+                        extra_ref_paths: list[str] | None = None) -> str:
     """Generate ONE video on Flow and download it. Returns the output filename
     (relative to UPLOAD_PATH). Raises RuntimeError with a human message on failure."""
     from app.sessions.router import request_captcha
@@ -474,10 +483,20 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     if not recaptcha:
         raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
 
-    # Upload reference faces (@mentions) and the start frame (I2V) -> Flow media ids
+    # Reference identity: @mention (cũ) + ảnh nhân vật RIÊNG của project đính MỌI cảnh
+    # (giữ mặt + đồng bộ, không cần user gõ @). Cap 3 = giới hạn referenceImages của Veo.
     ref_ids = await _resolve_char_ref_ids(prompt, user_id, token, project_id, char_project_id)
+    for rp in (extra_ref_paths or []):
+        if len(ref_ids) >= 3:
+            break
+        mid = await _upload_image(token, project_id, Path(rp))
+        if mid and mid not in ref_ids:
+            ref_ids.append(mid)
+    ref_ids = ref_ids[:3]
+
     start_id = None
-    if start_image_path:
+    # refs (giữ mặt) ưu tiên hơn start-frame: cùng dùng endpoint riêng, tránh xung đột r2v+startImage
+    if start_image_path and not ref_ids:
         start_id = await _upload_image(token, project_id, start_image_path)
         if not start_id:
             raise RuntimeError("Upload ảnh gốc (I2V) thất bại")
@@ -493,8 +512,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     else:
         endpoint = "video:batchAsyncGenerateVideoText"
 
+    use_seed = seed if (seed is not None and seed > 0) else random.randint(1, 2 ** 31 - 1)
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
-                                random.randint(1, 2 ** 31 - 1), start_id, ref_ids or None)
+                                use_seed, start_id, ref_ids or None)
 
     code, resp = await _api_post(endpoint, body, token)
     if code in (401, 403):                       # token expired mid-flight → refresh once
@@ -723,6 +743,14 @@ async def run_scene_job(scene_id: str, user_id: str):
             scene_voice = getattr(scene, "voice", "") or ""   # giọng riêng theo nhân vật nói
             gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
             proj_stopped = bool(getattr(proj, "stopped", False)) if proj else False
+            proj_seed = int(getattr(proj, "seed", 0) or 0)
+            # Ảnh nhân vật RIÊNG của project -> reference giữ mặt cho MỌI cảnh (không cần @mention).
+            from app.characters.models import Character
+            res_ch = await db.execute(select(Character).where(Character.project_id == scene.project_id))
+            char_ref_files = [c.image_file for c in res_ch.scalars().all() if c.image_file]
+
+        extra_ref_paths = [str(CHAR_PATH / f) for f in char_ref_files]
+        use_seed = proj_seed or _stable_seed(project_db_id)
 
         if proj_stopped:
             await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")
@@ -783,7 +811,7 @@ async def run_scene_job(scene_id: str, user_id: str):
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
-                    char_project_id=project_db_id)
+                    char_project_id=project_db_id, seed=use_seed, extra_ref_paths=extra_ref_paths)
             except Exception as e:
                 await _update_scene(status=SceneStatus.failed, error_msg=str(e))
                 return

@@ -94,8 +94,14 @@ class AutoPromptResponse(BaseModel):
     characters: list[CharacterBible] = []   # bible cho UI hiển thị/sửa
 
 
-GEMINI_MODELS = ("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
-MAX_SCENES = 30
+# gemini-2.5-flash = đang chạy ổn (primary). gemini-2.0-flash/1.5-flash đã bị Google tắt
+# (2026-06) -> bỏ; thêm 2.5-flash-lite (rẻ, RPM cao) làm fallback rẻ cho fan-out map-reduce.
+GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash")
+MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-reduce dùng MAX_SCENES_MR
+MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
+MAPREDUCE_THRESHOLD = 40 # > ngưỡng này -> chuyển sang map-reduce song song
+CHUNK_SIZE = 20          # số cảnh mỗi chunk bung song song
+MAX_MR_CONCURRENCY = 6   # số call Gemini song song tối đa (giữ trong RPM)
 _NEG_TAIL = (" Full-frame edge-to-edge (COVER/FILL), no borders, no letterbox/pillarbox, "
              "no captions/subtitles/on-screen text, no logos, no watermark.")
 # guardrail bằng code: loại nhãn chủng tộc/sắc tộc khỏi mô tả nhân vật
@@ -152,11 +158,11 @@ def _loads_lenient(text: str) -> dict:
         raise
 
 
-def _gemini_json(api_key: str, prompt: str) -> dict:
+def _gemini_json(api_key: str, prompt: str, max_tokens: int = 8192) -> dict:
     """Gemini JSON mode + fallback model (429/404/quota) + bỏ JSON-mode khi SDK cũ + bóc fence."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    cfg = {"response_mime_type": "application/json", "max_output_tokens": 8192}
+    cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
     last = None
     for mname in GEMINI_MODELS:
         try:
