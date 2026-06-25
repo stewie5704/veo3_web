@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI AutoCut — Tạo video AI tiếng Việt nhiều cảnh từ ý tưởng | Veo 3.1</title>
+<meta name="description" content="AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật, render từng cảnh bằng Veo 3.1 rồi tự ghép thành phim hoàn chỉnh. Tạo video AI tiếng Việt cho TikTok, Reels, YouTube chỉ từ một dòng ý tưởng. Dùng thử miễn phí.">
+<meta name="keywords" content="tạo video AI, video AI tiếng Việt, làm phim AI, Veo 3.1, AI tạo video từ văn bản, video TikTok AI, công cụ làm video AI, AI AutoCut">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#0B0911">
+<link rel="canonical" href="https://aiautocut.com/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23F97316'/%3E%3Cstop offset='.56' stop-color='%23EC4899'/%3E%3Cstop offset='1' stop-color='%23A855F7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='none' stroke='url(%23g)' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='6' cy='6' r='2.4'/%3E%3Ccircle cx='6' cy='18' r='2.4'/%3E%3Cline x1='8.1' y1='7.6' x2='20' y2='18'/%3E%3Cline x1='8.1' y1='16.4' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AI AutoCut">
+<meta property="og:locale" content="vi_VN">
+<meta property="og:url" content="https://aiautocut.com/">
+<meta property="og:title" content="AI AutoCut — Tạo phim AI nhiều cảnh từ một dòng ý tưởng">
+<meta property="og:description" content="Viết kịch bản, giữ mặt nhân vật, render Veo 3.1 và tự ghép thành phim. Tạo video AI tiếng Việt chỉ từ một dòng ý tưởng. Dùng thử miễn phí.">
+<meta property="og:image" content="https://aiautocut.com/og.svg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI AutoCut — Tạo phim AI nhiều cảnh từ một dòng ý tưởng">
+<meta name="twitter:description" content="Viết kịch bản, giữ mặt nhân vật, render Veo 3.1 và tự ghép thành phim. Tạo video AI tiếng Việt chỉ từ một dòng ý tưởng.">
+<meta name="twitter:image" content="https://aiautocut.com/og.svg">
+
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://aiautocut.com/#org",
+      "name": "AI AutoCut",
+      "url": "https://aiautocut.com/",
+      "logo": "https://aiautocut.com/og.svg"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://aiautocut.com/#website",
+      "url": "https://aiautocut.com/",
+      "name": "AI AutoCut",
+      "inLanguage": "vi-VN",
+      "publisher": { "@id": "https://aiautocut.com/#org" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "AI AutoCut",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "vi-VN",
+      "url": "https://app.aiautocut.com/",
+      "description": "Công cụ tạo video AI tiếng Việt: tự viết kịch bản, giữ gương mặt nhân vật, render từng cảnh bằng Veo 3.1 và tự ghép thành phim hoàn chỉnh.",
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "VND",
+        "lowPrice": "99000",
+        "highPrice": "1990000",
+        "offerCount": "3"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "AI AutoCut là gì?",
+          "acceptedAnswer": { "@type": "Answer", "text": "AI AutoCut là công cụ tạo video bằng AI: bạn nhập một dòng ý tưởng, hệ thống tự viết kịch bản nhiều cảnh, render từng cảnh bằng Veo 3.1 rồi tự ghép thành một video hoàn chỉnh để tải về." }
+        },
+        {
+          "@type": "Question",
+          "name": "AI AutoCut có hỗ trợ tiếng Việt không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Có. AI AutoCut viết kịch bản tiếng Việt và có thể tự lồng tiếng Việt cho từng cảnh, phù hợp làm video TikTok, Reels, YouTube cho người Việt." }
+        },
+        {
+          "@type": "Question",
+          "name": "Có dùng thử miễn phí không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Có. Bạn có thể bắt đầu miễn phí với model Veo 3.1 Lite, nâng gói khi cần chất lượng cao hơn hoặc render hàng loạt." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B0911; --bg2:#0E0B16; --surface:#16121F; --surface2:#1E1830; --inset:#100D19;
+  --line:rgba(255,255,255,0.08); --line2:rgba(255,255,255,0.15);
+  --text:#F4F1FA; --text2:rgba(228,221,246,0.62); --text3:rgba(200,191,228,0.40);
+  --accent:#F97316; --accent2:#FDBA74; --pink:#EC4899; --violet:#A855F7; --green:#34D399;
+  --grad:linear-gradient(115deg,#F97316,#EC4899 56%,#A855F7);
+  --sans:-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,monospace;
+}
+html{scroll-behavior:smooth}
+body{position:relative;min-height:100vh;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  letter-spacing:-0.006em;overflow-x:hidden}
+svg{display:block}
+a{color:inherit;text-decoration:none}
+.shell{position:relative}
+.shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 40% at 12% -4%, rgba(249,115,22,0.14),transparent 60%),
+    radial-gradient(ellipse 46% 42% at 92% 8%, rgba(236,72,153,0.13),transparent 60%),
+    radial-gradient(ellipse 60% 50% at 70% 102%, rgba(168,85,247,0.12),transparent 64%)}
+.shell::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.inner{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px}
+
+header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,9,17,0.7);border-bottom:1px solid var(--line)}
+.hrow{display:flex;align-items:center;gap:14px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;letter-spacing:-.3px}
+.brand .logo{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;box-shadow:0 6px 18px -4px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+.brand .logo svg{width:18px;height:18px;color:#fff}
+nav.links{display:flex;gap:6px;margin-left:18px}
+nav.links a{padding:8px 13px;border-radius:9px;color:var(--text2);font-size:13.5px;font-weight:550}
+nav.links a:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.hright{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:11px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn svg{width:15px;height:15px}
+.btn-grad{background:var(--grad);color:#fff;box-shadow:0 8px 22px -6px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn-grad:hover{filter:brightness(1.07)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--line)}
+.btn-ghost:hover{color:var(--text);border-color:var(--line2)}
+@media(max-width:720px){nav.links{display:none}}
+
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:72px 0 56px}
+.pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.02em;
+  color:var(--accent2);background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);padding:6px 13px;border-radius:99px;margin-bottom:22px}
+.pill .d{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+h1{font-size:clamp(34px,5.4vw,58px);line-height:1.04;font-weight:800;letter-spacing:-.025em;margin:0 0 18px}
+h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lead{font-size:17.5px;color:var(--text2);max-width:520px;margin:0 0 28px}
+.cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn-lg{padding:14px 24px;font-size:15px;border-radius:13px}
+.caps{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
+.cap{font-family:var(--mono);font-size:11.5px;color:var(--text3);border:1px solid var(--line);border-radius:8px;padding:5px 10px}
+.cap b{color:var(--text2);font-weight:600}
+
+.window{position:relative;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#15111F,#0F0C18);
+  box-shadow:0 40px 100px -30px rgba(0,0,0,.85),0 0 60px -20px rgba(236,72,153,.25);overflow:hidden}
+.wtop{display:flex;align-items:center;gap:7px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.wtop i{width:10px;height:10px;border-radius:50%;background:var(--line2);display:block}
+.wtop .url{margin-left:10px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+.wbody{padding:18px}
+.wpane{display:flex;gap:8px;align-items:center;background:var(--inset);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:14px}
+.wpane svg{width:15px;height:15px;color:var(--pink);flex:0 0 auto}
+.wpane span{font-size:12.5px;color:var(--text2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.cell{aspect-ratio:16/10;border:1px solid var(--line);border-radius:10px;background:linear-gradient(160deg,#1C1730,#120F1E);position:relative;display:grid;place-items:center;overflow:hidden;
+  opacity:0;transform:translateY(8px);animation:lp-cell-in .5s ease forwards}
+.cell::before{content:"";position:absolute;inset:0;background:var(--grad);opacity:.06}
+.cell .nu{font-family:var(--mono);font-size:15px;font-weight:700;color:rgba(255,255,255,.22)}
+.cell .tg{position:absolute;top:6px;left:6px;font-family:var(--mono);font-size:9px;color:var(--text3);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.cell.f{box-shadow:inset 0 0 0 1.4px rgba(236,72,153,.55),0 0 18px -6px rgba(236,72,153,.5)}
+@keyframes lp-cell-in{to{opacity:1;transform:none}}
+.cell:nth-child(1){animation-delay:.05s}.cell:nth-child(2){animation-delay:.12s}.cell:nth-child(3){animation-delay:.19s}
+.cell:nth-child(4){animation-delay:.26s}.cell:nth-child(5){animation-delay:.33s}.cell:nth-child(6){animation-delay:.4s}
+.wfoot{display:flex;align-items:center;gap:10px;margin-top:14px;font-family:var(--mono);font-size:12px}
+.wfoot .big{font-size:17px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.wfoot .free{color:var(--green);font-weight:700}
+.wfoot .go{margin-left:auto;background:var(--grad);color:#fff;border-radius:9px;padding:7px 14px;font-family:var(--sans);font-size:12.5px;font-weight:700}
+@media(max-width:860px){.hero{grid-template-columns:1fr;gap:36px;padding:48px 0 40px}}
+
+section.blk{padding:64px 0;position:relative;z-index:1}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--pink);margin-bottom:12px}
+.h2{font-size:clamp(26px,3.5vw,36px);font-weight:800;letter-spacing:-.02em;margin:0 0 12px}
+.sub{font-size:16px;color:var(--text2);max-width:560px;margin:0 0 36px}
+
+.feat{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.fcard{background:linear-gradient(180deg,#17131F,#120F1A);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.fcard .ic{width:42px;height:42px;border-radius:11px;background:rgba(236,72,153,.1);border:1px solid rgba(236,72,153,.25);display:grid;place-items:center;margin-bottom:16px}
+.fcard .ic svg{width:20px;height:20px;color:var(--pink)}
+.fcard h3{font-size:16.5px;font-weight:750;margin:0 0 7px}
+.fcard p{font-size:13.5px;color:var(--text2);margin:0;line-height:1.6}
+@media(max-width:720px){.feat{grid-template-columns:1fr}}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+.step .n{font-family:var(--mono);font-size:13px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:14px;display:block}
+.step h3{font-size:16px;font-weight:750;margin:0 0 6px}
+.step p{font-size:13.5px;color:var(--text2);margin:0}
+@media(max-width:720px){.steps{grid-template-columns:1fr}}
+
+.price{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px;position:relative}
+.pcard.hot{border-color:transparent;box-shadow:inset 0 0 0 1.5px rgba(236,72,153,.5),0 24px 60px -24px rgba(236,72,153,.4)}
+.pcard .tag{position:absolute;top:-11px;left:24px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:4px 11px;border-radius:99px}
+.pcard .name{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:10px}
+.pcard .amt{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.pcard .amt small{font-size:14px;color:var(--text3);font-weight:600}
+.pcard ul{list-style:none;padding:0;margin:18px 0 22px;display:flex;flex-direction:column;gap:10px}
+.pcard li{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--text2)}
+.pcard li svg{width:16px;height:16px;color:var(--green);flex:0 0 auto;margin-top:2px}
+.pcard .btn{width:100%;justify-content:center}
+@media(max-width:720px){.price{grid-template-columns:1fr}}
+
+.band{position:relative;z-index:1;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(ellipse 80% 140% at 50% -20%, rgba(236,72,153,.22),transparent 60%),linear-gradient(180deg,#17131F,#0F0C18);
+  padding:54px 32px;text-align:center}
+.band h2{font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.02em;margin:0 0 10px}
+.band p{color:var(--text2);margin:0 0 24px}
+footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:64px;padding:30px 0}
+.frow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--text3);font-size:13px}
+.frow .brand{font-size:14px}
+.frow .fl{margin-left:auto;display:flex;gap:16px}
+.frow .fl a:hover{color:var(--text2)}
+
+@media(prefers-reduced-motion:reduce){.cell{animation:none;opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header><div class="inner"><div class="hrow">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span>
+      AI AutoCut
+    </div>
+    <nav class="links">
+      <a href="#features">Tính năng</a>
+      <a href="#how">Cách hoạt động</a>
+      <a href="#pricing">Bảng giá</a>
+    </nav>
+    <div class="hright">
+      <a class="btn btn-ghost" href="https://app.aiautocut.com/login">Đăng nhập</a>
+      <a class="btn btn-grad" href="https://app.aiautocut.com/register">Bắt đầu miễn phí</a>
+    </div>
+  </div></div></header>
+
+  <main class="inner">
+    <section class="hero">
+      <div>
+        <div class="pill"><span class="d"></span>Tạo phim AI bằng Veo 3.1</div>
+        <h1>Biến một dòng ý tưởng thành <span class="g">phim AI nhiều cảnh</span>.</h1>
+        <p class="lead">AI AutoCut viết kịch bản, giữ nguyên gương mặt nhân vật, render từng cảnh rồi tự ghép thành video hoàn chỉnh. Bạn chỉ cần ý tưởng.</p>
+        <div class="cta-row">
+          <a class="btn btn-grad btn-lg" href="https://app.aiautocut.com/register"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg> Tạo video đầu tiên</a>
+          <a class="btn btn-ghost btn-lg" href="#how">Xem cách hoạt động</a>
+        </div>
+        <div class="caps">
+          <span class="cap"><b>Veo 3.1</b> · 4 model</span>
+          <span class="cap">Giữ <b>mặt nhân vật</b></span>
+          <span class="cap">Tự <b>ghép phim</b></span>
+          <span class="cap">Tới <b>60 cảnh</b>/dự án</span>
+        </div>
+      </div>
+
+      <div class="window">
+        <div class="wtop"><i></i><i></i><i></i><span class="url">app.aiautocut.com</span></div>
+        <div class="wbody">
+          <div class="wpane">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
+            <span>Hồ ly chín đuôi tu luyện ngàn năm hóa thành thiếu nữ...</span>
+          </div>
+          <div class="board">
+            <div class="cell f"><span class="tg">01</span><span class="nu">01</span></div>
+            <div class="cell"><span class="tg">02</span><span class="nu">02</span></div>
+            <div class="cell"><span class="tg">03</span><span class="nu">03</span></div>
+            <div class="cell"><span class="tg">04</span><span class="nu">04</span></div>
+            <div class="cell"><span class="tg">05</span><span class="nu">05</span></div>
+            <div class="cell"><span class="tg">06</span><span class="nu">06</span></div>
+          </div>
+          <div class="wfoot"><span class="big">1:36</span><span style="color:var(--text3)">· 12×8s ·</span><span class="free">FREE</span><span class="go">Viết kịch bản →</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="blk" id="features"><div class="inner">
+    <div class="eyebrow">Tính năng</div>
+    <h2 class="h2">Cả một quy trình làm phim, gói trong một dòng ý tưởng</h2>
+    <p class="sub">Không cần biết dựng phim. Bạn mô tả, phần còn lại để AI AutoCut lo.</p>
+    <div class="feat">
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg></div>
+        <h3>Kịch bản tự động</h3>
+        <p>Gõ ý tưởng, AI chia thành nhiều cảnh có lớp lang và viết prompt riêng cho từng cảnh — bạn xem và sửa thoải mái.</p>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></div>
+        <h3>Giữ mặt nhân vật</h3>
+        <p>Tải ảnh nhân vật một lần, gắn riêng cho dự án. Gương mặt được giữ nguyên xuyên suốt mọi cảnh, không bị "trôi".</p>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div>
+        <h3>Render &amp; ghép tự động</h3>
+        <p>Mỗi cảnh render bằng Veo 3.1, hệ thống tự nối lại thành một video hoàn chỉnh để bạn tải về ngay.</p>
+      </div>
+      <div class="fcard">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z"/></svg></div>
+        <h3>Lồng tiếng Việt &amp; miễn phí để bắt đầu</h3>
+        <p>Tự lồng tiếng Việt cho từng cảnh. Dùng model Veo 3.1 Lite miễn phí; nâng gói khi cần chất lượng cao hơn hay làm hàng loạt.</p>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="blk" id="how"><div class="inner">
+    <div class="eyebrow">Cách hoạt động</div>
+    <h2 class="h2">Ba bước, từ ý tưởng tới video</h2>
+    <p class="sub">Trung bình vài phút cho một video nhiều cảnh hoàn chỉnh.</p>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><h3>Nhập ý tưởng</h3><p>Mô tả nội dung, chọn số cảnh, thời lượng và phong cách. Chọn nhân vật cần giữ mặt nếu có.</p></div>
+      <div class="step"><span class="n">02</span><h3>AI viết kịch bản</h3><p>AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.</p></div>
+      <div class="step"><span class="n">03</span><h3>Render &amp; ghép</h3><p>Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
+    </div>
+  </div></section>
+
+  <section class="blk" id="pricing"><div class="inner">
+    <div class="eyebrow">Bảng giá</div>
+    <h2 class="h2">Bắt đầu miễn phí, nâng gói khi cần</h2>
+    <p class="sub">Hủy bất cứ lúc nào. Mọi gói đều dùng được toàn bộ tính năng làm phim.</p>
+    <div class="price">
+      <div class="pcard">
+        <div class="name">Basic</div>
+        <div class="amt">99k<small>/tháng</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Tạo dự án không giới hạn</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Model Veo 3.1 Lite</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Giữ mặt &amp; tự ghép</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn Basic</a>
+      </div>
+      <div class="pcard hot">
+        <span class="tag">Phổ biến</span>
+        <div class="name">Pro</div>
+        <div class="amt">199k<small>/tháng</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Mọi thứ ở Basic</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Model Fast &amp; Quality</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Render hàng loạt</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Ưu tiên hàng đợi</li>
+        </ul>
+        <a class="btn btn-grad" href="https://app.aiautocut.com/register">Chọn Pro</a>
+      </div>
+      <div class="pcard">
+        <div class="name">Pro năm</div>
+        <div class="amt">1.990k<small>/năm</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Mọi thứ ở Pro</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Tiết kiệm ~17%</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Thanh toán 1 lần/năm</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn Pro năm</a>
+      </div>
+    </div>
+
+    <div class="band">
+      <h2>Sẵn sàng làm bộ phim AI đầu tiên?</h2>
+      <p>Đăng ký miễn phí, có ngay video nhiều cảnh trong vài phút.</p>
+      <a class="btn btn-grad btn-lg" href="https://app.aiautocut.com/register"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg> Bắt đầu miễn phí</a>
+    </div>
+  </div></section>
+
+  <footer><div class="inner"><div class="frow">
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span> AI AutoCut</div>
+    <span>© 2026 AI AutoCut</span>
+    <div class="fl"><a href="#features">Tính năng</a><a href="#pricing">Bảng giá</a><a href="https://app.aiautocut.com/login">Đăng nhập</a></div>
+  </div></div></footer>
+</div>
+</body>
+</html>

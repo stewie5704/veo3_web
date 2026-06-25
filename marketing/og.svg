@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F97316"/>
+      <stop offset=".56" stop-color="#EC4899"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <radialGradient id="a1" cx="14%" cy="0%" r="55%">
+      <stop offset="0" stop-color="#F97316" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#F97316" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="a2" cx="92%" cy="10%" r="55%">
+      <stop offset="0" stop-color="#EC4899" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#EC4899" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="a3" cx="72%" cy="105%" r="60%">
+      <stop offset="0" stop-color="#A855F7" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#A855F7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0B0911"/>
+  <rect width="1200" height="630" fill="url(#a1)"/>
+  <rect width="1200" height="630" fill="url(#a2)"/>
+  <rect width="1200" height="630" fill="url(#a3)"/>
+
+  <!-- logo tile -->
+  <rect x="96" y="150" width="92" height="92" rx="24" fill="url(#g)"/>
+  <g transform="translate(118,172)" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="9" r="3.6"/><circle cx="9" cy="39" r="3.6"/>
+    <line x1="12.4" y1="11.4" x2="42" y2="39"/><line x1="12.4" y1="36.6" x2="42" y2="9"/>
+  </g>
+  <text x="212" y="214" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="46" font-weight="800" fill="#F4F1FA" letter-spacing="-1">AI AutoCut</text>
+
+  <!-- headline -->
+  <text x="96" y="346" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="68" font-weight="800" fill="#F4F1FA" letter-spacing="-2">Một dòng ý tưởng,</text>
+  <text x="96" y="430" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="68" font-weight="800" fill="url(#g)" letter-spacing="-2">thành phim AI nhiều cảnh.</text>
+
+  <!-- subline -->
+  <text x="98" y="496" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="30" font-weight="500" fill="rgba(228,221,246,0.66)">Viết kịch bản · giữ mặt nhân vật · render Veo 3.1 · tự ghép phim</text>
+
+  <!-- chips -->
+  <g font-family="ui-monospace,Menlo,monospace" font-size="22" font-weight="600">
+    <rect x="96" y="536" width="190" height="46" rx="11" fill="none" stroke="rgba(255,255,255,0.14)"/>
+    <text x="118" y="566" fill="#FDBA74">Veo 3.1</text>
+    <rect x="300" y="536" width="240" height="46" rx="11" fill="none" stroke="rgba(255,255,255,0.14)"/>
+    <text x="322" y="566" fill="#34D399">Tiếng Việt</text>
+    <rect x="554" y="536" width="270" height="46" rx="11" fill="none" stroke="rgba(255,255,255,0.14)"/>
+    <text x="576" y="566" fill="rgba(228,221,246,0.66)">aiautocut.com</text>
+  </g>
+</svg>
