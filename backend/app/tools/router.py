@@ -722,6 +722,68 @@ async def gen_image(
 
 # ── Copy Idea (analyze video URL) ─────────────────────────────────────────────
 
+def _caption_to_text(raw: str, ext: str | None) -> str:
+    """Bóc text từ file phụ đề (json3 của YouTube / vtt / srv) -> bỏ timestamp, tag, dòng trùng liên tiếp."""
+    import re as _re
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    # json3 (YouTube auto-caption): {"events":[{"segs":[{"utf8":"..."}]}]}
+    if (ext == "json3") or raw.startswith("{"):
+        try:
+            d = json.loads(raw)
+            parts = [s.get("utf8", "") for ev in d.get("events", []) for s in (ev.get("segs") or [])]
+            txt = "".join(p for p in parts if p and p != "\n")
+            if txt.strip():
+                return _re.sub(r"\s+", " ", txt).strip()
+        except Exception:
+            pass
+    # vtt / srv / ttml: bỏ tag + dòng timestamp/header, gộp dòng trùng liên tiếp
+    raw = _re.sub(r"<[^>]+>", "", raw)
+    out, prev = [], None
+    for ln in raw.splitlines():
+        ln = ln.strip()
+        if (not ln or "-->" in ln or ln == "WEBVTT" or ln.isdigit()
+                or ln.startswith(("Kind:", "Language:", "NOTE", "X-TIMESTAMP"))):
+            continue
+        if ln != prev:
+            out.append(ln)
+            prev = ln
+    return _re.sub(r"\s+", " ", " ".join(out)).strip()
+
+
+async def _fetch_transcript(info: dict) -> str:
+    """Lấy lời thoại thật của video từ phụ đề (manual ưu tiên hơn auto), ưu tiên vi rồi en, format json3/vtt."""
+    import httpx
+
+    def pick(caps: dict):
+        if not isinstance(caps, dict):
+            return None, None
+        ordered = sorted(caps.keys(), key=lambda c: (0 if c.startswith("vi") else 1 if c.startswith("en") else 2))
+        for code in ordered:
+            tracks = caps.get(code) or []
+            for fmt in ("json3", "vtt", "srv1", "srv3", "ttml"):
+                for t in tracks:
+                    if t.get("ext") == fmt and t.get("url"):
+                        return t["url"], fmt
+            for t in tracks:
+                if t.get("url"):
+                    return t["url"], t.get("ext")
+        return None, None
+
+    url, ext = pick(info.get("subtitles") or {})
+    if not url:
+        url, ext = pick(info.get("automatic_captions") or {})
+    if not url:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as c:
+            r = await c.get(url)
+        return _caption_to_text(r.text, ext)[:4500] if r.status_code == 200 else ""
+    except Exception:
+        return ""
+
+
 class CopyIdeaRequest(BaseModel):
     url: str
     style: str | None = None
@@ -761,17 +823,22 @@ async def copy_idea(
     except Exception as e:
         raise HTTPException(400, f"Lỗi yt-dlp: {e}")
 
-    style_note = f"Visual style: {body.style}. " if body.style else ""
-    system = f"""Analyze this video and create {body.scene_count} scene prompts to recreate a similar video.
-{style_note}
+    # Lời thoại THẬT của video (phụ đề/auto-caption) -> kịch bản sát nội dung gốc hơn nhiều.
+    transcript = await _fetch_transcript(info)
+    log.info("copy-idea: title=%r transcript=%d ký tự", title[:60], len(transcript))
+
+    style_note = f"Visual style to apply: {body.style}. " if body.style else ""
+    transcript_block = (f"\nActual spoken content / transcript (base the storyline on THIS):\n{transcript}\n"
+                        if transcript else "\n(No transcript available — infer from title/description.)\n")
+    system = f"""You recreate a short video as a {body.scene_count}-scene storyboard. {style_note}
+Study the source video below and write {body.scene_count} scenes that follow its STORYLINE, structure and message.
 Video title: {title}
 Description: {description}
-Tags: {tags}
-
+Tags: {tags}{transcript_block}
 Return JSON with:
-- "title": short project name
-- "prompts": list of {body.scene_count} English video prompts for Veo AI
-- "narrations": list of {body.scene_count} Vietnamese narrations
+- "title": short Vietnamese project name
+- "prompts": list of {body.scene_count} detailed English video prompts for Veo AI (one per scene, cinematic, self-contained)
+- "narrations": list of {body.scene_count} Vietnamese narration/lời thoại lines (one per scene), matching the source video's message
 
 Return ONLY valid JSON."""
 

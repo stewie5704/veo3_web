@@ -680,7 +680,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <span style={{ fontSize: 28 }}>🔍</span>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Chép ý tưởng</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Paste URL video YouTube/TikTok → AI phân tích phong cách, kịch bản → tạo lại phiên bản của bạn</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Dán link YouTube/TikTok → AI đọc <strong>lời thoại + mô tả</strong> của video rồi viết lại kịch bản bám nội dung gốc. Video có phụ đề thì càng sát.</div>
             </div>
           </div>
           <div className="form-group">
