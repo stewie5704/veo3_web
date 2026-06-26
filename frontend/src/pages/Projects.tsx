@@ -181,6 +181,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
         audio_mode: audioMode, voiceover, voice, voices: baseVoices,
+        character_bible: bibleChars,   // -> backend sinh chân dung AI giữ mặt mọi cảnh
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()

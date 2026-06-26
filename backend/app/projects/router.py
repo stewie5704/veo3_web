@@ -5,6 +5,8 @@ Supports: Auto Render, Manual prompt-only, Batch, Chain, I2V, Character pick, Im
 import json
 import shutil
 import uuid
+import asyncio
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,18 +15,76 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, delete
 from pydantic import BaseModel
 
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
 from app.auth.router import get_current_user
 from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
 from app.characters.models import Character
-from app.pipeline.runner import dispatch_scene
+from app.pipeline.runner import dispatch_scene, generate_images_flow
 from app.config import UPLOAD_PATH
+from app.crypto import dec
 from app import subscription
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+log = logging.getLogger("veo3.projects")
 
 CHAR_PATH = UPLOAD_PATH.parent / "images" / "chars"
+
+
+def build_portrait_prompt(c: dict) -> str:
+    """Prompt sinh CHÂN DUNG AI chuẩn cho 1 nhân vật (từ bible) — neutral, để dùng làm reference giữ mặt."""
+    g = lambda k: str(c.get(k, "") or "").strip()
+    bits = [x for x in (
+        g("anchor"), g("age"), g("gender_presentation"), g("face"), g("eyes"),
+        (f"{g('hair')} hair" if g("hair") else ""), (f"{g('skin_tone')} skin" if g("skin_tone") else ""),
+        g("build") or g("body_metrics")) if x]
+    wear = ", ".join(x for x in (g("wardrobe_top"), g("wardrobe_bottom"), g("footwear"),
+                                 g("headwear"), g("accessories")) if x)
+    if wear:
+        bits.append("wearing " + wear)
+    if g("distinguishing_marks"):
+        bits.append("distinguishing marks: " + g("distinguishing_marks"))
+    desc = ", ".join(bits)
+    return ("Character reference portrait, single subject, front-facing, head and shoulders, neutral "
+            "studio lighting, plain light-grey background. " + (desc + ". " if desc else "") +
+            "Clean sharp high-detail illustrated 3D-rendered character (not a real photo), consistent "
+            "wardrobe. No text, no watermark, no logo.")
+
+
+async def _prep_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
+    """2b: sinh chân dung AI cho từng nhân vật trong bible -> lưu thành Character (project) -> rồi dispatch
+    cảnh (run_scene_job tự đính các ảnh này làm reference MỌI cảnh => giữ mặt + đồng bộ). Lỗi/không có
+    extension/đã có nhân vật upload sẵn -> bỏ qua sinh ảnh, vẫn dispatch (fallback text-only)."""
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, user_id)
+            cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
+            gproj = (user.google_project_id if user else "") or ""
+            res = await db.execute(select(Character).where(Character.project_id == project_db_id))
+            already = res.scalars().first() is not None
+        if cookies and gproj and not already:
+            async def _one(ch: dict):
+                name = str(ch.get("name") or "").strip()
+                if not name:
+                    return
+                try:
+                    files = await generate_images_flow(
+                        user_id=user_id, cookies=cookies, project_id=gproj,
+                        prompt=build_portrait_prompt(ch), count=1, aspect_ratio="1:1",
+                        out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
+                    if files:
+                        async with AsyncSessionLocal() as db:
+                            db.add(Character(user_id=user_id, name=name, image_file=files[0],
+                                             project_id=project_db_id))
+                            await db.commit()
+                        log.info("portrait ok: %s -> %s", name, files[0])
+                except Exception as e:
+                    log.warning("portrait gen failed for %s: %s", name, e)
+            await asyncio.gather(*[_one(c) for c in (bible or [])[:4] if isinstance(c, dict)])
+    except Exception as e:
+        log.warning("prep portraits failed (project %s): %s", project_db_id, e)
+    for sid in scene_ids:
+        dispatch_scene(sid, user_id)
 
 
 async def _clone_chars_into_project(db: AsyncSession, user_id: str, char_ids: list[str], project_id: str) -> list[Character]:
@@ -73,6 +133,7 @@ class CreateProjectRequest(BaseModel):
     voiceover: bool = False         # legacy
     voice: str = "Kore"             # giọng mặc định (fallback)
     voices: list[str] = []          # giọng RIÊNG theo từng cảnh (song song prompts; "" = dùng mặc định)
+    character_bible: list[dict] = [] # hồ sơ nhân vật (từ autoprompt) -> sinh chân dung AI giữ mặt mọi cảnh
 
 
 class UpdateSceneRequest(BaseModel):
@@ -214,12 +275,15 @@ async def create_project(
     await db.refresh(proj)
 
     if body.auto_render:
-        # Bắn tất cả cảnh thành task song song thật; semaphore per-user (SCENE_CONCURRENCY)
-        # giới hạn số cảnh render cùng lúc. Chain mode: cảnh sau tự chờ cảnh trước bên trong
-        # run_scene_job (không chiếm slot khi đang chờ).
-        for s in scenes:
-            await db.refresh(s)
-            dispatch_scene(s.id, user.id)
+        scene_ids = [s.id for s in scenes]
+        # 2b: nếu có bible nhân vật + chưa upload ảnh sẵn -> sinh chân dung AI trước rồi mới dispatch
+        # (ảnh neo danh tính cho MỌI cảnh => giữ mặt + đồng bộ). Chạy nền, không chặn response.
+        if body.character_bible and not body.character_ids:
+            asyncio.create_task(_prep_portraits_and_dispatch(proj.id, user.id, body.character_bible, scene_ids))
+        else:
+            # Có ảnh upload sẵn (character_ids) hoặc không có bible -> dispatch ngay.
+            for sid in scene_ids:
+                dispatch_scene(sid, user.id)
 
     return ProjectDetailResponse(
         **proj_to_resp(proj).__dict__,
