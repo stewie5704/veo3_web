@@ -339,7 +339,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       </div>
 
       {/* Scenes list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {project.scenes.map((scene: any) => (
           <div key={scene.id} className="card" style={{
             borderLeft: `3px solid ${

@@ -86,9 +86,10 @@ export default function MyVideos() {
         </div>
       ) : (projList.length === 0 && vidList.length === 0) ? (
         <div className="empty-state">
-          <Play size={40} strokeWidth={1.5} style={{ opacity: 0.25, marginBottom: 12 }} />
-          <h3>Chưa có gì trong thư viện</h3>
-          <p>Tạo dự án ở mục "Dự án" để bắt đầu</p>
+          <div className="ico"><FolderOpen size={26} color="var(--accent2)" strokeWidth={1.8} /></div>
+          <h3>Thư viện trống</h3>
+          <p>Chưa có video nào. Tạo một dự án phim AI nhiều cảnh, hoặc dựng nhanh 1 clip ở mục Công cụ.</p>
+          <button className="btn btn-primary" onClick={() => nav('/projects')}>+ Tạo dự án mới</button>
         </div>
       ) : (
         <>
@@ -98,7 +99,7 @@ export default function MyVideos() {
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
                 <FolderOpen size={15} color="var(--accent2)" /> Dự án
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 32 }}>
+              <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 32 }}>
                 {projList.map(p => {
                   const scenes = p.scenes || []
                   const preview = scenes.find((s: any) => s.video_file)
@@ -152,7 +153,7 @@ export default function MyVideos() {
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
                 🎬 Video lẻ
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+              <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
                 {vidList.map(v => {
                   const files = typeof v.output_files === 'string' ? JSON.parse(v.output_files || '[]') : (v.output_files || [])
                   const firstFile = files[0]
