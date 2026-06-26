@@ -20,6 +20,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [editingScene, setEditingScene] = useState<string | null>(null)
   const [editPrompt, setEditPrompt] = useState('')
   const [addPartOpen, setAddPartOpen] = useState(false)   // mở panel thêm kịch bản/phần mới
+  const [editPart, setEditPart] = useState<number | null>(null)   // đang sửa kịch bản phần nào
+  const [partDraft, setPartDraft] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())   // scene id -> đang bung prompt
   const toggleExpand = (sid: string) => setExpanded(s => {
     const n = new Set(s); n.has(sid) ? n.delete(sid) : n.add(sid); return n
@@ -112,6 +114,18 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     setEditingScene(null)
     pushLog(`Đã lưu prompt scene`)
     load(true)
+  }
+
+  async function savePartScript(part: number) {
+    if (!id) return
+    try {
+      await projectsApi.updatePartScript(id, part, partDraft)
+      setEditPart(null)
+      notify('Đã lưu kịch bản')
+      load(true)
+    } catch {
+      notify('Lưu kịch bản thất bại', 'error')
+    }
   }
 
   async function rerenderScene(sceneId: string) {
@@ -371,21 +385,42 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             const script = isPartStart ? partScript(partNum) : ''
             return (
             <Fragment key={scene.id}>
-              {isPartStart && (multiPart || script) && (
+              {isPartStart && (
                 <div style={{ marginTop: i === 0 ? 0 : 12 }}>
                   {multiPart && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: script ? 10 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent2)', whiteSpace: 'nowrap' }}>📖 Phần {partNum}</span>
                       <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
                     </div>
                   )}
-                  {script && (
+                  {editPart === partNum ? (
+                    <div style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
+                      </div>
+                      <textarea className="form-textarea" rows={6} value={partDraft} onChange={e => setPartDraft(e.target.value)}
+                        placeholder="Dán / nhập kịch bản của phần này..." style={{ fontSize: 12.5, marginBottom: 8 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => savePartScript(partNum)}><Save size={13} /> Lưu</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditPart(null)}>Hủy</button>
+                      </div>
+                    </div>
+                  ) : script ? (
                     <details open style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
                       <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 7, listStyle: 'none' }}>
                         <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
+                        <button onClick={e => { e.preventDefault(); setEditPart(partNum); setPartDraft(script) }}
+                          title="Sửa kịch bản" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                          <Pencil size={13} />
+                        </button>
                       </summary>
                       <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text2)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto' }}>{script}</div>
                     </details>
+                  ) : (
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setEditPart(partNum); setPartDraft('') }}
+                      style={{ borderStyle: 'dashed' }}>
+                      <ScrollText size={13} /> + Thêm kịch bản cho phần này
+                    </button>
                   )}
                 </div>
               )}

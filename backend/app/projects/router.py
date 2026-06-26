@@ -429,6 +429,40 @@ class RenameProjectRequest(BaseModel):
     name: str
 
 
+class PartScriptRequest(BaseModel):
+    part: int = 1
+    idea: str = ""
+
+
+@router.patch("/{project_id}/part-script", response_model=ProjectResponse)
+async def update_part_script(
+    project_id: str,
+    body: PartScriptRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sửa/thêm kịch bản hiển thị cho 1 phần (Phần 1 = idea; Phần >=2 = part_scripts[part])."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    text = (body.idea or "").strip()
+    if body.part <= 1:
+        proj.idea = text
+    else:
+        try:
+            ps = json.loads(proj.part_scripts or "{}")
+        except (ValueError, TypeError):
+            ps = {}
+        if text:
+            ps[str(body.part)] = text
+        else:
+            ps.pop(str(body.part), None)
+        proj.part_scripts = json.dumps(ps, ensure_ascii=False)
+    await db.commit()
+    await db.refresh(proj)
+    return proj_to_resp(proj)
+
+
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def rename_project(
     project_id: str,
