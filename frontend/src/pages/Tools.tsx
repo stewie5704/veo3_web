@@ -22,11 +22,11 @@ const TABS = [
 
 // Model gen video (t2v key — runner tự đổi sang i2v/r2v khi render)
 const GEN_MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Miễn phí (chậm, ~5-15 phút)' },
-  { key: 'veo_3_1_t2v_lite', label: 'Tiêu chuẩn — 5💎' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Nhanh — 10💎' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Nét nhất — 100💎' },
-  { key: 'abra_t2v_10s', label: 'Omni 10 giây — 15💎' },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE' },
+  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite — 5💎' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast — 10💎' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎' },
+  { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
 
 export default function Tools({ user }: { user: any }) {
@@ -189,7 +189,7 @@ export default function Tools({ user }: { user: any }) {
 
   const genSettings = (
     <div className="form-row">
-      <div className="form-group"><label className="form-label">Model</label>
+      <div className="form-group"><label className="form-label">Chất lượng video</label>
         <select className="form-select" value={genModel} onChange={e => setGenModel(e.target.value)}>
           {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select></div>

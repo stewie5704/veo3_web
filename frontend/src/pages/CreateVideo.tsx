@@ -3,11 +3,11 @@ import { videosApi } from '../api/client'
 import VideoCard from '../components/VideoCard'
 
 const MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 — Miễn phí (chậm, ~5-15 phút)' },
-  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 — Nhanh vừa' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 — Nhanh' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 — Nét nhất' },
-  { key: 'abra_t2v_10s', label: 'Omni 10 giây' },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE' },
+  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite — 5💎' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast — 10💎' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎' },
+  { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
 
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']

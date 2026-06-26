@@ -5,11 +5,11 @@ import { pushLog } from './Dashboard'
 import { Loader2, Link2 } from 'lucide-react'
 
 const MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Miễn phí (chậm, ~5-15 phút)', cost: 0 },
-  { key: 'veo_3_1_t2v_lite', label: 'Nhanh hơn — 5💎', cost: 5 },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Nhanh — 10💎', cost: 10 },
-  { key: 'veo_3_1_t2v_portrait', label: 'Nét nhất (đẹp nhất, chậm) — 100💎', cost: 100 },
-  { key: 'abra_t2v_10s', label: 'Omni 10 giây — 15💎', cost: 15 },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE', cost: 0 },
+  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite — 5💎', cost: 5 },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast — 10💎', cost: 10 },
+  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎', cost: 100 },
+  { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎', cost: 15 },
 ]
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
 const DURATIONS = [4, 6, 8, 10]
