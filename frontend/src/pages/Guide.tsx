@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BookOpen, Puzzle, Plug, Clapperboard, Wrench, Ratio, LifeBuoy, Download,
   Film, Layers, Image, Volume2, Scissors, Users, Sparkles, Check, AlertCircle,
@@ -67,7 +67,16 @@ const TOOLS = [
 
 export default function Guide() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sParam = searchParams.get('s')
   const [go] = useState(() => (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+
+  // Sidebar sub-item click → scroll to section
+  useEffect(() => {
+    if (!sParam) return
+    const el = document.getElementById(sParam)
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+  }, [sParam])
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
