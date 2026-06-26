@@ -28,8 +28,8 @@ export default function MyVideos() {
     setLoading(false)
   }
   async function retryVideo(id: string) {
-    try { await videosApi.retry(id); toast('Đang render lại...', 'success'); load() }
-    catch (e: any) { toast(e?.response?.data?.detail || 'Render lại thất bại', 'error') }
+    try { await videosApi.retry(id); toast('Đang tạo lại...', 'success'); load() }
+    catch (e: any) { toast(e?.response?.data?.detail || 'Tạo lại thất bại', 'error') }
   }
   useEffect(() => { load() }, [])
   useEffect(() => { extensionApi.status().then(s => setExtOk(!!s.connected)).catch(() => setExtOk(null)) }, [])
@@ -72,7 +72,7 @@ export default function MyVideos() {
 
       {extOk === false && (
         <div className="alert alert-warn" style={{ marginBottom: 18 }}>
-          <AlertCircle size={15} /> Extension chưa kết nối — render sẽ lỗi. Mở extension và <strong>đăng nhập lại</strong>, rồi mở 1 tab Flow.
+          <AlertCircle size={15} /> Tiện ích trên Chrome chưa kết nối — chưa tạo video được. Mở tiện ích và <strong>đăng nhập lại</strong>, rồi mở 1 tab Google Flow (labs.google).
         </div>
       )}
 
@@ -101,6 +101,9 @@ export default function MyVideos() {
           <div className="ico"><FolderOpen size={26} color="var(--accent2)" strokeWidth={1.8} /></div>
           <h3>Thư viện trống</h3>
           <p>Chưa có video nào. Tạo một dự án phim AI nhiều cảnh, hoặc dựng nhanh 1 clip ở mục Công cụ.</p>
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: -4 }}>
+            Nhớ kết nối Google Ultra trước khi tạo (xem <a href="/settings" onClick={(e) => { e.preventDefault(); nav('/settings') }} style={{ color: 'var(--accent2)' }}>Cài đặt</a>).
+          </p>
           <button className="btn btn-primary" onClick={() => nav('/projects')}>+ Tạo dự án mới</button>
         </div>
       ) : (
@@ -177,7 +180,7 @@ export default function MyVideos() {
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            {v.status === 'processing' && <><Loader2 size={22} className="spin" color="var(--accent2)" /><span style={{ fontSize: 11, color: 'var(--text3)' }}>Đang render...</span></>}
+                            {v.status === 'processing' && <><Loader2 size={22} className="spin" color="var(--accent2)" /><span style={{ fontSize: 11, color: 'var(--text3)' }}>Đang tạo...</span></>}
                             {v.status === 'pending' && <span style={{ fontSize: 28 }}>⏳</span>}
                             {v.status === 'failed' && <><span style={{ fontSize: 26 }}>❌</span><span style={{ fontSize: 11, color: 'var(--red)', textAlign: 'center', padding: '0 8px' }}>{v.error_msg?.slice(0, 60)}</span></>}
                           </div>
@@ -193,7 +196,7 @@ export default function MyVideos() {
                           )}
                           {v.status === 'failed' && (
                             <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => retryVideo(v.id)}>
-                              <RefreshCw size={12} /> Render lại
+                              <RefreshCw size={12} /> Tạo lại
                             </button>
                           )}
                           <button className="btn btn-danger btn-sm btn-icon" onClick={async () => { await videosApi.delete(v.id); setVideos(vs => vs.filter(x => x.id !== v.id)) }}>

@@ -36,7 +36,7 @@
   --border2:rgba(249,115,22,0.25);
   --text:#f5f0eb;
   --text2:rgba(220,200,185,0.6);
-  --text3:rgba(200,180,165,0.3);
+  --text3:rgba(225,210,196,0.78);
 
   /* ── Status colors ── */
   --green:#4ade80;
@@ -189,8 +189,8 @@ body::after{
 /* ── Forms ── */
 .form-group{margin-bottom:16px}
 .form-label{
-  display:block;font-size:10px;color:var(--text3);margin-bottom:6px;
-  font-weight:600;letter-spacing:0.8px;text-transform:uppercase;
+  display:block;font-size:12px;color:var(--text3);margin-bottom:6px;
+  font-weight:600;letter-spacing:0.8px;
 }
 .form-input,.form-select,.form-textarea{
   width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);
@@ -371,7 +371,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .cmp-steps .arr{opacity:.4}
 .cmp-body{padding:24px 26px}
 .cmp-titlerow{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.cmp-tlabel{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.cmp-tlabel{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.1em;white-space:nowrap}
 .cmp-titlein{flex:1;background:transparent;border:0;border-bottom:1px solid var(--border);color:#fff;font-size:19px;font-weight:700;letter-spacing:-.3px;padding:6px 2px;outline:none;font-family:inherit}
 .cmp-titlein:focus{border-color:var(--pink)}
 .cmp-herowrap{position:relative;margin-bottom:22px}
@@ -382,7 +382,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .cmp-hero::placeholder{color:var(--text3)}
 .cmp-settings{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;margin-bottom:22px}
 .cmp-ctrl{min-width:0}
-.cmp-label{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:.1em}
+.cmp-label{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--text3);margin-bottom:9px;letter-spacing:.1em}
 .cmp-label .rv{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--text2);letter-spacing:0}
 .stepper{display:flex;align-items:stretch;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--inset);box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
 .stepper button{width:42px;border:0;background:transparent;color:var(--text2);font-size:17px;cursor:pointer;font-family:inherit;display:grid;place-items:center}
@@ -401,7 +401,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .cmp-sel:focus{border-color:var(--pink)}
 .cmp-sel option{background:#1b1630}
 .cmp-chiprow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.cmp-clab{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.cmp-clab{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.1em}
 .cmp-chip{display:flex;align-items:center;gap:8px;padding:4px 13px 4px 4px;border-radius:99px;border:1px solid var(--border);background:var(--inset);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s}
 .cmp-chip img{width:24px;height:24px;border-radius:50%;object-fit:cover}
 .cmp-chip.on{border-color:transparent;background:rgba(236,72,153,.14);color:#fff;box-shadow:inset 0 0 0 1px rgba(236,72,153,.5)}
@@ -422,3 +422,8 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .cmp-tabs{display:inline-flex;gap:4px;background:var(--inset);border:1px solid var(--border);border-radius:99px;padding:4px}
 .cmp-tabs button{border:0;background:transparent;color:var(--text2);font-size:13px;font-weight:650;padding:8px 17px;border-radius:99px;cursor:pointer;font-family:inherit}
 .cmp-tabs button.on{background:var(--grad);color:#fff;box-shadow:0 5px 16px -4px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.2)}
+
+/* ── Chống Safari iOS tự phóng to khi gõ vào ô nhập (cần font-size >=16px) ── */
+@media (max-width:600px){
+  input,textarea,select,.form-input,.form-textarea{font-size:16px}
+}

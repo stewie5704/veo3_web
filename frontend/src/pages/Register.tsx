@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Scissors } from 'lucide-react'
 import { authApi } from '../api/client'
 
 export default function Register() {
@@ -37,8 +38,16 @@ export default function Register() {
 
       <div className="auth-card" style={{ position: 'relative', zIndex: 1 }}>
         <div className="auth-logo">
-          <h1>VEO3 Web</h1>
-          <p>Tạo tài khoản để bắt đầu</p>
+          <div style={{
+            width: 48, height: 48, borderRadius: 12, margin: '0 auto 12px',
+            background: 'var(--grad)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 6px 18px -4px rgba(236,72,153,0.5)',
+          }}>
+            <Scissors size={24} color="#fff" strokeWidth={2.2} />
+          </div>
+          <h1>AI AutoCut</h1>
+          <p>Tạo phim AI bằng Veo 3.1</p>
         </div>
 
         {error && <div className="alert alert-error"><span>⚠️</span> {error}</div>}

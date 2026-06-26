@@ -41,9 +41,9 @@ const TOOL_SUB = [
   { t: 'i2v', label: 'Ảnh → Video', icon: Film },
   { t: 'r2v', label: 'Giữ mặt → Video', icon: Layers },
   { t: 'image', label: 'Tạo ảnh', icon: Image },
-  { t: 'tts', label: 'TTS Audio', icon: Volume2 },
+  { t: 'tts', label: 'Đọc thành giọng nói', icon: Volume2 },
   { t: 'cut', label: 'Cắt video', icon: Scissors },
-  { t: 'download', label: 'Tải video', icon: Download },
+  { t: 'download', label: 'Tải video từ đường link', icon: Download },
   { t: 'chars', label: 'Nhân vật', icon: Users },
 ]
 
@@ -239,12 +239,13 @@ export default function Dashboard() {
         {/* Bottom: credits + user */}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           {credits !== null && (
-            <div title={`${credits} credits`} style={{
-              width: 34, height: 34, borderRadius: 8,
+            <div title={`Số Gem còn lại: ${credits}`} style={{
+              minWidth: 34, height: 34, borderRadius: 8, padding: '0 9px',
               background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             }}>
               <Gem size={14} color="#fb923c" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fb923c', whiteSpace: 'nowrap' }}>{credits}</span>
             </div>
           )}
           {/* Worker status */}
@@ -313,9 +314,14 @@ export default function Dashboard() {
             {/* Connection status inline */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: extConnected ? 'var(--green)' : 'rgba(248,113,113,0.6)', flexShrink: 0 }} />
-              <span style={{ color: extConnected ? 'var(--green)' : 'rgba(248,113,113,0.7)' }}>
-                {extConnected ? 'Ultra kết nối' : 'Chưa kết nối'}
-              </span>
+              {extConnected ? (
+                <span style={{ color: 'var(--green)' }}>Ultra kết nối</span>
+              ) : (
+                <Link to="/settings" title="Bấm để kết nối trong Cài đặt"
+                  style={{ color: 'rgba(248,113,113,0.85)', textDecoration: 'underline', cursor: 'pointer' }}>
+                  Chưa kết nối — bấm để xử lý
+                </Link>
+              )}
             </div>
           </div>
 

@@ -3,11 +3,11 @@ import { videosApi } from '../api/client'
 import VideoCard from '../components/VideoCard'
 
 const MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Ưu tiên thấp) — FREE' },
-  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality' },
-  { key: 'abra_t2v_10s', label: 'Omni Flash (10s)' },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 — Miễn phí (chậm, ~5-15 phút)' },
+  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 — Nhanh vừa' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 — Nhanh' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 — Nét nhất' },
+  { key: 'abra_t2v_10s', label: 'Omni 10 giây' },
 ]
 
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
@@ -67,22 +67,24 @@ export default function CreateVideo({ user }: { user: any }) {
     }
   }
 
-  const notReady = user && !user.google_connected && !user.has_gemini_key
+  // Phải kết nối Google Ultra mới tạo được video. Chỉ có Gemini key thì KHÔNG đủ.
+  const notReady = !!user && !user.google_connected
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
       <div className="page-header" style={{ marginBottom: 18 }}>
         <div>
           <div className="page-title">Tạo Video</div>
-          <div className="page-subtitle">Nhập prompt, chọn cấu hình rồi Generate</div>
+          <div className="page-subtitle">Nhập mô tả video, chọn cấu hình rồi tạo video</div>
         </div>
       </div>
 
       {notReady && (
-        <div className="alert alert-info" style={{ marginBottom: 18 }}>
-          ⚠️ Bạn chưa kết nối Google Ultra. Vào{' '}
-          <a href="/settings" style={{ color: 'var(--accent2)' }}>Cài đặt</a>{' '}
-          để cài Extension hoặc nhập Gemini API key.
+        <div className="alert alert-warn" style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <strong>⚠️ Chưa kết nối Google Ultra.</strong> Bạn cần kết nối Google Ultra mới tạo được video — chỉ nhập Gemini API key thì <strong>chưa đủ</strong>.
+          </div>
+          <a href="/settings" className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap', textDecoration: 'none' }}>Kết nối ngay</a>
         </div>
       )}
 
@@ -92,12 +94,12 @@ export default function CreateVideo({ user }: { user: any }) {
           <div className="cmp-herowrap">
             <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
             <textarea className="cmp-hero" style={{ minHeight: 120 }} value={prompt} onChange={e => setPrompt(e.target.value)}
-              placeholder="Mô tả video bạn muốn tạo... VD: A cinematic shot of a mountain landscape at golden hour, dramatic clouds rolling in..." />
+              placeholder="Mô tả video bạn muốn tạo... VD: Cảnh quay điện ảnh một dãy núi lúc hoàng hôn, mây cuộn kịch tính..." />
           </div>
 
           <div className="cmp-settings">
             <div className="cmp-ctrl">
-              <div className="cmp-label">Model</div>
+              <div className="cmp-label">Chất lượng video</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={modelKey} onChange={e => setModelKey(e.target.value)}>
                   {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -132,9 +134,10 @@ export default function CreateVideo({ user }: { user: any }) {
         </div>
 
         <div className="cmp-actionbar">
-          <div style={{ flex: 1 }} />
-          <button className="cmp-cta" onClick={() => handleGenerate()} disabled={loading || !prompt.trim()}>
-            {loading ? <><span className="spinner" /> Đang tạo...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z" /></svg> Generate Video</>}
+          {notReady && <div style={{ flex: 1, fontSize: 12, color: 'var(--text2)' }}>Hãy kết nối Google Ultra trong Cài đặt trước khi tạo video.</div>}
+          {!notReady && <div style={{ flex: 1 }} />}
+          <button className="cmp-cta" onClick={() => handleGenerate()} disabled={loading || !prompt.trim() || notReady}>
+            {loading ? <><span className="spinner" /> Đang tạo...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M13 3 4 14h7l-1 7 9-11h-7z" /></svg> Tạo video</>}
           </button>
         </div>
       </div>

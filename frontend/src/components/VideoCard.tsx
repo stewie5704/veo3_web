@@ -1,3 +1,4 @@
+import { Download, Trash2 } from 'lucide-react'
 import { videosApi } from '../api/client'
 
 interface Props {
@@ -32,11 +33,11 @@ export default function VideoCard({ job, fileIndex, onDelete }: Props) {
             download={`veo3_video_${fileIndex + 1}.mp4`}
             className="btn btn-primary btn-sm"
           >
-            ⬇️ Tải về
+            <Download size={12} /> Tải về
           </a>
           {onDelete && (
             <button className="btn btn-danger btn-sm" onClick={onDelete}>
-              🗑️
+              <Trash2 size={12} />
             </button>
           )}
         </div>

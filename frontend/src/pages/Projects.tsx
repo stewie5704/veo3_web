@@ -5,11 +5,11 @@ import { pushLog } from './Dashboard'
 import { Loader2, Link2 } from 'lucide-react'
 
 const MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite — FREE (chậm, ưu tiên thấp)', cost: 0 },
-  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite (nhanh hơn) — 5💎', cost: 5 },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast (nhanh) — 10💎', cost: 10 },
-  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality (đẹp nhất, chậm) — 100💎', cost: 100 },
-  { key: 'abra_t2v_10s', label: 'Omni Flash 10s — 15💎', cost: 15 },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Miễn phí (chậm, ~5-15 phút)', cost: 0 },
+  { key: 'veo_3_1_t2v_lite', label: 'Nhanh hơn — 5💎', cost: 5 },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Nhanh — 10💎', cost: 10 },
+  { key: 'veo_3_1_t2v_portrait', label: 'Nét nhất (đẹp nhất, chậm) — 100💎', cost: 100 },
+  { key: 'abra_t2v_10s', label: 'Omni 10 giây — 15💎', cost: 15 },
 ]
 const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
 const DURATIONS = [4, 6, 8, 10]
@@ -239,7 +239,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         <div className="cmp-tabs" style={{ marginLeft: 'auto' }}>
           {(['new', 'batch', 'copy'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setError('') }}>
-              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ prompt' : 'Copy Idea'}
+              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ mô tả từng cảnh' : 'Chép ý tưởng'}
             </button>
           ))}
         </div>
@@ -296,7 +296,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Model</div>
+                  <div className="cmp-label">Chất lượng video</div>
                   <div className="selwrap">
                     <select className="cmp-sel" value={model} onChange={e => setModel(e.target.value)}>
                       {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -480,7 +480,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
                   </div>
                   <details style={{ marginTop: 8 }}>
-                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Prompt Veo (English) — sửa nếu cần</summary>
+                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Mô tả cảnh — sửa nếu cần</summary>
                     <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
                   </details>
                 </div>
@@ -491,7 +491,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     <span style={{ fontSize: 10, color: 'var(--text3)' }}>{duration}s</span>
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: narrations[i] !== undefined ? 6 : 0 }} value={p}
-                    placeholder="Prompt hình ảnh (tiếng Anh)"
+                    placeholder="Mô tả cảnh"
                     onChange={e => { const np = [...prompts]; np[i] = e.target.value; setPrompts(np) }} />
                   {narrations[i] !== undefined && (
                     <input className="form-input" style={{ fontSize: 12 }} value={narrations[i]}
@@ -509,7 +509,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
               <div style={{ flex: 1 }} />
               <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
-              <button className="cmp-cta" onClick={() => createNew(true)} disabled={creating || loadingPrompts}>
+              <button className="cmp-cta" onClick={() => {
+                const n = reviewN
+                if (!window.confirm(`Tạo video ${n} cảnh, có thể tốn 💎 Gem. Tiếp tục?`)) return
+                createNew(true)
+              }} disabled={creating || loadingPrompts}>
                 {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
               </button>
             </div>
@@ -527,7 +531,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             </div>
 
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
-              🎬 Mỗi ô = 1 <strong>CẢNH</strong> của video — render xong tự ghép thành 1 phim. Dùng <strong>@Tên</strong> để giữ mặt nhân vật.
+              🎬 Mỗi ô = 1 <strong>CẢNH</strong> của video — tạo xong tự ghép thành 1 phim. Dùng <strong>@Tên</strong> để giữ mặt nhân vật.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {bScenes.map((s, i) => (
@@ -538,7 +542,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     {bScenes.length > 1 && <button onClick={() => delBScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>}
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 8 }}
-                    placeholder="Prompt cảnh này (mô tả hình ảnh + hành động)..." value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
+                    placeholder="Mô tả cảnh này (hình ảnh + hành động)..." value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
                   <input className="form-input" style={{ fontSize: 12.5 }} placeholder="🔊 Lời thoại (tuỳ chọn — để lồng tiếng)" value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
                 </div>
               ))}
@@ -547,7 +551,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
             <div className="cmp-settings">
               <div className="cmp-ctrl">
-                <div className="cmp-label">Model</div>
+                <div className="cmp-label">Chất lượng video</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={bModel} onChange={e => setBModel(e.target.value)}>
                     {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -574,7 +578,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <div className="cmp-label">Tuỳ chọn</div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', height: 38 }}>
                   <input type="checkbox" checked={bChain} onChange={e => setBChain(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  <Link2 size={13} color="var(--accent2)" /> Chain (nối khung hình)
+                  <Link2 size={13} color="var(--accent2)" /> Nối tiếp cảnh trước (cảnh sau bắt đầu từ khung cuối cảnh trước)
                 </label>
               </div>
             </div>
@@ -615,7 +619,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20, padding: '14px', background: 'rgba(249,115,22,0.05)', borderRadius: 10, border: '1px solid rgba(249,115,22,0.15)' }}>
             <span style={{ fontSize: 28 }}>🔍</span>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Copy Idea</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Chép ý tưởng</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Paste URL video YouTube/TikTok → AI phân tích phong cách, kịch bản → tạo lại phiên bản của bạn</div>
             </div>
           </div>
@@ -625,14 +629,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Visual Style (tùy chọn)</label>
+              <label className="form-label">Phong cách hình ảnh (tùy chọn)</label>
               <select className="form-select" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
                 <option value="">(Giữ nguyên style)</option>
                 {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Số scene</label>
+              <label className="form-label">Số cảnh</label>
               <input className="form-input" type="number" min={2} max={20} value={copyCount} onChange={e => setCopyCount(+e.target.value)} />
             </div>
           </div>

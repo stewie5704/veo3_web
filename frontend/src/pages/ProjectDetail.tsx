@@ -110,9 +110,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
 
   async function rerenderScene(sceneId: string) {
     if (!id) return
-    await projectsApi.rerenderScene(id, sceneId)
-    pushLog('🔄 Đang render lại scene...')
-    load(true)
+    try {
+      notify('Đang tạo lại cảnh...')
+      await projectsApi.rerenderScene(id, sceneId)
+      load(true)
+    } catch {
+      notify('Tạo lại cảnh thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+    }
   }
 
   async function doMerge() {
@@ -235,7 +239,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           {project.idea && <div className="page-subtitle">{project.idea}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="badge badge-done">{doneCount}/{totalCount} scenes</span>
+          <span className="badge badge-done">{doneCount}/{totalCount} cảnh</span>
           <div className="progress-bar" style={{ width: 100 }}>
             <div className="progress-fill" style={{ width: `${totalCount ? (doneCount / totalCount) * 100 : 0}%` }} />
           </div>
@@ -277,7 +281,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {[
-            ['🤖 Model', project.model_key.replace(/_/g, ' ')],
+            ['🤖 Chất lượng', project.model_key.replace(/_/g, ' ')],
             ['📐 Tỉ lệ', project.aspect_ratio],
             ['⏱️ Thời lượng', `${project.duration_seconds}s/scene`],
             ['🗣️ Ngôn ngữ', project.language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'],
@@ -370,8 +374,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     gap: 8, color: 'var(--text2)', fontSize: 12,
                   }}>
-                    {scene.status === 'pending' && <><span style={{ fontSize: 28 }}>⏳</span>Chờ render</>}
-                    {scene.status === 'processing' && <><span className="spinner" /><span>Đang render...</span></>}
+                    {scene.status === 'pending' && <><span style={{ fontSize: 28 }}>⏳</span>Chờ tạo</>}
+                    {scene.status === 'processing' && <><span className="spinner" /><span>Đang tạo...</span></>}
                     {scene.status === 'failed' && (
                       <>
                         <span style={{ fontSize: 28 }}>❌</span>
@@ -388,11 +392,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent2)' }}>
-                    Scene {scene.index + 1}
+                    Cảnh {scene.index + 1}
                   </span>
                   <span className={`badge badge-${scene.status}`}>
                     {scene.status === 'pending' && '⏳ Chờ'}
-                    {scene.status === 'processing' && '🔄 Đang render'}
+                    {scene.status === 'processing' && '🔄 Đang tạo'}
                     {scene.status === 'done' && '✅ Xong'}
                     {scene.status === 'failed' && '❌ Lỗi'}
                   </span>
@@ -400,7 +404,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
 
                 {editingScene === scene.id ? (
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Video Prompt (English):</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Mô tả cảnh:</div>
                     <textarea className="form-textarea" rows={3}
                       value={editPrompt}
                       onChange={e => setEditPrompt(e.target.value)}
@@ -442,44 +446,64 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                         <Pencil size={13} /> Sửa
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => rerenderScene(scene.id)}>
-                        <RefreshCw size={13} /> Render lại
+                        <RefreshCw size={13} /> Tạo lại
                       </button>
                       {scene.status === 'pending' && (
                         <button className="btn btn-primary btn-sm" onClick={async () => {
                           if (!id) return
-                          await projectsApi.renderScene(id, scene.id)
-                          pushLog(`Đang render scene ${scene.index + 1}...`)
-                          load(true)
-                        }}><Play size={13} /> Render</button>
+                          try {
+                            notify(`Đang tạo cảnh ${scene.index + 1}...`)
+                            await projectsApi.renderScene(id, scene.id)
+                            load(true)
+                          } catch {
+                            notify('Tạo cảnh thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                          }
+                        }}><Play size={13} /> Tạo video</button>
                       )}
                       {scene.status === 'done' && scene.video_file && (
                         <>
                           <a href={`/uploads/${scene.video_file}`} download={`scene_${scene.index + 1}.mp4`}
                             className="btn btn-primary btn-sm"><Download size={13} /> Tải</a>
                           <button className="btn btn-ghost btn-sm"
-                            onClick={() => navigator.clipboard.writeText(scene.prompt)}><Copy size={13} /> Copy</button>
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(scene.prompt)
+                                notify('Đã sao chép mô tả cảnh')
+                              } catch {
+                                notify('Sao chép thất bại. Thử lại nhé.', 'error')
+                              }
+                            }}><Copy size={13} /> Sao chép mô tả</button>
                         </>
                       )}
-                      {/* Import video thủ công */}
+                      {/* Tải video lên thay thế (thủ công) */}
                       <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
-                        <Upload size={13} /> Import
+                        <Upload size={13} /> Tải video lên thay thế
                         <input type="file" accept="video/*" style={{ display: 'none' }}
                           onChange={async e => {
                             const f = e.target.files?.[0]; if (!f || !id) return
-                            await projectsApi.importVideo(id, scene.id, f)
-                            pushLog(`Import video vào scene ${scene.index + 1}`)
-                            load(true)
+                            try {
+                              notify(`Đang tải video lên cảnh ${scene.index + 1}...`)
+                              await projectsApi.importVideo(id, scene.id, f)
+                              notify(`Đã tải video lên cảnh ${scene.index + 1}`)
+                              load(true)
+                            } catch {
+                              notify('Tải video thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                            }
                           }} />
                       </label>
-                      {/* Set start image for I2V */}
-                      <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }} title="Đặt ảnh gốc cho I2V">
-                        <ImagePlus size={13} /> I2V
+                      {/* Đặt ảnh khung đầu (i2v) */}
+                      <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }} title="Dùng ảnh này làm khung đầu">
+                        <ImagePlus size={13} /> Dùng ảnh này làm khung đầu
                         <input type="file" accept="image/*" style={{ display: 'none' }}
                           onChange={async e => {
                             const f = e.target.files?.[0]; if (!f || !id) return
-                            await projectsApi.setStartImage(id, scene.id, f)
-                            pushLog(`Set start image scene ${scene.index + 1}`)
-                            load(true)
+                            try {
+                              await projectsApi.setStartImage(id, scene.id, f)
+                              notify(`Đã đặt ảnh khung đầu cho cảnh ${scene.index + 1}`)
+                              load(true)
+                            } catch {
+                              notify('Đặt ảnh khung đầu thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                            }
                           }} />
                       </label>
                     </div>

@@ -68,7 +68,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const TABS = [
     { k: 'profile', l: 'Hồ sơ', i: User },
     { k: 'security', l: 'Bảo mật', i: Shield },
-    { k: 'api', l: 'API & Kết nối', i: Wifi },
+    { k: 'api', l: 'Kết nối & API Key', i: Wifi },
   ]
 
   return (
@@ -118,7 +118,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                 <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                   {user?.is_admin && <span className="badge badge-processing">👑 Admin</span>}
                   <span className="badge badge-done">
-                    {user?.videos_generated || 0}/{user?.quota_videos === -1 ? '∞' : user?.quota_videos} videos
+                    {user?.videos_generated || 0}/{user?.quota_videos === -1 ? '∞' : user?.quota_videos} video
                   </span>
                 </div>
               </div>
@@ -130,8 +130,8 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                 value={displayName} onChange={e => setDisplayName(e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label">Username</label>
-              <input className="form-input" placeholder="username"
+              <label className="form-label">Tên đăng nhập</label>
+              <input className="form-input" placeholder="tên đăng nhập"
                 value={username} onChange={e => setUsername(e.target.value)} />
             </div>
             <div className="form-group">
@@ -179,7 +179,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Google Ultra */}
             <div className="card">
-              <div className="card-header"><Wifi size={15} /> Google Ultra (Chrome Extension)</div>
+              <div className="card-header"><Wifi size={15} /> Kết nối Google Ultra</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <div className={`connection-badge ${user?.google_connected ? 'connected' : 'disconnected'}`}>
                   <span className="connection-dot" />
@@ -187,13 +187,13 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                 </div>
               </div>
               <div className="alert alert-info" style={{ fontSize: 12 }}>
-                Cài <strong>Content Script Extension</strong> trên Chrome, đăng nhập Google Labs, sau đó nhấn kết nối trong extension để relay cookies.
+                Cài tiện ích trên trình duyệt Chrome, đăng nhập tài khoản Google, rồi bấm Kết nối trong tiện ích.
               </div>
             </div>
 
             {/* Gemini API */}
             <div className="card">
-              <div className="card-header"><KeyRound size={15} /> Gemini API Key</div>
+              <div className="card-header"><KeyRound size={15} /> Gemini API Key (cho AI viết kịch bản, đọc giọng nói, tạo ảnh)</div>
               {user?.has_gemini_key && (
                 <div className="alert alert-success" style={{ marginBottom: 12, fontSize: 12 }}>
                   ✓ Đã có API key. Nhập key mới để thay thế.
@@ -205,7 +205,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                   value={geminiKey} onChange={e => setGeminiKey(e.target.value)} />
               </div>
               <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 12 }}>
-                Dùng cho Auto-prompt AI, TTS, và Image Gen. Lấy key tại <a href="https://aistudio.google.com/apikey" target="_blank" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
+                Dùng để viết kịch bản, đọc giọng nói và tạo ảnh. Lấy key tại <a href="https://aistudio.google.com/apikey" target="_blank" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
               </div>
               <button className="btn btn-primary" onClick={saveGeminiKey} disabled={keySaving || !geminiKey.trim()}>
                 {keySaving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu API Key</>}

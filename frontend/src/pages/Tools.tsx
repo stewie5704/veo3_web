@@ -14,7 +14,7 @@ const TABS = [
   { key: 'chars' as ToolTab, label: 'Nhân vật', icon: Users },
   { key: 'i2v' as ToolTab, label: 'Ảnh → Video', icon: Film },
   { key: 'r2v' as ToolTab, label: 'Giữ mặt → Video', icon: Layers },
-  { key: 'tts' as ToolTab, label: 'TTS Audio', icon: Volume2 },
+  { key: 'tts' as ToolTab, label: 'Đọc thành giọng nói', icon: Volume2 },
   { key: 'image' as ToolTab, label: 'Tạo ảnh', icon: Image },
   { key: 'cut' as ToolTab, label: 'Cắt video', icon: Scissors },
   { key: 'download' as ToolTab, label: 'Tải video', icon: Download },
@@ -22,11 +22,11 @@ const TABS = [
 
 // Model gen video (t2v key — runner tự đổi sang i2v/r2v khi render)
 const GEN_MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Lite — FREE (chậm)' },
-  { key: 'veo_3_1_t2v_lite', label: 'Lite — 5💎' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Fast — 10💎' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Quality — 100💎' },
-  { key: 'abra_t2v_10s', label: 'Omni 10s — 15💎' },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Miễn phí (chậm, ~5-15 phút)' },
+  { key: 'veo_3_1_t2v_lite', label: 'Tiêu chuẩn — 5💎' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Nhanh — 10💎' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Nét nhất — 100💎' },
+  { key: 'abra_t2v_10s', label: 'Omni 10 giây — 15💎' },
 ]
 
 export default function Tools({ user }: { user: any }) {
@@ -299,7 +299,7 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'i2v' && (
         <div style={{ maxWidth: 600 }}>
           <div className="card">
-            <div className="card-header"><Film size={15} /> Ảnh → Video <small>I2V · ảnh là khung hình ĐẦU, video chuyển động từ nó</small></div>
+            <div className="card-header"><Film size={15} /> Ảnh → Video <small>Ảnh là khung hình đầu, video chuyển động từ nó</small></div>
             <div className="form-group">
               <label className="form-label">Ảnh gốc</label>
               <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
@@ -309,7 +309,7 @@ export default function Tools({ user }: { user: any }) {
               </label>
             </div>
             <div className="form-group">
-              <label className="form-label">Mô tả chuyển động (English)</label>
+              <label className="form-label">Mô tả chuyển động</label>
               <textarea className="form-textarea" rows={3} value={i2vPrompt} onChange={e => setI2vPrompt(e.target.value)}
                 placeholder="The camera slowly pushes in as she turns toward us and smiles, hair moving in the wind..." />
             </div>
@@ -326,7 +326,7 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'r2v' && (
         <div style={{ maxWidth: 600 }}>
           <div className="card">
-            <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>R2V · 1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh MỚI</small></div>
+            <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh mới</small></div>
             <div className="form-group">
               <label className="form-label">Ảnh tham chiếu (1-3 ảnh nhân vật)</label>
               <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
@@ -339,7 +339,7 @@ export default function Tools({ user }: { user: any }) {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Prompt cảnh (English)</label>
+              <label className="form-label">Mô tả cảnh</label>
               <textarea className="form-textarea" rows={3} value={r2vPrompt} onChange={e => setR2vPrompt(e.target.value)}
                 placeholder="The same character walks through a neon-lit Tokyo street at night, medium shot, cinematic..." />
             </div>
@@ -356,7 +356,7 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'tts' && (
         <div style={{ maxWidth: 600 }}>
           <div className="card">
-            <div className="card-header"><Mic size={15} /> Text-to-Speech <small>Gemini TTS</small></div>
+            <div className="card-header"><Mic size={15} /> Chuyển văn bản thành giọng nói</div>
             {!user?.has_gemini_key && (
               <div className="alert alert-info"><AlertCircle size={14} /> Cần Gemini API key — vào Cài đặt để thêm</div>
             )}
@@ -398,9 +398,9 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'image' && (
         <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20 }}>
           <div className="card">
-            <div className="card-header"><Image size={15} /> Image Generation <small style={{ color: 'var(--green)' }}>FREE · Ultra</small></div>
+            <div className="card-header"><Image size={15} /> Tạo ảnh <small style={{ color: 'var(--green)' }}>Miễn phí · Ultra</small></div>
             <div className="form-group">
-              <label className="form-label">Prompt (tiếng Anh)</label>
+              <label className="form-label">Mô tả ảnh</label>
               <textarea ref={imgPromptRef} className="form-textarea" rows={4}
                 placeholder="A beautiful landscape... (bấm chip @nhân vật bên dưới để chèn vào vị trí con trỏ)"
                 value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
@@ -475,7 +475,7 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'cut' && (
         <div style={{ maxWidth: 580 }}>
           <div className="card">
-            <div className="card-header"><Scissors size={15} /> Cắt Video <small>FFmpeg</small></div>
+            <div className="card-header"><Scissors size={15} /> Cắt video</div>
             <div className="form-group">
               <label className="form-label">Tên file trong /uploads/</label>
               <input className="form-input" placeholder="scene_abc123.mp4"
@@ -520,7 +520,7 @@ export default function Tools({ user }: { user: any }) {
       {tab === 'download' && (
         <div style={{ maxWidth: 580 }}>
           <div className="card">
-            <div className="card-header"><Download size={15} /> Tải Video từ URL <small>yt-dlp</small></div>
+            <div className="card-header"><Download size={15} /> Tải video từ đường link</div>
             <div className="alert alert-info">
               <AlertCircle size={14} /> Hỗ trợ YouTube, TikTok, Instagram, Facebook, 1000+ trang
             </div>
