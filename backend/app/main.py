@@ -103,6 +103,28 @@ async def extension_status_ep(user=Depends(get_current_user)):
     return get_extension_status(user.id)
 
 
+@app.get("/api/v1/extension/download")
+async def download_extension():
+    """Tải tiện ích Chrome (zip thư mục extension/ ngay lúc gọi -> luôn bản mới nhất). Public, không cần auth."""
+    import io, zipfile
+    from pathlib import Path
+    from fastapi.responses import StreamingResponse
+    from fastapi import HTTPException
+    ext_dir = Path(__file__).resolve().parents[2] / "extension"   # <repo>/extension
+    if not ext_dir.is_dir():
+        raise HTTPException(404, "Không tìm thấy thư mục extension")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in ext_dir.rglob("*"):
+            if p.is_file() and "node_modules" not in p.parts and not p.name.startswith("."):
+                zf.write(p, p.relative_to(ext_dir.parent).as_posix())
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="ai-autocut-extension.zip"'},
+    )
+
+
 @app.get("/api/v1/status")
 async def system_status():
     """Worker status — polled by frontend every 5s."""

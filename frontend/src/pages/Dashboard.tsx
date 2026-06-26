@@ -4,7 +4,7 @@ import {
   Zap, FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
   Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen, Scissors,
-  Film, Layers, Image, Volume2, Download, Users
+  Film, Layers, Image, Volume2, Download, Users, BookOpen
 } from 'lucide-react'
 import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
 import CreateVideo from './CreateVideo'
@@ -15,6 +15,7 @@ import Tools from './Tools'
 import Settings2 from './Settings'
 import Admin from './Admin'
 import Billing from './Billing'
+import Guide from './Guide'
 
 export const logStore: { msg: string; level: string; ts: string }[] = []
 export let logListeners: (() => void)[] = []
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { path: '/videos', icon: Library, label: 'Thư viện', userOnly: true },
   { path: '/tools', icon: Wrench, label: 'Công cụ', userOnly: true },
   { path: '/billing', icon: Crown, label: 'Nâng gói', userOnly: true },
+  { path: '/guide', icon: BookOpen, label: 'Hướng dẫn' },
   { path: '/settings', icon: Settings, label: 'Cài đặt' },
   { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
 ]
@@ -388,6 +390,7 @@ export default function Dashboard() {
             <Route path="/videos" element={<MyVideos />} />
             <Route path="/tools" element={<Tools user={user} />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/guide" element={<Guide />} />
             <Route path="/settings" element={<Settings2 user={user} onUpdate={setUser} />} />
             {user?.is_admin && <Route path="/admin" element={<Admin />} />}
           </Routes>
