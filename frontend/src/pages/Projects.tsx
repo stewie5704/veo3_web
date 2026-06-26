@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Loader2, Link2 } from 'lucide-react'
+import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X } from 'lucide-react'
 
 const MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE', cost: 0 },
@@ -253,7 +253,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           <div className="cmp-steps">
             <span className={step === 'setup' ? 'on' : ''}><i>01</i> Ý tưởng &amp; thiết lập</span>
             <span className="arr">→</span>
-            <span className={step === 'review' ? 'on' : ''}>02 Duyệt kịch bản &amp; tạo</span>
+            <span className={step === 'review' ? 'on' : ''}><i>02</i> Duyệt kịch bản &amp; tạo</span>
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
@@ -264,9 +264,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <input className="cmp-titlein" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
               </div>
 
-              <div className="cmp-tabs" style={{ marginBottom: 16 }}>
-                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}>🤖 AI viết</button>
-                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}>✍️ Tự nhập kịch bản</button>
+              <div className="cmp-tabs" style={{ marginBottom: 14 }}>
+                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
+                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
               </div>
 
               <div className="cmp-herowrap">
@@ -336,15 +336,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
 
               {/* Nhân vật của dự án — giữ mặt */}
-              <div className="cmp-chiprow" style={{ marginBottom: 10 }}>
+              <div className="cmp-chiprow" style={{ marginBottom: 24 }}>
                 <span className="cmp-clab">Giữ mặt</span>
+                {chars.length === 0 && (
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm ảnh để nhân vật giữ nguyên khuôn mặt qua các cảnh.</span>
+                )}
                 {chars.map(c => (
                   <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
                     onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}>
                     <img src={c.image_url} alt="" />@{c.name}
                   </div>
                 ))}
-                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)}>{addCharOpen ? '✕ đóng' : '+ thêm nhân vật'}</div>
+                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title="Tải ảnh để AI giữ đúng mặt nhân vật qua các cảnh">
+                  {addCharOpen ? <><X size={13} /> đóng</> : <><Plus size={13} /> thêm nhân vật</>}
+                </div>
               </div>
               {addCharOpen && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
@@ -360,31 +365,28 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               )}
 
               {/* Âm thanh: chọn 1 trong 3 */}
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 7 }}>🔊 Âm thanh</div>
+              <div style={{ marginTop: 24 }}>
+                <div style={{ marginBottom: 9 }}>
+                  <span className="cmp-clab"><Volume2 size={13} style={{ color: 'var(--accent2)' }} /> Âm thanh</span>
+                </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {([
-                    { v: 'voiceover', t: '🎙️ Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm KHÔNG khớp' },
-                    { v: 'character_speak', t: '👄 Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
-                    { v: 'off', t: '🔇 Không tiếng', d: 'Chỉ hình' },
+                    { v: 'voiceover', icon: Mic, t: 'Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm không khớp' },
+                    { v: 'character_speak', icon: MessagesSquare, t: 'Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
+                    { v: 'off', icon: VolumeX, t: 'Không tiếng', d: 'Chỉ hình' },
                   ] as const).map(o => {
-                    const on = audioMode === o.v
+                    const Icon = o.icon
                     return (
                       <button key={o.v} type="button" onClick={() => setAudioMode(o.v)} title={o.d}
-                        style={{
-                          flex: '1 1 150px', textAlign: 'left', cursor: 'pointer', borderRadius: 11, padding: '10px 13px',
-                          background: on ? 'rgba(249,115,22,0.12)' : 'var(--inset)',
-                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                          color: on ? 'var(--accent2)' : 'var(--text2)', transition: 'all .15s',
-                        }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{o.t}</div>
-                        <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 3, lineHeight: 1.4 }}>{o.d}</div>
+                        className={audioMode === o.v ? 'cmp-audio on' : 'cmp-audio'}>
+                        <div className="t"><Icon size={15} /> {o.t}</div>
+                        <div className="d">{o.d}</div>
                       </button>
                     )
                   })}
                 </div>
                 {voiceover && (
-                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 7 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh ở bước Duyệt.</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh ở bước Duyệt.</div>
                 )}
               </div>
             </div>
