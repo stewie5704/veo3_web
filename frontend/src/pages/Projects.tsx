@@ -49,7 +49,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [narrations, setNarrations] = useState<string[]>([])
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
-  const [voiceover, setVoiceover] = useState(true)   // Auto lồng tiếng Việt — MẶC ĐỊNH BẬT
+  // Âm thanh: 'voiceover' (TTS đọc thoại ghép) | 'character_speak' (Veo cho nhân vật tự nói, nhép miệng) | 'off'
+  const [audioMode, setAudioMode] = useState<'voiceover' | 'character_speak' | 'off'>('voiceover')
+  const voiceover = audioMode === 'voiceover'   // picker giọng TTS chỉ hiện ở chế độ này
   const voice = 'Kore'                               // giọng mặc định (fallback) cho cảnh không rõ ai nói
   const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
@@ -178,7 +180,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         character_names: [...selectedChars],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
-        voiceover, voice, voices: baseVoices,
+        audio_mode: audioMode, voiceover, voice, voices: baseVoices,
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
@@ -356,14 +358,32 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               )}
 
-              {/* Auto lồng tiếng Việt */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
-                  <input type="checkbox" checked={voiceover} onChange={e => setVoiceover(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
-                  🔊 Lồng tiếng Việt (AI đọc thoại từng cảnh)
-                </label>
+              {/* Âm thanh: chọn 1 trong 3 */}
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 7 }}>🔊 Âm thanh</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {([
+                    { v: 'voiceover', t: '🎙️ Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm KHÔNG khớp' },
+                    { v: 'character_speak', t: '👄 Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
+                    { v: 'off', t: '🔇 Không tiếng', d: 'Chỉ hình' },
+                  ] as const).map(o => {
+                    const on = audioMode === o.v
+                    return (
+                      <button key={o.v} type="button" onClick={() => setAudioMode(o.v)} title={o.d}
+                        style={{
+                          flex: '1 1 150px', textAlign: 'left', cursor: 'pointer', borderRadius: 11, padding: '10px 13px',
+                          background: on ? 'rgba(249,115,22,0.12)' : 'var(--inset)',
+                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                          color: on ? 'var(--accent2)' : 'var(--text2)', transition: 'all .15s',
+                        }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{o.t}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 3, lineHeight: 1.4 }}>{o.d}</div>
+                      </button>
+                    )
+                  })}
+                </div>
                 {voiceover && (
-                  <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>· Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — xem &amp; chỉnh ở bước Duyệt</span>
+                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 7 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh ở bước Duyệt.</div>
                 )}
               </div>
             </div>

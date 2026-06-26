@@ -29,8 +29,10 @@ class Project(Base):
     scene_count: Mapped[int] = mapped_column(Integer, default=0)
     # chain mode — each scene uses last frame of previous as start image
     chain_mode: Mapped[bool] = mapped_column(Boolean, default=False)
-    # Auto lồng tiếng Việt: TTS đọc thoại từng cảnh rồi ghép vào video
-    voiceover: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Âm thanh: 'voiceover' = TTS đọc thoại ghép vào (mồm KHÔNG khớp) |
+    # 'character_speak' = đưa thoại vào prompt để Veo cho nhân vật TỰ NÓI (nhép miệng) | 'off' = câm.
+    audio_mode: Mapped[str] = mapped_column(String(20), default="voiceover")
+    voiceover: Mapped[bool] = mapped_column(Boolean, default=False)   # legacy (= audio_mode=='voiceover')
     voice: Mapped[str] = mapped_column(String(40), default="Kore")
     # Người dùng bấm "Dừng" -> runner bỏ qua các cảnh chưa/đang chạy
     stopped: Mapped[bool] = mapped_column(Boolean, default=False)

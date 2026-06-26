@@ -69,7 +69,8 @@ class CreateProjectRequest(BaseModel):
     character_names: list[str] = [] # chars to mention in prompts (for face-lock)
     character_ids: list[str] = []   # id nhân vật (kho chung) -> clone thành nhân vật riêng của project
     start_image: str | None = None  # I2V: uploaded image filename for all scenes
-    voiceover: bool = False         # Auto lồng tiếng Việt (TTS đọc thoại + ghép)
+    audio_mode: str = "voiceover"   # 'voiceover' (TTS ghép) | 'character_speak' (Veo nhân vật tự nói) | 'off'
+    voiceover: bool = False         # legacy
     voice: str = "Kore"             # giọng mặc định (fallback)
     voices: list[str] = []          # giọng RIÊNG theo từng cảnh (song song prompts; "" = dùng mặc định)
 
@@ -108,6 +109,7 @@ class ProjectResponse(BaseModel):
     language: str
     scene_count: int
     chain_mode: bool
+    audio_mode: str = "voiceover"
     voiceover: bool = False
     voice: str = "Kore"
     stopped: bool = False
@@ -153,6 +155,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         model_key=p.model_key, aspect_ratio=p.aspect_ratio,
         duration_seconds=p.duration_seconds, language=p.language,
         scene_count=p.scene_count, chain_mode=p.chain_mode,
+        audio_mode=getattr(p, "audio_mode", "voiceover") or "voiceover",
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
         stopped=bool(getattr(p, "stopped", False)),
@@ -179,7 +182,9 @@ async def create_project(
         aspect_ratio=body.aspect_ratio, duration_seconds=body.duration_seconds,
         language=body.language, scene_count=len(body.prompts),
         chain_mode=body.chain_mode,
-        voiceover=body.voiceover, voice=body.voice or "Kore",
+        audio_mode=body.audio_mode or "voiceover",
+        voiceover=(body.audio_mode or "voiceover") == "voiceover",
+        voice=body.voice or "Kore",
     )
     db.add(proj)
     await db.flush()

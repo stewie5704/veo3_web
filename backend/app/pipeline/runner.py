@@ -283,7 +283,7 @@ def _resolve_variant(model_key: str, mode: str) -> str:
 
 def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: str,
                          recaptcha: str, seed: int, start_image_id: str | None,
-                         ref_ids: list[str] | None) -> dict:
+                         ref_ids: list[str] | None, silent: bool = True) -> dict:
     req: dict = {
         "aspectRatio": aspect,
         "textInput": {"structuredPrompt": {"parts": [{"text": prompt}]}},
@@ -296,10 +296,10 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
     if ref_ids:
         req["referenceImages"] = [{"mediaId": m, "imageUsageType": REFERENCE_USAGE_TYPE} for m in ref_ids]
     return {
-        "mediaGenerationContext": {
-            "batchId": str(uuid.uuid4()),
-            "audioFailurePreference": "RETURN_SILENCED_VIDEOS",
-        },
+        "mediaGenerationContext": (
+            {"batchId": str(uuid.uuid4()), "audioFailurePreference": "RETURN_SILENCED_VIDEOS"}
+            if silent else {"batchId": str(uuid.uuid4())}   # character_speak: cho Veo sinh tiếng nói
+        ),
         "clientContext": {
             "projectId": project_id,
             "tool": "PINHOLE",
@@ -447,6 +447,17 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 # One generation (shared by job + scene runners)
 # ─────────────────────────────────────────────────────────────────────────────
+def _to_character_speak(prompt: str, dialogue: str) -> str:
+    """Chế độ NHÂN VẬT TỰ NÓI (nhép miệng): gỡ phần chặn giọng + audio-negative đã chèn, rồi thêm
+    câu thoại để Veo cho nhân vật nói bằng giọng native (mồm khớp) thay vì chồng TTS."""
+    spoken = re.sub(r"^\s*[^:\n]{1,24}:\s*", "", dialogue or "").strip()
+    p = prompt.replace(" No spoken dialogue, no voices, no narration, no singing.", "")
+    p = p.replace("; no dialogue, voiceover, narration, singing, laughter or studio-audience sounds.", ".")
+    if spoken:
+        p += f' The speaker faces the camera and clearly says, in Vietnamese: "{spoken}". Accurate natural lip-sync, clear speech.'
+    return p
+
+
 class _ProminentBlocked(Exception):
     """Render bị bộ lọc người (PROMINENT_PEOPLE) chặn — thường là dương-tính-giả, đổi seed render
     lại hay qua. Bắt riêng để retry thay vì fail luôn."""
@@ -475,7 +486,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                         out_stem: str, start_image_path: Path | None = None,
                         char_project_id: str | None = None,
                         seed: int | None = None,
-                        extra_ref_paths: list[str] | None = None) -> str:
+                        extra_ref_paths: list[str] | None = None,
+                        dialogue: str = "", character_speak: bool = False) -> str:
     """Generate ONE video on Flow and download it. Returns the output filename
     (relative to UPLOAD_PATH). Raises RuntimeError with a human message on failure."""
     from app.sessions.router import request_captcha
@@ -517,9 +529,17 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     else:
         endpoint = "video:batchAsyncGenerateVideoText"
 
+    # Bám reference: nhắc Veo giữ đúng mặt/tóc/trang phục theo ảnh tham chiếu (cho giống hơn).
+    if ref_ids:
+        prompt += " Keep each person's face, hairstyle and outfit identical to the provided reference image(s)."
+    silent = True
+    if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)
+        prompt = _to_character_speak(prompt, dialogue)
+        silent = False
+
     use_seed = seed if (seed is not None and seed > 0) else random.randint(1, 2 ** 31 - 1)
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
-                                use_seed, start_id, ref_ids or None)
+                                use_seed, start_id, ref_ids or None, silent=silent)
 
     code, resp = await _api_post(endpoint, body, token)
     if code in (401, 403):                       # token expired mid-flight → refresh once
@@ -773,7 +793,9 @@ async def run_scene_job(scene_id: str, user_id: str):
             project_db_id = scene.project_id
             # Auto lồng tiếng Việt (TTS) — bật theo project
             narration = scene.narration or ""
-            voiceover = bool(getattr(proj, "voiceover", False)) if proj else False
+            # audio_mode: 'voiceover' (TTS ghép) | 'character_speak' (Veo tự nói) | 'off'
+            audio_mode = (getattr(proj, "audio_mode", "") or
+                          ("voiceover" if getattr(proj, "voiceover", False) else "off")) if proj else "off"
             voice = (getattr(proj, "voice", "") or "Kore") if proj else "Kore"
             scene_voice = getattr(scene, "voice", "") or ""   # giọng riêng theo nhân vật nói
             gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
@@ -842,12 +864,15 @@ async def run_scene_job(scene_id: str, user_id: str):
             await _update_scene(status=SceneStatus.processing)
             start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
 
+            char_speak = audio_mode == "character_speak"   # Veo cho nhân vật tự nói (nhép miệng)
+
             async def _gen(sd):
                 return await _generate_one(
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
-                    char_project_id=project_db_id, seed=sd, extra_ref_paths=extra_ref_paths)
+                    char_project_id=project_db_id, seed=sd, extra_ref_paths=extra_ref_paths,
+                    dialogue=(narration if char_speak else ""), character_speak=char_speak)
 
             try:
                 try:
@@ -866,8 +891,9 @@ async def run_scene_job(scene_id: str, user_id: str):
                 await _update_scene(status=SceneStatus.failed, error_msg=str(e))
                 return
 
-            # Lồng tiếng Việt: TTS đọc thoại + ghép vào video (lỗi thì giữ video gốc, không fail cảnh)
-            if voiceover and narration.strip() and gemini_key:
+            # Lồng tiếng Việt (chỉ chế độ 'voiceover'): TTS đọc thoại + ghép. 'character_speak' thì
+            # Veo đã tự nói trong clip rồi -> KHÔNG chồng TTS nữa.
+            if audio_mode == "voiceover" and narration.strip() and gemini_key:
                 try:
                     voiced = await _voice_over(fname, narration, scene_voice or voice, gemini_key)
                     if voiced:
