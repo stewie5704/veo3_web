@@ -433,6 +433,16 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .cmp-tabs button{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--text2);font-size:13px;font-weight:650;padding:8px 17px;border-radius:99px;cursor:pointer;font-family:inherit}
 .cmp-tabs button.on{background:var(--grad);color:#fff;box-shadow:0 5px 16px -4px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.2)}
 
+/* Overlay "đang tạo phim" — vòng tròn nhịp + thanh chạy cho cảm giác đang xử lý */
+.creating-orb{width:84px;height:84px;border-radius:50%;margin:0 auto;display:grid;place-items:center;background:var(--grad);animation:orbPulse 1.7s ease-in-out infinite}
+@keyframes orbPulse{0%,100%{box-shadow:0 0 30px -2px var(--accent-glow);transform:scale(1)}50%{box-shadow:0 0 50px 6px var(--accent-glow);transform:scale(1.07)}}
+.creating-orb svg{animation:orbFloat 2.4s ease-in-out infinite}
+@keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.load-bar{width:240px;height:5px;border-radius:99px;background:var(--inset);overflow:hidden;margin:20px auto 0;border:1px solid var(--border)}
+.load-bar-fill{height:100%;width:42%;border-radius:99px;background:var(--grad);animation:loadSlide 1.25s ease-in-out infinite}
+@keyframes loadSlide{0%{transform:translateX(-110%)}100%{transform:translateX(240%)}}
+@media(prefers-reduced-motion:reduce){.creating-orb,.creating-orb svg,.load-bar-fill{animation:none}}
+
 /* ── Chống Safari iOS tự phóng to khi gõ vào ô nhập (cần font-size >=16px) ── */
 @media (max-width:600px){
   input,textarea,select,.form-input,.form-textarea{font-size:16px}

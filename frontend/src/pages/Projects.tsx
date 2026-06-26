@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X } from 'lucide-react'
+import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket } from 'lucide-react'
+
+// Các bước hiển thị khi đang phân tích + tạo (cho cảm giác đang chạy, đỡ thấy lâu)
+const CREATE_STEPS = [
+  { icon: Search, text: 'Đang đọc kịch bản của bạn...' },
+  { icon: Users, text: 'Nhận diện nhân vật & bối cảnh...' },
+  { icon: Clapperboard, text: 'Dựng từng cảnh quay...' },
+  { icon: Sparkles, text: 'Tối ưu câu lệnh cho Veo...' },
+  { icon: Rocket, text: 'Khởi tạo & bắt đầu render...' },
+]
 
 const MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE', cost: 0 },
@@ -45,6 +54,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [duration, setDuration] = useState(8)
   const [language, setLanguage] = useState('vi')
   const [loadingPrompts, setLoadingPrompts] = useState(false)
+  const [loadStep, setLoadStep] = useState(0)   // bước hiển thị trong overlay "đang tạo"
   const [prompts, setPrompts] = useState<string[]>([])
   const [narrations, setNarrations] = useState<string[]>([])
   const [scenes, setScenes] = useState<any[]>([])  // kịch bản chi tiết (beat/image/action/speaker/dialogue/prompt)
@@ -85,6 +95,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     charactersApi.list().then(setChars)
     toolsApi.styles().then(setStyleList).catch(() => {})
   }, [])
+
+  // Overlay "đang tạo" (manual): cuộn qua các bước ~1.8s để cảm giác đang chạy
+  const overlayOn = mode === 'manual' && (loadingPrompts || creating)
+  useEffect(() => {
+    if (!overlayOn) { setLoadStep(0); return }
+    const id = setInterval(() => setLoadStep(s => Math.min(s + 1, CREATE_STEPS.length - 1)), 1800)
+    return () => clearInterval(id)
+  }, [overlayOn])
 
   // Credit cost estimate
   const modelObj = MODELS.find(m => m.key === bModel) || MODELS[0]
@@ -242,6 +260,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      {/* Overlay tiến trình khi phân tích + tạo (manual) — đỡ cảm giác chờ lâu */}
+      {overlayOn && (() => {
+        const StepIcon = CREATE_STEPS[loadStep].icon
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(11,9,17,0.8)', backdropFilter: 'blur(7px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ textAlign: 'center', maxWidth: 400 }}>
+              <div className="creating-orb"><StepIcon size={30} color="#fff" /></div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 22, marginBottom: 6, color: 'var(--text)' }}>
+                {CREATE_STEPS[loadStep].text}
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Đang dựng phim từ kịch bản của bạn — chỉ vài giây ☕</div>
+              <div className="load-bar"><div className="load-bar-fill" /></div>
+            </div>
+          </div>
+        )
+      })()}
       {/* Header + tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <div className="page-title" style={{ margin: 0 }}>Tạo dự án mới</div>
