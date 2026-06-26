@@ -52,6 +52,8 @@ class Scene(Base):
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     index: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Truyện nhiều phần: cảnh thuộc "Phần" nào (1 = phần đầu). Thêm kịch bản mới -> part tăng dần.
+    part: Mapped[int] = mapped_column(Integer, default=1)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     narration: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SceneStatus] = mapped_column(Enum(SceneStatus), default=SceneStatus.pending)

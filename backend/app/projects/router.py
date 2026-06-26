@@ -87,6 +87,42 @@ async def _prep_portraits_and_dispatch(project_db_id: str, user_id: str, bible: 
         dispatch_scene(sid, user_id)
 
 
+async def _prep_new_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
+    """Thêm phần mới: CHỈ sinh chân dung cho nhân vật MỚI (tên chưa có trong dự án) — nhân vật cũ
+    giữ nguyên ảnh đã có => mặt khớp xuyên suốt các phần. Rồi dispatch các cảnh mới."""
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, user_id)
+            cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
+            gproj = (user.google_project_id if user else "") or ""
+            res = await db.execute(select(Character).where(Character.project_id == project_db_id))
+            existing_names = {(c.name or "").strip().lower() for c in res.scalars().all()}
+        new_chars = [c for c in (bible or []) if isinstance(c, dict)
+                     and str(c.get("name") or "").strip()
+                     and str(c.get("name")).strip().lower() not in existing_names]
+        if cookies and gproj and new_chars:
+            async def _one(ch: dict):
+                name = str(ch.get("name") or "").strip()
+                try:
+                    files = await generate_images_flow(
+                        user_id=user_id, cookies=cookies, project_id=gproj,
+                        prompt=build_portrait_prompt(ch), count=1, aspect_ratio="1:1",
+                        out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
+                    if files:
+                        async with AsyncSessionLocal() as db:
+                            db.add(Character(user_id=user_id, name=name, image_file=files[0],
+                                             project_id=project_db_id))
+                            await db.commit()
+                        log.info("new-part portrait ok: %s -> %s", name, files[0])
+                except Exception as e:
+                    log.warning("new-part portrait failed for %s: %s", name, e)
+            await asyncio.gather(*[_one(c) for c in new_chars[:4]])
+    except Exception as e:
+        log.warning("prep new portraits failed (project %s): %s", project_db_id, e)
+    for sid in scene_ids:
+        dispatch_scene(sid, user_id)
+
+
 async def _clone_chars_into_project(db: AsyncSession, user_id: str, char_ids: list[str], project_id: str) -> list[Character]:
     """Lai-model: copy nhân vật từ kho chung (hoặc bất kỳ) thành bản RIÊNG của project.
     Mỗi bản clone có project_id = project_id, dùng file ảnh copy riêng -> xoá project không đụng kho chung."""
@@ -136,6 +172,20 @@ class CreateProjectRequest(BaseModel):
     character_bible: list[dict] = [] # hồ sơ nhân vật (từ autoprompt) -> sinh chân dung AI giữ mặt mọi cảnh
 
 
+class AddScenesRequest(BaseModel):
+    """Thêm 1 KỊCH BẢN/PHẦN mới vào dự án đang có (nối tiếp cảnh + giữ nhân vật)."""
+    prompts: list[str] = []
+    narrations: list[str] = []
+    model_key: str | None = None     # None = giữ model của dự án
+    duration_seconds: int | None = None
+    audio_mode: str | None = None    # None = giữ audio_mode của dự án
+    voices: list[str] = []
+    chain_mode: bool = False
+    character_ids: list[str] = []    # thêm nhân vật kho chung vào dự án (giữ mặt)
+    character_bible: list[dict] = [] # nhân vật MỚI từ kịch bản phần này -> sinh chân dung (cũ giữ nguyên)
+    auto_render: bool = True
+
+
 class UpdateSceneRequest(BaseModel):
     prompt: str
     narration: str | None = None
@@ -145,6 +195,7 @@ class UpdateSceneRequest(BaseModel):
 class SceneResponse(BaseModel):
     id: str
     index: int
+    part: int = 1
     prompt: str
     narration: str | None
     status: str
@@ -202,7 +253,7 @@ async def _project_chars(db: AsyncSession, project_id: str) -> list[ProjChar]:
 
 def scene_to_resp(s: Scene) -> SceneResponse:
     return SceneResponse(
-        id=s.id, index=s.index, prompt=s.prompt,
+        id=s.id, index=s.index, part=getattr(s, "part", 1) or 1, prompt=s.prompt,
         narration=s.narration, status=s.status, error_msg=s.error_msg,
         video_file=s.video_file, aspect_ratio=s.aspect_ratio,
         duration_seconds=s.duration_seconds, model_key=s.model_key,
@@ -567,3 +618,79 @@ async def export_prompts(
         if s.narration:
             lines.append(f"[Narration: {s.narration}]")
     return {"text": "\n".join(lines), "scene_count": len(scenes)}
+
+
+@router.post("/{project_id}/add-scenes", response_model=ProjectDetailResponse)
+async def add_scenes(
+    project_id: str,
+    body: AddScenesRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Thêm 1 phần/kịch bản mới vào dự án: nối cảnh tiếp index, gán Part mới, giữ nguyên nhân vật +
+    seed của dự án (=> mặt khớp xuyên suốt), khoá tỉ lệ khung hình theo dự án (=> ghép phim liền mạch)."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    subscription.ensure_can_generate(user)
+    if not user.google_connected and not user.gemini_api_key:
+        raise HTTPException(400, "Cần kết nối Google Ultra hoặc Gemini API key")
+    prompts = [p for p in (body.prompts or []) if (p or "").strip()]
+    if not prompts:
+        raise HTTPException(400, "Chưa có cảnh nào để thêm")
+
+    # index nối tiếp + part mới (max part hiện có + 1)
+    res = await db.execute(select(Scene).where(Scene.project_id == project_id))
+    cur = res.scalars().all()
+    next_index = (max((s.index for s in cur), default=-1)) + 1
+    next_part = (max((getattr(s, "part", 1) or 1 for s in cur), default=0)) + 1
+
+    # Thêm nhân vật kho chung (nếu chọn) -> clone riêng cho dự án (giữ mặt)
+    if body.character_ids:
+        await _clone_chars_into_project(db, user.id, body.character_ids, project_id)
+
+    # Cập nhật setting dự án theo lựa chọn phần mới (audio_mode là cấp dự án).
+    # Tỉ lệ khung hình KHÔNG đổi (giữ theo dự án để ghép phim không lệch khung).
+    model_key = body.model_key or proj.model_key
+    duration = body.duration_seconds or proj.duration_seconds
+    if body.audio_mode:
+        proj.audio_mode = body.audio_mode
+        proj.voiceover = body.audio_mode == "voiceover"
+
+    new_scenes = []
+    for i, p in enumerate(prompts):
+        s = Scene(
+            project_id=project_id, user_id=user.id, index=next_index + i, part=next_part,
+            prompt=p,
+            narration=body.narrations[i] if i < len(body.narrations) else None,
+            model_key=model_key, aspect_ratio=proj.aspect_ratio, duration_seconds=duration,
+            wait_for_prev=body.chain_mode and i > 0,
+            voice=(body.voices[i] if i < len(body.voices) else ""),
+        )
+        db.add(s)
+        new_scenes.append(s)
+
+    proj.scene_count = len(cur) + len(new_scenes)
+    proj.stopped = False
+    await db.commit()
+    for s in new_scenes:
+        await db.refresh(s)
+
+    if body.auto_render:
+        scene_ids = [s.id for s in new_scenes]
+        # Sinh chân dung cho nhân vật MỚI (cũ giữ nguyên) rồi dispatch — chạy nền.
+        if body.character_bible:
+            asyncio.create_task(_prep_new_portraits_and_dispatch(project_id, user.id, body.character_bible, scene_ids))
+        else:
+            for sid in scene_ids:
+                dispatch_scene(sid, user.id)
+
+    # Trả về dự án đầy đủ (gồm cảnh mới) để frontend cập nhật ngay
+    res = await db.execute(select(Scene).where(Scene.project_id == project_id).order_by(Scene.index))
+    all_scenes = res.scalars().all()
+    await db.refresh(proj)
+    return ProjectDetailResponse(
+        **proj_to_resp(proj).__dict__,
+        scenes=[scene_to_resp(s) for s in all_scenes],
+        characters=await _project_chars(db, project_id),
+    )

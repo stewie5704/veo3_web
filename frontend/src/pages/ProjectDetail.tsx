@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { projectsApi, mediaApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp } from 'lucide-react'
+import { Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import AddPartPanel from '../components/AddPartPanel'
 
 // Thu gọn prompt còn 3 dòng (bấm "Xem thêm" để bung)
 const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
@@ -14,6 +15,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [loading, setLoading] = useState(true)
   const [editingScene, setEditingScene] = useState<string | null>(null)
   const [editPrompt, setEditPrompt] = useState('')
+  const [addPartOpen, setAddPartOpen] = useState(false)   // mở panel thêm kịch bản/phần mới
   const [expanded, setExpanded] = useState<Set<string>>(new Set())   // scene id -> đang bung prompt
   const toggleExpand = (sid: string) => setExpanded(s => {
     const n = new Set(s); n.has(sid) ? n.delete(sid) : n.add(sid); return n
@@ -256,6 +258,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             </button>
           ) : null}
           <button className="btn btn-ghost btn-sm" onClick={renameProject} title="Đổi tên dự án">✏️ Đổi tên</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAddPartOpen(true)} title="Thêm kịch bản / phần tiếp theo (giữ nhân vật)">
+            <Plus size={13} /> Thêm kịch bản
+          </button>
           <button
             className="btn btn-primary btn-sm"
             onClick={doMerge}
@@ -350,10 +355,22 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         )}
       </div>
 
-      {/* Scenes list */}
+      {/* Scenes list — gom theo Phần (truyện nhiều phần) */}
       <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {project.scenes.map((scene: any) => (
-          <div key={scene.id} className="card" style={{
+        {(() => {
+          const sc: any[] = project.scenes
+          const multiPart = new Set(sc.map((s: any) => s.part || 1)).size > 1
+          return sc.map((scene: any, i: number) => {
+            const showHdr = multiPart && (i === 0 || (scene.part || 1) !== (sc[i - 1].part || 1))
+            return (
+            <Fragment key={scene.id}>
+              {showHdr && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: i === 0 ? 0 : 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent2)', whiteSpace: 'nowrap' }}>📖 Phần {scene.part || 1}</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
+                </div>
+              )}
+          <div className="card" style={{
             borderLeft: `3px solid ${
               scene.status === 'done' ? 'var(--green)' :
               scene.status === 'failed' ? 'var(--red)' :
@@ -512,8 +529,19 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               </div>
             </div>
           </div>
-        ))}
+            </Fragment>
+            )
+          })
+        })()}
       </div>
+
+      {addPartOpen && (
+        <AddPartPanel
+          project={project}
+          onClose={() => setAddPartOpen(false)}
+          onDone={() => { setAddPartOpen(false); notify('Đã thêm phần mới — đang render...'); load(true) }}
+        />
+      )}
     </div>
   )
 }

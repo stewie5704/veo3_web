@@ -32,6 +32,7 @@ def _lightweight_migrate(conn):
         ("projects", "seed", "INTEGER DEFAULT 0"),
         ("projects", "audio_mode", "VARCHAR(20) DEFAULT 'voiceover'"),
         ("scenes", "voice", "VARCHAR(40) DEFAULT ''"),
+        ("scenes", "part", "INTEGER DEFAULT 1"),
         ("video_jobs", "start_image", "VARCHAR(500)"),
         ("video_jobs", "ref_images", "TEXT"),
     ]

@@ -67,6 +67,7 @@ export const projectsApi = {
   stop: (id: string) => api.post(`/projects/${id}/stop`).then(r => r.data),
   resume: (id: string) => api.post(`/projects/${id}/resume`).then(r => r.data),
   rename: (id: string, name: string) => api.patch(`/projects/${id}`, { name }).then(r => r.data),
+  addScenes: (id: string, data: any) => api.post(`/projects/${id}/add-scenes`, data).then(r => r.data),
   updateScene: (projectId: string, sceneId: string, data: any) =>
     api.put(`/projects/${projectId}/scenes/${sceneId}`, data).then(r => r.data),
   rerenderScene: (projectId: string, sceneId: string) =>
