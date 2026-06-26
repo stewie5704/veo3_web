@@ -20,7 +20,9 @@ class Project(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    idea: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idea: Mapped[str | None] = mapped_column(Text, nullable=True)   # kịch bản Phần 1
+    # Kịch bản các phần thêm sau (JSON {"2": "...", "3": "..."}). Phần 1 = idea ở trên.
+    part_scripts: Mapped[str | None] = mapped_column(Text, nullable=True)
     style: Mapped[str | None] = mapped_column(String(100), nullable=True)
     model_key: Mapped[str] = mapped_column(String(100), default="veo_3_1_t2v_lite_low_priority")
     aspect_ratio: Mapped[str] = mapped_column(String(10), default="16:9")

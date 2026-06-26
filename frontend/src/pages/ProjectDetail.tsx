@@ -2,7 +2,11 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { projectsApi, mediaApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import {
+  Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
+  FileText, Film, Trash2, Pause, FolderOpen, ArrowLeft, Check, Cpu, RectangleHorizontal, Clock,
+  Languages, Calendar, ScrollText,
+} from 'lucide-react'
 import AddPartPanel from '../components/AddPartPanel'
 
 // Thu gọn prompt còn 3 dòng (bấm "Xem thêm" để bung)
@@ -235,10 +239,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       <div className="page-header" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div>
           <button className="btn btn-ghost btn-sm" onClick={() => nav('/projects')} style={{ marginBottom: 8 }}>
-            ← Dự án
+            <ArrowLeft size={13} /> Dự án
           </button>
           <div className="page-title">{project.name}</div>
-          {project.idea && <div className="page-subtitle">{project.idea}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="badge badge-done">{doneCount}/{totalCount} cảnh</span>
@@ -246,18 +249,18 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             <div className="progress-fill" style={{ width: `${totalCount ? (doneCount / totalCount) * 100 : 0}%` }} />
           </div>
           <button className="btn btn-ghost btn-sm" onClick={doExport} disabled={exporting}>
-            📋 Export prompts
+            <FileText size={13} /> Export prompts
           </button>
           {hasActive ? (
             <button className="btn btn-danger btn-sm" onClick={stopProject} title="Dừng render các cảnh chưa xong">
-              ⏸ Dừng
+              <Pause size={13} /> Dừng
             </button>
           ) : (project.stopped || hasUnrendered) && totalCount > 0 ? (
             <button className="btn btn-ghost btn-sm" onClick={resumeProject} title="Render lại các cảnh chưa xong">
-              ▶ Tiếp tục
+              <Play size={13} /> Tiếp tục
             </button>
           ) : null}
-          <button className="btn btn-ghost btn-sm" onClick={renameProject} title="Đổi tên dự án">✏️ Đổi tên</button>
+          <button className="btn btn-ghost btn-sm" onClick={renameProject} title="Đổi tên dự án"><Pencil size={13} /> Đổi tên</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setAddPartOpen(true)} title="Thêm kịch bản / phần tiếp theo (giữ nhân vật)">
             <Plus size={13} /> Thêm kịch bản
           </button>
@@ -267,33 +270,34 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             disabled={merging || !allDone}
             title={!allDone ? 'Chờ tất cả scene xong' : 'Ghép tất cả scene thành final.mp4'}
           >
-            {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : '🎬 Ghép phim'}
+            {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép phim</>}
           </button>
-          <button className="btn btn-danger btn-sm" onClick={removeProject} title="Xoá dự án">🗑 Xoá</button>
+          <button className="btn btn-danger btn-sm" onClick={removeProject} title="Xoá dự án"><Trash2 size={13} /> Xoá</button>
         </div>
       </div>
 
       {/* Merge result */}
       {mergeUrl && (
         <div className="alert alert-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-          ✅ Ghép xong!
+          <Check size={15} /> Ghép xong!
           <video src={mergeUrl} controls style={{ maxWidth: 400, borderRadius: 8 }} />
-          <a href={mergeUrl} download="final.mp4" className="btn btn-primary btn-sm">⬇️ Tải final.mp4</a>
+          <a href={mergeUrl} download="final.mp4" className="btn btn-primary btn-sm"><Download size={13} /> Tải final.mp4</a>
         </div>
       )}
 
       {/* Project meta */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          {[
-            ['🤖 Chất lượng', project.model_key.replace(/_/g, ' ')],
-            ['📐 Tỉ lệ', project.aspect_ratio],
-            ['⏱️ Thời lượng', `${project.duration_seconds}s/scene`],
-            ['🗣️ Ngôn ngữ', project.language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'],
-            ['📅 Tạo lúc', new Date(project.created_at).toLocaleDateString('vi-VN')],
-          ].map(([k, v]) => (
-            <div key={k as string} style={{ fontSize: 12 }}>
-              <span style={{ color: 'var(--text2)' }}>{k}: </span>
+          {([
+            [Cpu, 'Chất lượng', project.model_key.replace(/_/g, ' ')],
+            [RectangleHorizontal, 'Tỉ lệ', project.aspect_ratio],
+            [Clock, 'Thời lượng', `${project.duration_seconds}s/cảnh`],
+            [Languages, 'Ngôn ngữ', project.language === 'vi' ? 'Tiếng Việt' : 'English'],
+            [Calendar, 'Tạo lúc', new Date(project.created_at).toLocaleDateString('vi-VN')],
+          ] as const).map(([Icon, k, v]) => (
+            <div key={k} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon size={13} style={{ color: 'var(--text3)' }} />
+              <span style={{ color: 'var(--text2)' }}>{k}:</span>
               <span style={{ fontWeight: 500 }}>{v}</span>
             </div>
           ))}
@@ -305,8 +309,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>👤 Nhân vật giữ mặt của dự án</div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setCharMode(m => m === 'upload' ? '' : 'upload')}>+ Upload</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => charMode === 'pick' ? setCharMode('') : openPick()}>+ Lấy từ kho</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setCharMode(m => m === 'upload' ? '' : 'upload')}><Upload size={12} /> Upload</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => charMode === 'pick' ? setCharMode('') : openPick()}><FolderOpen size={12} /> Lấy từ kho</button>
           </div>
         </div>
 
@@ -360,14 +364,29 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         {(() => {
           const sc: any[] = project.scenes
           const multiPart = new Set(sc.map((s: any) => s.part || 1)).size > 1
+          const partScript = (p: number) => p <= 1 ? (project.idea || '') : ((project.part_scripts || {})[String(p)] || '')
           return sc.map((scene: any, i: number) => {
-            const showHdr = multiPart && (i === 0 || (scene.part || 1) !== (sc[i - 1].part || 1))
+            const partNum = scene.part || 1
+            const isPartStart = i === 0 || partNum !== (sc[i - 1].part || 1)
+            const script = isPartStart ? partScript(partNum) : ''
             return (
             <Fragment key={scene.id}>
-              {showHdr && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: i === 0 ? 0 : 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent2)', whiteSpace: 'nowrap' }}>📖 Phần {scene.part || 1}</span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
+              {isPartStart && (multiPart || script) && (
+                <div style={{ marginTop: i === 0 ? 0 : 12 }}>
+                  {multiPart && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: script ? 10 : 0 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent2)', whiteSpace: 'nowrap' }}>📖 Phần {partNum}</span>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
+                    </div>
+                  )}
+                  {script && (
+                    <details open style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 7, listStyle: 'none' }}>
+                        <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
+                      </summary>
+                      <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text2)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto' }}>{script}</div>
+                    </details>
+                  )}
                 </div>
               )}
           <div className="card" style={{

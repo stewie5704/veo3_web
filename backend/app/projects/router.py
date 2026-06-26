@@ -174,6 +174,7 @@ class CreateProjectRequest(BaseModel):
 
 class AddScenesRequest(BaseModel):
     """Thêm 1 KỊCH BẢN/PHẦN mới vào dự án đang có (nối tiếp cảnh + giữ nhân vật)."""
+    idea: str = ""                   # kịch bản/ý tưởng phần này -> lưu để hiện trên đầu cảnh của phần
     prompts: list[str] = []
     narrations: list[str] = []
     model_key: str | None = None     # None = giữ model của dự án
@@ -221,6 +222,7 @@ class ProjectResponse(BaseModel):
     language: str
     scene_count: int
     chain_mode: bool
+    part_scripts: dict = {}   # {"2": "kịch bản phần 2", ...} (phần 1 = idea)
     audio_mode: str = "voiceover"
     voiceover: bool = False
     voice: str = "Kore"
@@ -267,6 +269,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         model_key=p.model_key, aspect_ratio=p.aspect_ratio,
         duration_seconds=p.duration_seconds, language=p.language,
         scene_count=p.scene_count, chain_mode=p.chain_mode,
+        part_scripts=json.loads(getattr(p, "part_scripts", None) or "{}"),
         audio_mode=getattr(p, "audio_mode", "voiceover") or "voiceover",
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
@@ -656,6 +659,15 @@ async def add_scenes(
     if body.audio_mode:
         proj.audio_mode = body.audio_mode
         proj.voiceover = body.audio_mode == "voiceover"
+
+    # Lưu kịch bản của phần này -> hiện trên đầu nhóm cảnh của phần đó
+    if (body.idea or "").strip():
+        try:
+            ps = json.loads(proj.part_scripts or "{}")
+        except (ValueError, TypeError):
+            ps = {}
+        ps[str(next_part)] = body.idea.strip()
+        proj.part_scripts = json.dumps(ps, ensure_ascii=False)
 
     new_scenes = []
     for i, p in enumerate(prompts):

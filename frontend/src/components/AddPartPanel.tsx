@@ -82,6 +82,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     setError(''); setCreating(true)
     try {
       await projectsApi.addScenes(project.id, {
+        idea: idea.trim(),
         prompts: basePrompts, narrations: baseNarr,
         model_key: model, duration_seconds: duration, audio_mode: audioMode,
         character_bible: bibleChars, auto_render: true,
