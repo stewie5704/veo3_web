@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toolsApi, charactersApi, mediaApi, videosApi } from '../api/client'
 import { pushLog } from './Dashboard'
 import {
@@ -28,15 +29,11 @@ const GEN_MODELS = [
   { key: 'abra_t2v_10s', label: 'Omni 10s — 15💎' },
 ]
 
-// Nhóm tab trong trang Công cụ (sub-nav dọc, chia mục)
-const TAB_GROUPS: { title: string; tabs: ToolTab[] }[] = [
-  { title: 'Tạo bằng AI', tabs: ['i2v', 'r2v', 'image', 'tts'] },
-  { title: 'Xử lý video', tabs: ['cut', 'download'] },
-  { title: 'Tài nguyên', tabs: ['chars'] },
-]
-
 export default function Tools({ user }: { user: any }) {
-  const [tab, setTab] = useState<ToolTab>('i2v')
+  // Tab điều khiển bởi dropdown "Công cụ" ở sidebar qua URL ?t=...
+  const [sp] = useSearchParams()
+  const [tab, setTab] = useState<ToolTab>((sp.get('t') as ToolTab) || 'i2v')
+  useEffect(() => { const t = sp.get('t'); if (t) setTab(t as ToolTab) }, [sp])
   const [error, setError] = useState('')
 
   // Character Library
@@ -220,43 +217,10 @@ export default function Tools({ user }: { user: any }) {
             <Sparkles size={22} color="#a78bfa" />
             Công cụ
           </div>
-          <div className="page-subtitle">Tạo bằng AI · Xử lý video · Tài nguyên</div>
+          <div className="page-subtitle">{TABS.find(t => t.key === tab)?.label || 'Công cụ'}</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
-        {/* Sub-nav dọc, chia nhóm */}
-        <div style={{ flex: '0 0 212px', position: 'sticky', top: 16 }}>
-          {TAB_GROUPS.map(g => (
-            <div key={g.title} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.08em', padding: '0 11px 7px' }}>{g.title}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {g.tabs.map(key => {
-                  const t = TABS.find(x => x.key === key)
-                  if (!t) return null
-                  const Icon = t.icon
-                  const active = tab === t.key
-                  return (
-                    <button key={t.key} onClick={() => { setTab(t.key); setError('') }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
-                        padding: '9px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                        fontSize: 13, fontWeight: 500, transition: 'all 0.15s',
-                        background: active ? 'rgba(124,92,252,0.15)' : 'transparent',
-                        color: active ? '#a78bfa' : 'var(--text2)',
-                        outline: active ? '1px solid rgba(124,92,252,0.25)' : '1px solid transparent',
-                      }}>
-                      <Icon size={15} strokeWidth={2} /> {t.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Nội dung */}
-        <div style={{ flex: 1, minWidth: 0 }}>
       {error && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
           <AlertCircle size={15} /> {error}
@@ -580,8 +544,6 @@ export default function Tools({ user }: { user: any }) {
           </div>
         </div>
       )}
-        </div>
-      </div>
     </div>
   )
 }
