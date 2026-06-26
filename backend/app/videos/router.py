@@ -51,6 +51,7 @@ class CreateJobRequest(BaseModel):
 class JobResponse(BaseModel):
     id: str
     prompt: str
+    kind: str = "t2v"        # t2v | i2v (có start_image) | r2v (có ref_images) -> feed tool lọc theo đây
     aspect_ratio: str
     duration_seconds: int
     count: int
@@ -67,9 +68,11 @@ class JobResponse(BaseModel):
 
 
 def _job_to_response(job: VideoJob) -> JobResponse:
+    kind = "i2v" if getattr(job, "start_image", None) else ("r2v" if getattr(job, "ref_images", None) else "t2v")
     return JobResponse(
         id=job.id,
         prompt=job.prompt,
+        kind=kind,
         aspect_ratio=job.aspect_ratio,
         duration_seconds=job.duration_seconds,
         count=job.count,

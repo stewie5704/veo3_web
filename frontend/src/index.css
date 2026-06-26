@@ -454,6 +454,12 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @keyframes phShimmer{to{transform:translateX(100%)}}
 @media(prefers-reduced-motion:reduce){.scene-ph-orb.wait,.scene-ph.shimmer::after{animation:none}}
 
+/* Tool video kiểu Flow: sản phẩm ở trên (feed), thao tác ở dưới-giữa (composer dính đáy) */
+.tool-flow{display:flex;flex-direction:column;gap:16px;min-height:calc(100dvh - 150px)}
+.tool-feed{flex:1 1 auto}
+.tool-composer{position:sticky;bottom:14px;width:100%;max-width:680px;margin:0 auto;z-index:6}
+.tool-composer .card{margin:0;border-color:var(--border2);box-shadow:0 -12px 34px -14px rgba(0,0,0,.7),0 10px 30px -10px rgba(0,0,0,.55)}
+
 /* ── Chống Safari iOS tự phóng to khi gõ vào ô nhập (cần font-size >=16px) ── */
 @media (max-width:600px){
   input,textarea,select,.form-input,.form-textarea{font-size:16px}

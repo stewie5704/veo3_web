@@ -29,48 +29,47 @@ const GEN_MODELS = [
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
 
-// Tiến trình job ngay tại chỗ: poll cho tới khi xong/lỗi -> để user THẤY đang chạy thay vì "đã gửi" rồi im
-function JobResult({ jobId }: { jobId: string }) {
-  const [job, setJob] = useState<any>(null)
-  useEffect(() => {
-    let alive = true; let timer: any
-    const tick = async () => {
-      try {
-        const j = await videosApi.get(jobId)
-        if (!alive) return
-        setJob(j)
-        if (j.status !== 'done' && j.status !== 'failed') timer = setTimeout(tick, 4000)
-      } catch { if (alive) timer = setTimeout(tick, 5000) }
-    }
-    tick()
-    return () => { alive = false; clearTimeout(timer) }
-  }, [jobId])
-
-  const st = job?.status || 'pending'
-  const file = (job?.output_files || [])[0]
+// Feed sản phẩm kiểu Flow: video đã/đang tạo xếp ở trên, mới nhất trước. Load từ server -> F5 vẫn còn.
+function VideoFeed({ jobs }: { jobs: any[] }) {
+  if (!jobs.length) return (
+    <div className="empty-state" style={{ padding: '44px 20px' }}>
+      <div className="ico"><Film size={24} color="var(--accent2)" /></div>
+      <h3>Chưa có video nào</h3>
+      <p>Tạo video đầu tiên bằng ô bên dưới — kết quả hiện ở đây, để lâu/F5 vẫn giữ.</p>
+    </div>
+  )
   return (
-    <div className="card" style={{ marginTop: 14 }}>
-      {st === 'done' && file ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--green)', fontWeight: 600, fontSize: 13 }}>
-            <CheckCircle size={15} /> Video đã xong!
+    <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 14 }}>
+      {jobs.map(j => {
+        const file = (j.output_files || [])[0]
+        return (
+          <div key={j.id} className="video-card">
+            <div className="video-preview" style={{ position: 'relative' }}>
+              {j.status === 'done' && file ? (
+                <video src={`/uploads/${file}`} controls preload="metadata"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div className={`scene-ph${j.status === 'processing' ? ' shimmer' : ''}`} style={{ width: '100%', height: '100%' }}>
+                  {j.status === 'failed' ? (
+                    <><div className="scene-ph-orb fail"><AlertCircle size={20} /></div>
+                      <span style={{ fontSize: 11, color: '#fca5a5', textAlign: 'center', padding: '0 10px' }}>{(j.error_msg || 'Lỗi').slice(0, 70)}</span></>
+                  ) : (
+                    <><div className="scene-ph-orb wait"><Loader2 size={20} className="spin" /></div><span>Đang tạo...</span></>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="video-card-body">
+              <div className="video-card-prompt">{j.prompt}</div>
+              {j.status === 'done' && file && (
+                <a href={`/api/v1/videos/${j.id}/download/0`} download className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>
+                  <Download size={12} /> Tải
+                </a>
+              )}
+            </div>
           </div>
-          <video src={`/uploads/${file}`} controls style={{ width: '100%', maxWidth: 360, borderRadius: 10, background: '#000', display: 'block' }} />
-          <a href={`/api/v1/videos/${jobId}/download/0`} download className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}><Download size={13} /> Tải về</a>
-        </>
-      ) : st === 'failed' ? (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#fca5a5', fontSize: 13 }}>
-          <AlertCircle size={15} style={{ flex: 'none', marginTop: 1 }} /> {job?.error_msg?.slice(0, 140) || 'Tạo video thất bại'}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13 }}>
-          <Loader2 size={18} className="spin" color="var(--accent2)" />
-          <div>
-            <div style={{ fontWeight: 600, color: 'var(--text)' }}>Đang tạo video...</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 2, lineHeight: 1.5 }}>Hàng FREE có thể chờ 1–10 phút — cứ để đó, video hiện ngay khi xong (cũng lưu ở Thư viện).</div>
-          </div>
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }
@@ -154,18 +153,28 @@ export default function Tools({ user }: { user: any }) {
   const [genAspect, setGenAspect] = useState('16:9')
   const [genDur, setGenDur] = useState(8)
 
+  // Feed video (kiểu Flow) — load từ server nên F5/reload vẫn giữ các job đang chạy
+  const [vidJobs, setVidJobs] = useState<any[]>([])
+  const loadJobs = async () => { try { setVidJobs(await videosApi.list(60)) } catch { /* ignore */ } }
+  useEffect(() => { loadJobs() }, [])
+  useEffect(() => {
+    if (!vidJobs.some(j => j.status === 'pending' || j.status === 'processing')) return
+    const id = setInterval(loadJobs, 6000)   // còn job đang chạy -> tự cập nhật feed
+    return () => clearInterval(id)
+  }, [vidJobs])
+
   // Ảnh → Video (I2V)
   const [i2vImg, setI2vImg] = useState<File | null>(null)
   const [i2vPrompt, setI2vPrompt] = useState('')
   const [i2vLoading, setI2vLoading] = useState(false)
-  const [i2vJobId, setI2vJobId] = useState<string | null>(null)
   const i2vRef = useRef<HTMLInputElement>(null)
   async function doI2V() {
     if (!i2vImg || !i2vPrompt.trim()) { setError('Chọn ảnh + nhập mô tả chuyển động'); return }
-    setError(''); setI2vLoading(true); setI2vJobId(null)
+    setError(''); setI2vLoading(true)
     try {
-      const job = await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
-      setI2vJobId(job.id); setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
+      await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
+      await loadJobs()
       pushLog('Đã gửi Ảnh→Video — đang tạo')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setI2vLoading(false) }
@@ -175,14 +184,14 @@ export default function Tools({ user }: { user: any }) {
   const [r2vImgs, setR2vImgs] = useState<File[]>([])
   const [r2vPrompt, setR2vPrompt] = useState('')
   const [r2vLoading, setR2vLoading] = useState(false)
-  const [r2vJobId, setR2vJobId] = useState<string | null>(null)
   const r2vRef = useRef<HTMLInputElement>(null)
   async function doR2V() {
     if (!r2vImgs.length || !r2vPrompt.trim()) { setError('Chọn 1-3 ảnh nhân vật + nhập prompt'); return }
-    setError(''); setR2vLoading(true); setR2vJobId(null)
+    setError(''); setR2vLoading(true)
     try {
-      const job = await videosApi.createR2V(r2vImgs, { prompt: r2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
-      setR2vJobId(job.id); setR2vImgs([]); setR2vPrompt(''); if (r2vRef.current) r2vRef.current.value = ''
+      await videosApi.createR2V(r2vImgs, { prompt: r2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setR2vImgs([]); setR2vPrompt(''); if (r2vRef.current) r2vRef.current.value = ''
+      await loadJobs()
       pushLog('Đã gửi Giữ-mặt→Video — đang tạo')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setR2vLoading(false) }
@@ -335,59 +344,61 @@ export default function Tools({ user }: { user: any }) {
         </div>
       )}
 
-      {/* Ảnh → Video (I2V) */}
+      {/* Ảnh → Video (I2V) — layout kiểu Flow: sản phẩm ở trên, thao tác dưới-giữa */}
       {tab === 'i2v' && (
-        <div style={{ maxWidth: 600 }}>
-          <div className="card">
-            <div className="card-header"><Film size={15} /> Ảnh → Video <small>Ảnh là khung hình đầu, video chuyển động từ nó</small></div>
-            <div className="form-group">
-              <label className="form-label">Ảnh gốc</label>
-              <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
-                {i2vImg ? `📷 ${i2vImg.name.slice(0, 30)}` : '📁 Chọn ảnh'}
-                <input ref={i2vRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => setI2vImg(e.target.files?.[0] || null)} />
-              </label>
+        <div className="tool-flow">
+          <div className="tool-feed">
+            <VideoFeed jobs={vidJobs.filter(j => j.kind === 'i2v')} />
+          </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Film size={15} /> Ảnh → Video <small>Ảnh là khung hình đầu, video chuyển động từ nó</small></div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
+                <label className="btn btn-ghost" style={{ cursor: 'pointer', flex: 'none' }}>
+                  {i2vImg ? `📷 ${i2vImg.name.slice(0, 16)}` : '📁 Chọn ảnh'}
+                  <input ref={i2vRef} type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => setI2vImg(e.target.files?.[0] || null)} />
+                </label>
+                <textarea className="form-textarea" rows={2} style={{ flex: 1, minWidth: 220, minHeight: 'auto' }}
+                  value={i2vPrompt} onChange={e => setI2vPrompt(e.target.value)}
+                  placeholder="Mô tả chuyển động: camera đẩy nhẹ, cô ấy quay lại mỉm cười, tóc bay trong gió..." />
+              </div>
+              {genSettings}
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={doI2V} disabled={i2vLoading || !i2vImg || !i2vPrompt.trim()}>
+                {i2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Film size={14} /> Tạo video từ ảnh</>}
+              </button>
             </div>
-            <div className="form-group">
-              <label className="form-label">Mô tả chuyển động</label>
-              <textarea className="form-textarea" rows={3} value={i2vPrompt} onChange={e => setI2vPrompt(e.target.value)}
-                placeholder="The camera slowly pushes in as she turns toward us and smiles, hair moving in the wind..." />
-            </div>
-            {genSettings}
-            <button className="btn btn-primary" onClick={doI2V} disabled={i2vLoading || !i2vImg || !i2vPrompt.trim()}>
-              {i2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Film size={14} /> Tạo video từ ảnh</>}
-            </button>
-            {i2vJobId && <JobResult jobId={i2vJobId} />}
           </div>
         </div>
       )}
 
-      {/* Giữ mặt → Video (R2V) */}
+      {/* Giữ mặt → Video (R2V) — layout kiểu Flow */}
       {tab === 'r2v' && (
-        <div style={{ maxWidth: 600 }}>
-          <div className="card">
-            <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh mới</small></div>
-            <div className="form-group">
-              <label className="form-label">Ảnh tham chiếu (1-3 ảnh nhân vật)</label>
-              <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
-                {r2vImgs.length ? `📷 ${r2vImgs.length} ảnh` : '📁 Chọn ảnh (giữ Ctrl chọn nhiều)'}
-                <input ref={r2vRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-                  onChange={e => setR2vImgs(Array.from(e.target.files || []).slice(0, 3))} />
-              </label>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+        <div className="tool-flow">
+          <div className="tool-feed">
+            <VideoFeed jobs={vidJobs.filter(j => j.kind === 'r2v')} />
+          </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh mới</small></div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6, flexWrap: 'wrap' }}>
+                <label className="btn btn-ghost" style={{ cursor: 'pointer', flex: 'none' }}>
+                  {r2vImgs.length ? `📷 ${r2vImgs.length} ảnh` : '📁 Chọn ảnh (Ctrl chọn nhiều)'}
+                  <input ref={r2vRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+                    onChange={e => setR2vImgs(Array.from(e.target.files || []).slice(0, 3))} />
+                </label>
+                <textarea className="form-textarea" rows={2} style={{ flex: 1, minWidth: 220, minHeight: 'auto' }}
+                  value={r2vPrompt} onChange={e => setR2vPrompt(e.target.value)}
+                  placeholder="Mô tả cảnh mới: nhân vật đi trên phố Tokyo đêm neon, trung cảnh, điện ảnh..." />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12 }}>
                 Mặt người THƯỜNG vẫn qua (chỉ người nổi tiếng bị chặn). Dính lọc thì hệ thống tự thử lại.
               </div>
+              {genSettings}
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={doR2V} disabled={r2vLoading || !r2vImgs.length || !r2vPrompt.trim()}>
+                {r2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Layers size={14} /> Tạo video giữ mặt</>}
+              </button>
             </div>
-            <div className="form-group">
-              <label className="form-label">Mô tả cảnh</label>
-              <textarea className="form-textarea" rows={3} value={r2vPrompt} onChange={e => setR2vPrompt(e.target.value)}
-                placeholder="The same character walks through a neon-lit Tokyo street at night, medium shot, cinematic..." />
-            </div>
-            {genSettings}
-            <button className="btn btn-primary" onClick={doR2V} disabled={r2vLoading || !r2vImgs.length || !r2vPrompt.trim()}>
-              {r2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Layers size={14} /> Tạo video giữ mặt</>}
-            </button>
-            {r2vJobId && <JobResult jobId={r2vJobId} />}
           </div>
         </div>
       )}
