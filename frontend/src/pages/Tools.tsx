@@ -253,16 +253,16 @@ export default function Tools({ user }: { user: any }) {
   }
 
   const genSettings = (
-    <div className="form-row">
-      <div className="form-group"><label className="form-label">Chất lượng video</label>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+      <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Chất lượng</label>
         <select className="form-select" value={genModel} onChange={e => setGenModel(e.target.value)}>
           {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select></div>
-      <div className="form-group"><label className="form-label">Tỉ lệ</label>
+      <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tỉ lệ</label>
         <select className="form-select" value={genAspect} onChange={e => setGenAspect(e.target.value)}>
           {['16:9', '9:16', '1:1'].map(a => <option key={a}>{a}</option>)}
         </select></div>
-      <div className="form-group"><label className="form-label">Thời lượng</label>
+      <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng</label>
         <select className="form-select" value={genDur} onChange={e => setGenDur(+e.target.value)}>
           {[4, 6, 8, 10].map(d => <option key={d} value={d}>{d}s</option>)}
         </select></div>
