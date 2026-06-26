@@ -28,6 +28,12 @@ const GEN_MODELS = [
   { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎' },
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
+// Veo/Flow chỉ hỗ trợ 3 tỉ lệ THẬT (16:9/9:16/1:1). 4:3,3:4 sẽ bị map về ngang/dọc -> bỏ cho khỏi gây hiểu nhầm.
+const ASPECTS = [
+  { v: '16:9', label: '16:9 · Ngang' },
+  { v: '9:16', label: '9:16 · Dọc' },
+  { v: '1:1', label: '1:1 · Vuông' },
+]
 
 // Feed sản phẩm kiểu Flow: video đã/đang tạo xếp ở trên, mới nhất trước. Load từ server -> F5 vẫn còn.
 function VideoFeed({ jobs }: { jobs: any[] }) {
@@ -261,7 +267,7 @@ export default function Tools({ user }: { user: any }) {
         </select></div>
       <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tỉ lệ</label>
         <select className="form-select" value={genAspect} onChange={e => setGenAspect(e.target.value)}>
-          {['16:9', '9:16', '1:1'].map(a => <option key={a}>{a}</option>)}
+          {ASPECTS.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
         </select></div>
       <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng</label>
         <select className="form-select" value={genDur} onChange={e => setGenDur(+e.target.value)}>
@@ -508,7 +514,7 @@ export default function Tools({ user }: { user: any }) {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Tỉ lệ</label>
                   <select className="form-select" value={imgAspect} onChange={e => setImgAspect(e.target.value)}>
-                    {['1:1', '16:9', '9:16', '4:3', '3:4'].map(a => <option key={a}>{a}</option>)}
+                    {ASPECTS.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
                   </select>
                 </div>
               </div>

@@ -10,7 +10,7 @@ const MODELS = [
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
 
-const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
+const ASPECTS = ['16:9', '9:16', '1:1']   // Veo chỉ hỗ trợ 3 tỉ lệ thật
 const DURATIONS = [4, 6, 8]
 
 export default function CreateVideo({ user }: { user: any }) {

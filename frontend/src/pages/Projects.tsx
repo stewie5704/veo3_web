@@ -50,7 +50,7 @@ const MODELS = [
   { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎', cost: 100 },
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎', cost: 15 },
 ]
-const ASPECTS = ['16:9', '9:16', '1:1', '4:3']
+const ASPECTS = ['16:9', '9:16', '1:1']   // Veo chỉ hỗ trợ 3 tỉ lệ thật (4:3/3:4 bị map về ngang/dọc)
 const DURATIONS = [4, 6, 8, 10]
 const VOICES = [
   { id: 'Kore', label: 'Kore (nữ)' },
