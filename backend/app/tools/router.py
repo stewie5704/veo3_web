@@ -164,23 +164,46 @@ def _loads_lenient(text: str) -> dict:
         raise
 
 
+_QUOTA_KW = ("429", "quota", "exceeded", "resource_exhausted", "rate limit")
+
+
+def _is_quota(e) -> bool:
+    return any(k in str(e).lower() for k in _QUOTA_KW)
+
+
 def _gemini_json(api_key: str, prompt: str, max_tokens: int = 8192) -> dict:
-    """Gemini JSON mode + fallback BỀN: mỗi model thử JSON-mode rồi plain; LỖI GÌ cũng bỏ model đó,
-    thử model kế (không re-raise giữa chừng). timeout/model chống SDK retry-backoff treo lâu khi 429."""
+    """Gemini JSON mode + fallback BỀN qua các model. Hết quota (429) -> bỏ model đó NGAY (plain cùng
+    model cũng vô ích), thử model kế. timeout/model chống SDK retry-backoff treo lâu. Nếu cạn quota cả
+    3 model -> báo lỗi tiếng Việt rõ ràng thay vì đổ JSON 429."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
     cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
-    ropts = {"timeout": 30}   # chặn SDK retry backoff trên 429 -> fallback nhanh, frontend khỏi timeout
+    ropts = {"timeout": 35}
     last = None
+    quota_hit = False
     for mname in GEMINI_MODELS:
-        for gc in (cfg, None):   # JSON-mode trước, rồi plain (SDK cũ/chặn JSON / "no valid Part")
+        try:
+            txt = genai.GenerativeModel(mname).generate_content(
+                prompt, generation_config=cfg, request_options=ropts).text.strip()
+            return _loads_lenient(txt)
+        except Exception as e:
+            last = e
+            if _is_quota(e):
+                quota_hit = True
+                log.warning("gemini %s hết quota (429) -> thử model kế", mname)
+                continue
+            # Lỗi JSON-mode / format / "no valid Part" -> thử lại model này ở chế độ plain
             try:
-                txt = genai.GenerativeModel(mname).generate_content(
-                    prompt, generation_config=gc, request_options=ropts).text.strip()
+                txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
                 return _loads_lenient(txt)
-            except Exception as e:
-                last = e
-        log.warning("gemini %s bỏ qua (%s) -> thử model kế", mname, str(last).lower()[:90])
+            except Exception as e2:
+                last = e2
+                if _is_quota(e2):
+                    quota_hit = True
+                log.warning("gemini %s lỗi (%s) -> thử model kế", mname, str(last).lower()[:80])
+    if quota_hit:
+        raise RuntimeError("Key Gemini đã hết hạn mức miễn phí (quota) lúc này. Đợi vài phút "
+                           "hoặc reset theo ngày, dùng API key Gemini khác, hoặc bật thanh toán cho key.")
     raise last if last else RuntimeError("Gemini không phản hồi")
 
 
