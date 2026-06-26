@@ -122,17 +122,9 @@
 #lp .pcard .btn{width:100%;justify-content:center}
 @media(max-width:720px){#lp .price{grid-template-columns:1fr}}
 
-/* CTA band + footer */
+/* CTA band wrapper (shared) */
 #lp .band{position:relative;z-index:1;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid var(--line);
-  background:radial-gradient(ellipse 80% 140% at 50% -20%, rgba(236,72,153,.22),transparent 60%),linear-gradient(180deg,#17131F,#0F0C18);
-  padding:54px 32px;text-align:center}
-#lp .band h2{font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.02em;margin:0 0 10px}
-#lp .band p{color:var(--text2);margin:0 0 24px}
-#lp footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:64px;padding:30px 0}
-#lp .frow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:var(--text3);font-size:13px}
-#lp .frow .brand{font-size:14px}
-#lp .frow .fl{margin-left:auto;display:flex;gap:16px}
-#lp .frow .fl a:hover{color:var(--text2)}
+  background:radial-gradient(ellipse 80% 140% at 50% -20%, rgba(236,72,153,.18),transparent 60%),linear-gradient(180deg,#17131F,#0F0C18)}
 
 @media(prefers-reduced-motion:reduce){#lp .cell{animation:none;opacity:1;transform:none}}
 
@@ -164,3 +156,42 @@
 #lp .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
 #lp .reveal.is-in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){#lp .reveal{opacity:1;transform:none;transition:none}}
+
+/* TESTIMONIALS */
+#lp .testi{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;margin-top:4px;scrollbar-width:none}
+#lp .testi::-webkit-scrollbar{display:none}
+#lp .tcard{flex:0 0 230px;background:linear-gradient(180deg,#17131F,#120F1A);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:13px}
+#lp .av-row{display:flex;align-items:center;gap:12px}
+#lp .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;color:#fff;flex:0 0 auto;letter-spacing:0}
+#lp .tc-meta{display:flex;flex-direction:column;gap:2px}
+#lp .tc-meta b{font-size:14px;font-weight:750;line-height:1.2}
+#lp .tc-meta span{font-size:11.5px;color:var(--text3)}
+#lp .tcard p{font-size:13px;color:var(--text2);margin:0;line-height:1.65;flex:1}
+#lp .stars{display:flex;gap:2px;color:#FBBF24}
+@media(min-width:1000px){#lp .testi{display:grid;grid-template-columns:repeat(5,1fr)}#lp .tcard{flex:unset}}
+@media(max-width:999px) and (min-width:640px){#lp .tcard{flex:0 0 260px}}
+
+/* CTA BAND — split layout */
+#lp .band{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;text-align:left;padding:48px}
+#lp .band h2{font-size:clamp(22px,3vw,30px);font-weight:800;letter-spacing:-.02em;margin:0 0 10px;line-height:1.2}
+#lp .band p{color:var(--text2);margin:0 0 22px;font-size:15px}
+#lp .band-form{display:flex;gap:10px;flex-wrap:wrap}
+#lp .band-input{flex:1;min-width:160px;background:var(--inset);border:1px solid var(--line2);border-radius:11px;padding:12px 16px;color:var(--text2);font-size:14px;font-family:var(--sans);outline:none;cursor:pointer;transition:border-color .2s}
+#lp .band-input:focus{border-color:var(--accent)}
+#lp .band-input::placeholder{color:var(--text3)}
+#lp .band-right img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:14px;border:1px solid var(--line)}
+@media(max-width:760px){#lp .band{grid-template-columns:1fr;gap:28px;padding:32px 24px;text-align:center}#lp .band-right{display:none}#lp .band-form{justify-content:center}}
+
+/* FOOTER — 4 columns */
+#lp footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:64px}
+#lp .foot-top{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:36px;padding:48px 0 36px;align-items:start}
+#lp .foot-brand .brand{margin-bottom:12px}
+#lp .foot-desc{font-size:13px;color:var(--text3);line-height:1.7;max-width:220px;margin:0}
+#lp .fcol{display:flex;flex-direction:column;gap:10px}
+#lp .fcol b{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+#lp .fcol a{font-size:13px;color:var(--text3);transition:color .15s}
+#lp .fcol a:hover{color:var(--text2)}
+#lp .foot-bottom{border-top:1px solid var(--line);padding:20px 0;text-align:center;color:var(--text3);font-size:12.5px}
+@media(max-width:900px){#lp .foot-top{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){#lp .foot-top{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){#lp .foot-top{grid-template-columns:1fr}}

@@ -6,6 +6,22 @@ const PLAY = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7
 const cell = (seed: string, tag: string, hot = false) =>
   `<div class="cell${hot ? ' f' : ''}"><img loading="lazy" src="https://picsum.photos/seed/${seed}/440/300" alt=""><span class="tg">${tag}</span><span class="play">${PLAY}</span></div>`
 
+const LOGO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg>`
+const CHECK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>`
+const STAR_SVG = `<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`
+
+const TESTI = [
+  { name: 'Minh Hoàng',  role: 'TikTok Creator',      col: '#F97316', text: 'AI AutoCut giúp mình tạo hàng chục video mỗi ngày mà không tốn nhiều thời gian. Nhân vật nhất quán xuyên suốt mọi cảnh.' },
+  { name: 'Thùy Linh',   role: 'Content Creator',      col: '#10B981', text: 'Kịch bản hay, giọng đọc tự nhiên, video viral hơn hẳn từ khi dùng AI AutoCut. Không thể thiếu.' },
+  { name: 'Anh Tuấn',    role: 'Affiliate Marketer',   col: '#8B5CF6', text: 'Tăng hiệu quả affiliate lên 300% nhờ video AI. Tiết kiệm cả tuần quay dựng mỗi tháng.' },
+  { name: 'Hải Yến',     role: 'Giảng viên Online',    col: '#3B82F6', text: 'Công cụ quá mạnh cho ai làm coaching như mình. Tạo nội dung khoá học nhanh gấp 5 lần trước đây.' },
+  { name: 'Trần Bình',   role: 'CEO – BizUp',          col: '#EC4899', text: 'Tiết kiệm chi phí sản xuất video đáng kể cho doanh nghiệp. Đáng đầu tư nhất trong năm qua.' },
+]
+const stars5 = Array(5).fill(STAR_SVG).join('')
+const testiHTML = TESTI.map(t =>
+  `<div class="tcard"><div class="av-row"><div class="av" style="background:${t.col}">${t.name[0]}</div><div class="tc-meta"><b>${t.name}</b><span>${t.role}</span></div></div><p>${t.text}</p><div class="stars">${stars5}</div></div>`
+).join('')
+
 const HTML = `
 <div class="shell">
   <header><div class="inner"><div class="hrow">
@@ -105,6 +121,12 @@ const HTML = `
     </div>
   </div></section>
 
+  <section class="blk" id="testimonials"><div class="inner">
+    <div class="eyebrow reveal">Người dùng nói gì</div>
+    <h2 class="h2 reveal">Hàng nghìn creator đang tạo phim với AI AutoCut</h2>
+    <div class="testi reveal">${testiHTML}</div>
+  </div></section>
+
   <section class="blk" id="guide"><div class="inner">
     <div class="eyebrow reveal">Hướng dẫn bắt đầu</div>
     <h2 class="h2 reveal">Chạy được trong 3 bước</h2>
@@ -172,17 +194,33 @@ const HTML = `
     </div>
 
     <div class="band reveal">
-      <h2>Sẵn sàng làm bộ phim AI đầu tiên?</h2>
-      <p>Đăng ký miễn phí, có ngay video nhiều cảnh trong vài phút.</p>
-      <a class="btn btn-grad btn-lg" href="/register"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg> Bắt đầu miễn phí</a>
+      <div class="band-left">
+        <h2>Bắt đầu tạo video của bạn<br/>ngay hôm nay</h2>
+        <p>Dùng thử miễn phí. Không cần thẻ tín dụng.</p>
+        <div class="band-form">
+          <input class="band-input" type="text" placeholder="Nhập ý tưởng của bạn..." onclick="window.location='/register'" readonly />
+          <a class="btn btn-grad" href="/register">Tạo video ngay</a>
+        </div>
+      </div>
+      <div class="band-right">
+        <img loading="lazy" src="https://picsum.photos/seed/aiac-cta2/500/340" alt="AI AutoCut video preview" />
+      </div>
     </div>
   </div></section>
 
-  <footer><div class="inner"><div class="frow">
-    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span> AI AutoCut</div>
-    <span>© 2026 AI AutoCut</span>
-    <div class="fl"><a href="#features">Tính năng</a><a href="#guide">Hướng dẫn</a><a href="#pricing">Bảng giá</a><a href="/login">Đăng nhập</a></div>
-  </div></div></footer>
+  <footer><div class="inner">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div class="brand"><span class="logo">${LOGO_SVG}</span> AI AutoCut</div>
+        <p class="foot-desc">Nền tảng AI tạo video giúp bạn biến ý tưởng thành những video chuyên nghiệp trong vài phút.</p>
+      </div>
+      <div class="fcol"><b>Sản phẩm</b><a href="#features">Tính năng</a><a href="#pricing">Bảng giá</a><a href="#">API</a><a href="#">Blog</a></div>
+      <div class="fcol"><b>Hỗ trợ</b><a href="/guide">Hướng dẫn</a><a href="#">Trung tâm trợ giúp</a><a href="#">Liên hệ</a></div>
+      <div class="fcol"><b>Công ty</b><a href="#">Về chúng tôi</a><a href="#">Blog</a><a href="#">Tuyển dụng</a></div>
+      <div class="fcol"><b>Chính sách</b><a href="#">Điều khoản sử dụng</a><a href="#">Chính sách bảo mật</a><a href="#">Tiếng Việt</a></div>
+    </div>
+    <div class="foot-bottom"><span>© 2026 AI AutoCut. All rights reserved.</span></div>
+  </div></footer>
 </div>
 `
 
