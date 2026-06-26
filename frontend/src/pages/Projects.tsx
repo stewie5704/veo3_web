@@ -13,6 +13,36 @@ const CREATE_STEPS = [
   { icon: Rocket, text: 'Khởi tạo & bắt đầu render...' },
 ]
 
+type AudioMode = 'voiceover' | 'character_speak' | 'off'
+const AUDIO_OPTS = [
+  { v: 'voiceover', icon: Mic, t: 'Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm không khớp' },
+  { v: 'character_speak', icon: MessagesSquare, t: 'Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
+  { v: 'off', icon: VolumeX, t: 'Không tiếng', d: 'Chỉ hình' },
+] as const
+
+// Bộ chọn âm thanh dùng CHUNG cho cả 3 tab (Tạo ý tưởng / Mô tả từng cảnh / Chép ý tưởng)
+function AudioPicker({ value, onChange }: { value: AudioMode; onChange: (v: AudioMode) => void }) {
+  return (
+    <div>
+      <div style={{ marginBottom: 9 }}>
+        <span className="cmp-clab"><Volume2 size={13} style={{ color: 'var(--accent2)' }} /> Âm thanh</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {AUDIO_OPTS.map(o => {
+          const Icon = o.icon
+          return (
+            <button key={o.v} type="button" onClick={() => onChange(o.v)} title={o.d}
+              className={value === o.v ? 'cmp-audio on' : 'cmp-audio'}>
+              <div className="t"><Icon size={15} /> {o.t}</div>
+              <div className="d">{o.d}</div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE', cost: 0 },
   { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite — 5💎', cost: 5 },
@@ -81,7 +111,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [bAspect, setBAspect] = useState('16:9')
   const [bDuration, setBDuration] = useState(8)
   const [bChain, setBChain] = useState(false)
-  const [bVoiceover, setBVoiceover] = useState(true)   // mặc định bật lồng tiếng
+  const [bAudioMode, setBAudioMode] = useState<AudioMode>('voiceover')
   const [bVoice, setBVoice] = useState('Kore')
 
   // COPY tab
@@ -232,7 +262,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         prompts: valid.map(s => s.prompt.trim()),
         narrations: valid.map(s => s.narration.trim()),
         auto_render: true, chain_mode: bChain,
-        voiceover: bVoiceover, voice: bVoice,
+        audio_mode: bAudioMode, voiceover: bAudioMode === 'voiceover', voice: bVoice,
       })
       pushLog(`Tạo video từ ${valid.length} cảnh prompt${bChain ? ' (chain)' : ''}`)
       nav(`/projects/${proj.id}`)
@@ -407,27 +437,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               )}
 
-              {/* Âm thanh: chọn 1 trong 3 */}
+              {/* Âm thanh: chọn 1 trong 3 (component dùng chung) */}
               <div style={{ marginTop: 24 }}>
-                <div style={{ marginBottom: 9 }}>
-                  <span className="cmp-clab"><Volume2 size={13} style={{ color: 'var(--accent2)' }} /> Âm thanh</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {([
-                    { v: 'voiceover', icon: Mic, t: 'Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm không khớp' },
-                    { v: 'character_speak', icon: MessagesSquare, t: 'Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
-                    { v: 'off', icon: VolumeX, t: 'Không tiếng', d: 'Chỉ hình' },
-                  ] as const).map(o => {
-                    const Icon = o.icon
-                    return (
-                      <button key={o.v} type="button" onClick={() => setAudioMode(o.v)} title={o.d}
-                        className={audioMode === o.v ? 'cmp-audio on' : 'cmp-audio'}>
-                        <div className="t"><Icon size={15} /> {o.t}</div>
-                        <div className="d">{o.d}</div>
-                      </button>
-                    )
-                  })}
-                </div>
+                <AudioPicker value={audioMode} onChange={setAudioMode} />
                 {voiceover && (
                   <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh ở bước Duyệt.</div>
                 )}
@@ -631,17 +643,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
-                <input type="checkbox" checked={bVoiceover} onChange={e => setBVoiceover(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
-                🔊 Lồng tiếng Việt (đọc lời thoại)
-              </label>
-              {bVoiceover && (
-                <div className="selwrap" style={{ width: 170 }}>
-                  <select className="cmp-sel" value={bVoice} onChange={e => setBVoice(e.target.value)}>
-                    {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                  </select>
-                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+            <div style={{ marginTop: 18 }}>
+              <AudioPicker value={bAudioMode} onChange={setBAudioMode} />
+              {bAudioMode === 'voiceover' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>Giọng đọc:</span>
+                  <div className="selwrap" style={{ width: 170 }}>
+                    <select className="cmp-sel" value={bVoice} onChange={e => setBVoice(e.target.value)}>
+                      {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                    </select>
+                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
                 </div>
               )}
             </div>
@@ -687,6 +699,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <label className="form-label">Số cảnh</label>
               <input className="form-input" type="number" min={2} max={20} value={copyCount} onChange={e => setCopyCount(+e.target.value)} />
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <AudioPicker value={audioMode} onChange={setAudioMode} />
           </div>
           <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
             {copyLoading ? <><Loader2 size={13} className="spin" /> Đang phân tích video...</> : '🔍 Phân tích & Clone'}
