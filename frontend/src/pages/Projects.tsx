@@ -511,7 +511,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
               <button className="cmp-cta" onClick={() => {
                 const n = reviewN
-                if (!window.confirm(`Tạo video ${n} cảnh, có thể tốn 💎 Gem. Tiếp tục?`)) return
+                const msg = reviewCost === 0
+                  ? `Tạo video ${n} cảnh bằng model Miễn phí — KHÔNG tốn credit (0 💎). Tiếp tục?`
+                  : `Tạo video ${n} cảnh — tốn khoảng ${reviewCost} 💎. Tiếp tục?`
+                if (!window.confirm(msg)) return
                 createNew(true)
               }} disabled={creating || loadingPrompts}>
                 {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
