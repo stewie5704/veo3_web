@@ -153,6 +153,13 @@ def _extract_token(data) -> str | None:
     return found[0] if found else None
 
 
+# Báo lỗi rõ ràng khi phiên Google hết hạn (token cần refresh) — thay cho raw "401 {...}".
+SESSION_EXPIRED_MSG = (
+    "Phiên Google hết hạn (token cần làm mới). Mở lại tab Flow (labs.google) trên Chrome "
+    "cho đúng tài khoản Ultra, bấm Kết nối lại trong extension, rồi Tạo lại."
+)
+
+
 async def _get_bearer_token(cookies: str) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -163,6 +170,11 @@ async def _get_bearer_token(cookies: str) -> str | None:
             data = r.json()
     except Exception as e:
         log.warning("Failed to get bearer: %s", e)
+        return None
+    # Phiên báo lỗi (vd ACCESS_TOKEN_REFRESH_NEEDED) => access_token trả về đã CHẾT -> đừng dùng,
+    # nếu không mọi cảnh sẽ 401. Trả None để caller báo "phiên hết hạn" rõ ràng.
+    if isinstance(data, dict) and data.get("error"):
+        log.warning("Google session needs refresh: error=%s expires=%s", data.get("error"), data.get("expires"))
         return None
     # The token can sit under various keys; scan for ya29.* and fall back to common names.
     return _extract_token(data) or data.get("accessToken") or data.get("token")
@@ -393,7 +405,7 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 
     token = await _get_bearer_token(cookies)
     if not token:
-        raise RuntimeError("Không lấy được token (cookie Google hết hạn?)")
+        raise RuntimeError(SESSION_EXPIRED_MSG)
     recaptcha = await request_captcha(user_id, "IMAGE_GENERATION")   # image action ≠ video's
     if not recaptcha:
         raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
@@ -494,7 +506,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
 
     token = await _get_bearer_token(cookies)
     if not token:
-        raise RuntimeError("Không lấy được token (cookie Google hết hạn?)")
+        raise RuntimeError(SESSION_EXPIRED_MSG)
 
     recaptcha = await request_captcha(user_id)   # VIDEO_GENERATION, single-use, local-or-Redis
     if not recaptcha:
