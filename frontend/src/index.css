@@ -459,6 +459,10 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .tool-feed{flex:1 1 auto}
 .tool-composer{position:sticky;bottom:14px;width:100%;max-width:680px;margin:0 auto;z-index:6}
 .tool-composer .card{margin:0;border-color:var(--border2);box-shadow:0 -12px 34px -14px rgba(0,0,0,.7),0 10px 30px -10px rgba(0,0,0,.55)}
+/* Ô chọn ảnh kiểu "+" (Flow): vuông, dash, hiện thumbnail khi chọn */
+.img-add{flex:none;width:56px;height:56px;border-radius:12px;border:1px dashed var(--border2);background:var(--inset);display:grid;place-items:center;color:var(--accent2);cursor:pointer;overflow:hidden;transition:all .15s}
+.img-add:hover{border-color:var(--accent);background:var(--accent-dim)}
+.img-add img{width:100%;height:100%;object-fit:cover}
 
 /* ── Chống Safari iOS tự phóng to khi gõ vào ô nhập (cần font-size >=16px) ── */
 @media (max-width:600px){

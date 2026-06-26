@@ -175,6 +175,7 @@ export default function Tools({ user }: { user: any }) {
 
   // Ảnh → Video (I2V)
   const [i2vImg, setI2vImg] = useState<File | null>(null)
+  const [i2vPreview, setI2vPreview] = useState<string | null>(null)
   const [i2vPrompt, setI2vPrompt] = useState('')
   const [i2vLoading, setI2vLoading] = useState(false)
   const i2vRef = useRef<HTMLInputElement>(null)
@@ -183,7 +184,7 @@ export default function Tools({ user }: { user: any }) {
     setError(''); setI2vLoading(true)
     try {
       await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
-      setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
+      setI2vImg(null); setI2vPreview(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
       await loadJobs()
       pushLog('Đã gửi Ảnh→Video — đang tạo')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
@@ -364,10 +365,10 @@ export default function Tools({ user }: { user: any }) {
             <div className="card" style={{ margin: 0 }}>
               <div className="card-header"><Film size={15} /> Ảnh → Video <small>Ảnh là khung hình đầu, video chuyển động từ nó</small></div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
-                <label className="btn btn-ghost" style={{ cursor: 'pointer', flex: 'none' }}>
-                  {i2vImg ? `📷 ${i2vImg.name.slice(0, 16)}` : '📁 Chọn ảnh'}
+                <label className="img-add" title="Chọn ảnh khung đầu">
+                  {i2vPreview ? <img src={i2vPreview} alt="" /> : <Plus size={22} />}
                   <input ref={i2vRef} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={e => setI2vImg(e.target.files?.[0] || null)} />
+                    onChange={e => { const f = e.target.files?.[0] || null; setI2vImg(f); setI2vPreview(f ? URL.createObjectURL(f) : null) }} />
                 </label>
                 <textarea className="form-textarea" rows={2} style={{ flex: 1, minWidth: 220, minHeight: 'auto' }}
                   value={i2vPrompt} onChange={e => setI2vPrompt(e.target.value)}
@@ -392,8 +393,8 @@ export default function Tools({ user }: { user: any }) {
             <div className="card" style={{ margin: 0 }}>
               <div className="card-header"><Layers size={15} /> Giữ mặt → Video <small>1-3 ảnh tham chiếu giữ mặt nhân vật/vật thể trong cảnh mới</small></div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6, flexWrap: 'wrap' }}>
-                <label className="btn btn-ghost" style={{ cursor: 'pointer', flex: 'none' }}>
-                  {r2vImgs.length ? `📷 ${r2vImgs.length} ảnh` : '📁 Chọn ảnh (Ctrl chọn nhiều)'}
+                <label className="img-add" title="Chọn 1-3 ảnh nhân vật (giữ Ctrl chọn nhiều)">
+                  {r2vImgs.length ? <span style={{ fontWeight: 800, fontSize: 18 }}>{r2vImgs.length}</span> : <Plus size={22} />}
                   <input ref={r2vRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
                     onChange={e => setR2vImgs(Array.from(e.target.files || []).slice(0, 3))} />
                 </label>
