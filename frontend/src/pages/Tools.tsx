@@ -29,6 +29,52 @@ const GEN_MODELS = [
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎' },
 ]
 
+// Tiến trình job ngay tại chỗ: poll cho tới khi xong/lỗi -> để user THẤY đang chạy thay vì "đã gửi" rồi im
+function JobResult({ jobId }: { jobId: string }) {
+  const [job, setJob] = useState<any>(null)
+  useEffect(() => {
+    let alive = true; let timer: any
+    const tick = async () => {
+      try {
+        const j = await videosApi.get(jobId)
+        if (!alive) return
+        setJob(j)
+        if (j.status !== 'done' && j.status !== 'failed') timer = setTimeout(tick, 4000)
+      } catch { if (alive) timer = setTimeout(tick, 5000) }
+    }
+    tick()
+    return () => { alive = false; clearTimeout(timer) }
+  }, [jobId])
+
+  const st = job?.status || 'pending'
+  const file = (job?.output_files || [])[0]
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      {st === 'done' && file ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--green)', fontWeight: 600, fontSize: 13 }}>
+            <CheckCircle size={15} /> Video đã xong!
+          </div>
+          <video src={`/uploads/${file}`} controls style={{ width: '100%', maxWidth: 360, borderRadius: 10, background: '#000', display: 'block' }} />
+          <a href={`/api/v1/videos/${jobId}/download/0`} download className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}><Download size={13} /> Tải về</a>
+        </>
+      ) : st === 'failed' ? (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#fca5a5', fontSize: 13 }}>
+          <AlertCircle size={15} style={{ flex: 'none', marginTop: 1 }} /> {job?.error_msg?.slice(0, 140) || 'Tạo video thất bại'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13 }}>
+          <Loader2 size={18} className="spin" color="var(--accent2)" />
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--text)' }}>Đang tạo video...</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 2, lineHeight: 1.5 }}>Hàng FREE có thể chờ 1–10 phút — cứ để đó, video hiện ngay khi xong (cũng lưu ở Thư viện).</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Tools({ user }: { user: any }) {
   // Tab điều khiển bởi dropdown "Công cụ" ở sidebar qua URL ?t=...
   const [sp] = useSearchParams()
@@ -112,15 +158,15 @@ export default function Tools({ user }: { user: any }) {
   const [i2vImg, setI2vImg] = useState<File | null>(null)
   const [i2vPrompt, setI2vPrompt] = useState('')
   const [i2vLoading, setI2vLoading] = useState(false)
-  const [i2vSent, setI2vSent] = useState(false)
+  const [i2vJobId, setI2vJobId] = useState<string | null>(null)
   const i2vRef = useRef<HTMLInputElement>(null)
   async function doI2V() {
     if (!i2vImg || !i2vPrompt.trim()) { setError('Chọn ảnh + nhập mô tả chuyển động'); return }
-    setError(''); setI2vLoading(true); setI2vSent(false)
+    setError(''); setI2vLoading(true); setI2vJobId(null)
     try {
-      await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
-      setI2vSent(true); setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
-      pushLog('Đã gửi Ảnh→Video — xem ở Thư viện')
+      const job = await videosApi.createI2V(i2vImg, { prompt: i2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setI2vJobId(job.id); setI2vImg(null); setI2vPrompt(''); if (i2vRef.current) i2vRef.current.value = ''
+      pushLog('Đã gửi Ảnh→Video — đang tạo')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setI2vLoading(false) }
   }
@@ -129,15 +175,15 @@ export default function Tools({ user }: { user: any }) {
   const [r2vImgs, setR2vImgs] = useState<File[]>([])
   const [r2vPrompt, setR2vPrompt] = useState('')
   const [r2vLoading, setR2vLoading] = useState(false)
-  const [r2vSent, setR2vSent] = useState(false)
+  const [r2vJobId, setR2vJobId] = useState<string | null>(null)
   const r2vRef = useRef<HTMLInputElement>(null)
   async function doR2V() {
     if (!r2vImgs.length || !r2vPrompt.trim()) { setError('Chọn 1-3 ảnh nhân vật + nhập prompt'); return }
-    setError(''); setR2vLoading(true); setR2vSent(false)
+    setError(''); setR2vLoading(true); setR2vJobId(null)
     try {
-      await videosApi.createR2V(r2vImgs, { prompt: r2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
-      setR2vSent(true); setR2vImgs([]); setR2vPrompt(''); if (r2vRef.current) r2vRef.current.value = ''
-      pushLog('Đã gửi Giữ-mặt→Video — xem ở Thư viện')
+      const job = await videosApi.createR2V(r2vImgs, { prompt: r2vPrompt, model_key: genModel, aspect_ratio: genAspect, duration_seconds: genDur })
+      setR2vJobId(job.id); setR2vImgs([]); setR2vPrompt(''); if (r2vRef.current) r2vRef.current.value = ''
+      pushLog('Đã gửi Giữ-mặt→Video — đang tạo')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setR2vLoading(false) }
   }
@@ -203,12 +249,6 @@ export default function Tools({ user }: { user: any }) {
         </select></div>
     </div>
   )
-  const sentBanner = (
-    <div className="alert alert-success" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-      <CheckCircle size={15} /> Đã gửi! Video đang render — xem ở <a href="/videos" style={{ color: 'var(--accent2)', fontWeight: 600 }}>Thư viện → Video lẻ</a>.
-    </div>
-  )
-
   return (
     <div>
       <div className="page-header">
@@ -317,7 +357,7 @@ export default function Tools({ user }: { user: any }) {
             <button className="btn btn-primary" onClick={doI2V} disabled={i2vLoading || !i2vImg || !i2vPrompt.trim()}>
               {i2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Film size={14} /> Tạo video từ ảnh</>}
             </button>
-            {i2vSent && sentBanner}
+            {i2vJobId && <JobResult jobId={i2vJobId} />}
           </div>
         </div>
       )}
@@ -347,7 +387,7 @@ export default function Tools({ user }: { user: any }) {
             <button className="btn btn-primary" onClick={doR2V} disabled={r2vLoading || !r2vImgs.length || !r2vPrompt.trim()}>
               {r2vLoading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><Layers size={14} /> Tạo video giữ mặt</>}
             </button>
-            {r2vSent && sentBanner}
+            {r2vJobId && <JobResult jobId={r2vJobId} />}
           </div>
         </div>
       )}
