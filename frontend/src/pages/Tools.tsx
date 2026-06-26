@@ -74,6 +74,11 @@ function VideoFeed({ jobs }: { jobs: any[] }) {
   )
 }
 
+// Lưu kết quả tool (ảnh/audio/file) vào localStorage -> reload vẫn còn (file đã nằm trên server)
+const FEED_LIMIT = 24
+function loadFeed(key: string): any[] { try { return JSON.parse(localStorage.getItem('aiac_feed_' + key) || '[]') } catch { return [] } }
+function saveFeed(key: string, items: any[]) { try { localStorage.setItem('aiac_feed_' + key, JSON.stringify(items.slice(0, FEED_LIMIT))) } catch { /* ignore */ } }
+
 export default function Tools({ user }: { user: any }) {
   // Tab điều khiển bởi dropdown "Công cụ" ở sidebar qua URL ?t=...
   const [sp] = useSearchParams()
@@ -113,15 +118,15 @@ export default function Tools({ user }: { user: any }) {
   const [ttsText, setTtsText] = useState('')
   const [ttsVoice, setTtsVoice] = useState('Kore')
   const [ttsLoading, setTtsLoading] = useState(false)
-  const [ttsResult, setTtsResult] = useState<string | null>(null)
+  const [ttsFeed, setTtsFeed] = useState<any[]>(() => loadFeed('tts'))
 
   async function doTTS() {
     if (!ttsText.trim()) return
-    setError(''); setTtsLoading(true); setTtsResult(null)
+    setError(''); setTtsLoading(true)
     pushLog('Đang tạo audio TTS...')
     try {
       const res = await toolsApi.tts({ text: ttsText, voice: ttsVoice })
-      setTtsResult(res.audio_url)
+      pushFeed('tts', setTtsFeed, [{ url: res.audio_url, text: ttsText, voice: ttsVoice }])
       pushLog('Tạo audio xong!')
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi TTS'; setError(m); pushLog(m, 'error') }
     finally { setTtsLoading(false) }
@@ -132,17 +137,17 @@ export default function Tools({ user }: { user: any }) {
   const [imgCount, setImgCount] = useState(1)
   const [imgAspect, setImgAspect] = useState('1:1')
   const [imgLoading, setImgLoading] = useState(false)
-  const [imgResults, setImgResults] = useState<string[]>([])
+  const [imgFeed, setImgFeed] = useState<any[]>(() => loadFeed('img'))
   const imgPromptRef = useRef<HTMLTextAreaElement>(null)
 
   async function doImage() {
     if (!imgPrompt.trim()) return
-    setError(''); setImgLoading(true); setImgResults([])
+    setError(''); setImgLoading(true)
     pushLog('Đang tạo ảnh AI...')
     try {
       // @Tên trong prompt -> backend tu resolve thanh anh giu mat (reference)
       const res = await toolsApi.image({ prompt: imgPrompt, count: imgCount, aspect_ratio: imgAspect })
-      setImgResults(res.image_urls)
+      pushFeed('img', setImgFeed, (res.image_urls || []).map((url: string) => ({ url, prompt: imgPrompt })))
       pushLog(`Tạo xong ${res.image_urls.length} ảnh`)
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setImgLoading(false) }
@@ -162,6 +167,11 @@ export default function Tools({ user }: { user: any }) {
     const id = setInterval(loadJobs, 6000)   // còn job đang chạy -> tự cập nhật feed
     return () => clearInterval(id)
   }, [vidJobs])
+
+  // Thêm item vào feed (mới nhất trước) + lưu localStorage
+  function pushFeed(key: string, setter: React.Dispatch<React.SetStateAction<any[]>>, items: any[]) {
+    setter(prev => { const next = [...items, ...prev].slice(0, FEED_LIMIT); saveFeed(key, next); return next })
+  }
 
   // Ảnh → Video (I2V)
   const [i2vImg, setI2vImg] = useState<File | null>(null)
@@ -214,14 +224,14 @@ export default function Tools({ user }: { user: any }) {
   const [cutSeg, setCutSeg] = useState(8)
   const [cutFps, setCutFps] = useState(1)
   const [cutLoading, setCutLoading] = useState(false)
-  const [cutResults, setCutResults] = useState<string[]>([])
+  const [cutFeed, setCutFeed] = useState<any[]>(() => loadFeed('cut'))
 
   async function doCut() {
     if (!cutFile.trim()) { setError('Nhập tên file'); return }
-    setError(''); setCutLoading(true); setCutResults([])
+    setError(''); setCutLoading(true)
     try {
       const res = await mediaApi.cut({ filename: cutFile, mode: cutMode, segment: cutSeg, fps: cutFps })
-      setCutResults(res.files); pushLog(`Cắt xong: ${res.count} file`)
+      pushFeed('cut', setCutFeed, [{ file: cutFile, mode: cutMode, urls: res.files }]); pushLog(`Cắt xong: ${res.count} file`)
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setCutLoading(false) }
   }
@@ -229,15 +239,15 @@ export default function Tools({ user }: { user: any }) {
   // Download URL
   const [dlUrl, setDlUrl] = useState('')
   const [dlLoading, setDlLoading] = useState(false)
-  const [dlResult, setDlResult] = useState<string | null>(null)
+  const [dlFeed, setDlFeed] = useState<any[]>(() => loadFeed('dl'))
 
   async function doDownload() {
     if (!dlUrl.trim()) { setError('Nhập URL'); return }
-    setError(''); setDlLoading(true); setDlResult(null)
+    setError(''); setDlLoading(true)
     pushLog(`Đang tải ${dlUrl}...`)
     try {
       const res = await mediaApi.downloadUrl(dlUrl)
-      setDlResult(res.url); pushLog(`Tải xong: ${res.filename}`)
+      pushFeed('dl', setDlFeed, [{ url: res.url, filename: res.filename, src: dlUrl }]); pushLog(`Tải xong: ${res.filename}`)
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setDlLoading(false) }
   }
@@ -403,195 +413,203 @@ export default function Tools({ user }: { user: any }) {
         </div>
       )}
 
-      {/* TTS */}
+      {/* TTS — layout Flow */}
       {tab === 'tts' && (
-        <div style={{ maxWidth: 600 }}>
-          <div className="card">
-            <div className="card-header"><Mic size={15} /> Chuyển văn bản thành giọng nói</div>
-            {!user?.has_gemini_key && (
-              <div className="alert alert-info"><AlertCircle size={14} /> Cần Gemini API key — vào Cài đặt để thêm</div>
-            )}
-            <div className="form-group">
-              <label className="form-label">Văn bản cần đọc</label>
-              <textarea className="form-textarea" rows={5}
-                placeholder="Nhập văn bản muốn chuyển thành giọng nói..."
-                value={ttsText} onChange={e => setTtsText(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Giọng đọc</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {['Kore', 'Charon', 'Fenrir', 'Aoede', 'Puck', 'Orbit', 'Zephyr'].map(v => (
-                  <button key={v}
-                    className={ttsVoice === v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                    onClick={() => setTtsVoice(v)}>{v}</button>
+        <div className="tool-flow">
+          <div className="tool-feed">
+            {ttsFeed.length === 0 ? (
+              <div className="empty-state" style={{ padding: '44px 20px' }}>
+                <div className="ico"><Volume2 size={24} color="var(--accent2)" /></div>
+                <h3>Chưa có audio</h3>
+                <p>Nhập văn bản bên dưới rồi bấm Tạo — audio hiện ở đây, F5 vẫn giữ.</p>
+              </div>
+            ) : (
+              <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ttsFeed.map((a, i) => (
+                  <div key={i} className="card" style={{ margin: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span className="badge badge-done" style={{ fontSize: 10 }}>{a.voice || 'Kore'}</span>
+                      <span style={{ fontSize: 12.5, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.text}</span>
+                    </div>
+                    <audio controls src={a.url} style={{ width: '100%' }} />
+                    <a href={a.url} download className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}><Download size={12} /> Tải .wav</a>
+                  </div>
                 ))}
               </div>
-            </div>
-            <button className="btn btn-primary" onClick={doTTS} disabled={ttsLoading || !ttsText.trim()}>
-              {ttsLoading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><Volume2 size={14} /> Tạo Audio</>}
-            </button>
-            {ttsResult && (
-              <div style={{ marginTop: 20, padding: 16, background: 'var(--bg3)', borderRadius: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--green)' }}>
-                  <CheckCircle size={14} /> Audio đã tạo
-                </div>
-                <audio controls src={ttsResult} style={{ width: '100%' }} />
-                <a href={ttsResult} download className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>
-                  <Download size={12} /> Tải .wav
-                </a>
-              </div>
             )}
+          </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Mic size={15} /> Đọc thành giọng nói</div>
+              {!user?.has_gemini_key && (<div className="alert alert-info" style={{ marginBottom: 10 }}><AlertCircle size={14} /> Cần Gemini API key — vào Cài đặt để thêm</div>)}
+              <textarea className="form-textarea" rows={2} style={{ marginBottom: 10, minHeight: 'auto' }}
+                placeholder="Nhập văn bản muốn chuyển thành giọng nói..." value={ttsText} onChange={e => setTtsText(e.target.value)} />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {['Kore', 'Charon', 'Fenrir', 'Aoede', 'Puck', 'Orbit', 'Zephyr'].map(v => (
+                  <button key={v} className={ttsVoice === v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTtsVoice(v)}>{v}</button>
+                ))}
+              </div>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={doTTS} disabled={ttsLoading || !ttsText.trim()}>
+                {ttsLoading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><Volume2 size={14} /> Tạo Audio</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Image gen */}
+      {/* Tạo ảnh — layout Flow */}
       {tab === 'image' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20 }}>
-          <div className="card">
-            <div className="card-header"><Image size={15} /> Tạo ảnh <small style={{ color: 'var(--green)' }}>Miễn phí · Ultra</small></div>
-            <div className="form-group">
-              <label className="form-label">Mô tả ảnh</label>
-              <textarea ref={imgPromptRef} className="form-textarea" rows={4}
-                placeholder="A beautiful landscape... (bấm chip @nhân vật bên dưới để chèn vào vị trí con trỏ)"
-                value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Số ảnh</label>
-                <select className="form-select" value={imgCount} onChange={e => setImgCount(+e.target.value)}>
-                  {[1,2,3,4].map(n => <option key={n} value={n}>{n} ảnh</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Tỉ lệ</label>
-                <select className="form-select" value={imgAspect} onChange={e => setImgAspect(e.target.value)}>
-                  {['1:1','16:9','9:16','4:3','3:4'].map(a => <option key={a}>{a}</option>)}
-                </select>
-              </div>
-            </div>
-            {/* Face ref */}
-            {chars.length > 0 && (
-              <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 9, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>🎭 Chèn nhân vật giữ mặt</div>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {chars.map(c => (
-                    <button key={c.id} type="button" title={`Chèn @${c.name} vào prompt`}
-                      onClick={() => insertMention(c.name)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '3px 9px 3px 3px', borderRadius: 99,
-                        border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', transition: 'all 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'rgba(249,115,22,0.12)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' }}>
-                      <img src={c.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
-                      <span style={{ fontSize: 12, fontWeight: 500 }}>@{c.name}</span>
-                      <Plus size={11} />
-                    </button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>Đặt con trỏ trong prompt rồi bấm chip → chèn @tên. AI sẽ giữ mặt nhân vật được nhắc.</div>
-              </div>
-            )}
-            <button className="btn btn-primary" onClick={doImage} disabled={imgLoading || !imgPrompt.trim()}>
-              {imgLoading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><Sparkles size={14} /> Tạo ảnh</>}
-            </button>
-          </div>
-          <div className="card">
-            <div className="card-header"><Image size={15} /> Kết quả</div>
-            {imgResults.length === 0 ? (
-              <div className="empty-state">
-                <Image size={36} strokeWidth={1.5} style={{ opacity: 0.25, marginBottom: 12 }} />
+        <div className="tool-flow">
+          <div className="tool-feed">
+            {imgFeed.length === 0 ? (
+              <div className="empty-state" style={{ padding: '44px 20px' }}>
+                <div className="ico"><Image size={24} color="var(--accent2)" /></div>
                 <h3>Chưa có ảnh</h3>
-                <p>Nhập prompt và bấm Tạo ảnh</p>
+                <p>Nhập mô tả bên dưới rồi bấm Tạo ảnh — kết quả hiện ở đây, F5 vẫn giữ.</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px,1fr))', gap: 12 }}>
-                {imgResults.map((url, i) => (
-                  <div key={i} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden' }}>
-                    <img src={url} alt="" style={{ width: '100%', display: 'block' }} />
+              <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px,1fr))', gap: 12 }}>
+                {imgFeed.map((it, i) => (
+                  <div key={i} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <img src={it.url} alt="" style={{ width: '100%', display: 'block' }} />
                     <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
-                      <a href={url} download className="btn btn-primary btn-sm btn-icon"><Download size={12} /></a>
-                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => window.open(url, '_blank')}>
-                        <ExternalLink size={12} />
-                      </button>
+                      <a href={it.url} download className="btn btn-primary btn-sm btn-icon"><Download size={12} /></a>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => window.open(it.url, '_blank')}><ExternalLink size={12} /></button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Image size={15} /> Tạo ảnh <small style={{ color: 'var(--green)' }}>Miễn phí · Ultra</small></div>
+              <textarea ref={imgPromptRef} className="form-textarea" rows={2} style={{ marginBottom: 10, minHeight: 'auto' }}
+                placeholder="Mô tả ảnh... (bấm chip @nhân vật để chèn giữ mặt)" value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
+              {chars.length > 0 && (
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {chars.map(c => (
+                    <button key={c.id} type="button" title={`Chèn @${c.name}`} onClick={() => insertMention(c.name)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '3px 9px 3px 3px', borderRadius: 99, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)' }}>
+                      <img src={c.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>@{c.name}</span><Plus size={11} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="form-row" style={{ marginBottom: 12 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Số ảnh</label>
+                  <select className="form-select" value={imgCount} onChange={e => setImgCount(+e.target.value)}>
+                    {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} ảnh</option>)}
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Tỉ lệ</label>
+                  <select className="form-select" value={imgAspect} onChange={e => setImgAspect(e.target.value)}>
+                    {['1:1', '16:9', '9:16', '4:3', '3:4'].map(a => <option key={a}>{a}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={doImage} disabled={imgLoading || !imgPrompt.trim()}>
+                {imgLoading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><Sparkles size={14} /> Tạo ảnh</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Cut video */}
+      {/* Cắt video — layout Flow */}
       {tab === 'cut' && (
-        <div style={{ maxWidth: 580 }}>
-          <div className="card">
-            <div className="card-header"><Scissors size={15} /> Cắt video</div>
-            <div className="form-group">
-              <label className="form-label">Tên file trong /uploads/</label>
-              <input className="form-input" placeholder="scene_abc123.mp4"
-                value={cutFile} onChange={e => setCutFile(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Chế độ</label>
-                <select className="form-select" value={cutMode} onChange={e => setCutMode(e.target.value)}>
-                  <option value="split">Tách đoạn (giây)</option>
-                  <option value="frames">Trích frame (ảnh)</option>
-                </select>
+        <div className="tool-flow">
+          <div className="tool-feed">
+            {cutFeed.length === 0 ? (
+              <div className="empty-state" style={{ padding: '44px 20px' }}>
+                <div className="ico"><Scissors size={24} color="var(--accent2)" /></div>
+                <h3>Chưa cắt video nào</h3>
+                <p>Nhập tên file + chọn chế độ bên dưới rồi bấm Cắt — kết quả hiện ở đây.</p>
               </div>
-              <div className="form-group">
-                <label className="form-label">{cutMode === 'split' ? 'Giây/đoạn' : 'Frame/giây'}</label>
-                <input className="form-input" type="number" min={1}
-                  value={cutMode === 'split' ? cutSeg : cutFps}
-                  onChange={e => cutMode === 'split' ? setCutSeg(+e.target.value) : setCutFps(+e.target.value)} />
-              </div>
-            </div>
-            <button className="btn btn-primary" onClick={doCut} disabled={cutLoading}>
-              {cutLoading ? <><Loader2 size={14} className="spin" /> Đang cắt...</> : <><Scissors size={14} /> Cắt ngay</>}
-            </button>
-            {cutResults.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 13, color: 'var(--green)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle size={14} /> {cutResults.length} file
-                </div>
-                {cutResults.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)' }}>
-                    {f.split('/').pop()}
-                    <a href={f} download className="btn btn-ghost btn-sm btn-icon"><Download size={12} /></a>
+            ) : (
+              <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {cutFeed.map((c, i) => (
+                  <div key={i} className="card" style={{ margin: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Scissors size={13} color="var(--accent2)" /> {c.file} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {(c.urls || []).length} file</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {(c.urls || []).map((f: string, j: number) => (
+                        <a key={j} href={f} download className="btn btn-ghost btn-sm" style={{ fontSize: 11.5 }}><Download size={11} /> {f.split('/').pop()}</a>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Scissors size={15} /> Cắt video</div>
+              <div className="form-group">
+                <label className="form-label">Tên file trong Thư viện</label>
+                <input className="form-input" placeholder="scene_abc123.mp4" value={cutFile} onChange={e => setCutFile(e.target.value)} />
+              </div>
+              <div className="form-row" style={{ marginBottom: 12 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Chế độ</label>
+                  <select className="form-select" value={cutMode} onChange={e => setCutMode(e.target.value)}>
+                    <option value="split">Tách đoạn (giây)</option>
+                    <option value="frames">Trích frame (ảnh)</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">{cutMode === 'split' ? 'Giây/đoạn' : 'Frame/giây'}</label>
+                  <input className="form-input" type="number" min={1} value={cutMode === 'split' ? cutSeg : cutFps}
+                    onChange={e => cutMode === 'split' ? setCutSeg(+e.target.value) : setCutFps(+e.target.value)} />
+                </div>
+              </div>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={doCut} disabled={cutLoading}>
+                {cutLoading ? <><Loader2 size={14} className="spin" /> Đang cắt...</> : <><Scissors size={14} /> Cắt ngay</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Download URL */}
+      {/* Tải video từ đường link — layout Flow */}
       {tab === 'download' && (
-        <div style={{ maxWidth: 580 }}>
-          <div className="card">
-            <div className="card-header"><Download size={15} /> Tải video từ đường link</div>
-            <div className="alert alert-info">
-              <AlertCircle size={14} /> Hỗ trợ YouTube, TikTok, Instagram, Facebook, 1000+ trang
-            </div>
-            <div className="form-group">
-              <label className="form-label">URL video</label>
-              <input className="form-input" placeholder="https://youtube.com/watch?v=..."
-                value={dlUrl} onChange={e => setDlUrl(e.target.value)} />
-            </div>
-            <button className="btn btn-primary" onClick={doDownload} disabled={dlLoading}>
-              {dlLoading ? <><Loader2 size={14} className="spin" /> Đang tải...</> : <><Download size={14} /> Tải về server</>}
-            </button>
-            {dlResult && (
-              <div style={{ marginTop: 16, padding: 16, background: 'var(--bg3)', borderRadius: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--green)', marginBottom: 10 }}>
-                  <CheckCircle size={14} /> Tải xong!
-                </div>
-                <video src={dlResult} controls style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />
-                <a href={dlResult} download className="btn btn-primary btn-sm"><Download size={12} /> Tải về máy</a>
+        <div className="tool-flow">
+          <div className="tool-feed">
+            {dlFeed.length === 0 ? (
+              <div className="empty-state" style={{ padding: '44px 20px' }}>
+                <div className="ico"><Download size={24} color="var(--accent2)" /></div>
+                <h3>Chưa tải video nào</h3>
+                <p>Dán link bên dưới rồi bấm Tải — video hiện ở đây, F5 vẫn giữ.</p>
+              </div>
+            ) : (
+              <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 14 }}>
+                {dlFeed.map((d, i) => (
+                  <div key={i} className="video-card">
+                    <div className="video-preview"><video src={d.url} controls preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /></div>
+                    <div className="video-card-body">
+                      <div className="video-card-prompt">{d.filename || d.src}</div>
+                      <a href={d.url} download className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}><Download size={12} /> Tải về máy</a>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+          <div className="tool-composer">
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header"><Download size={15} /> Tải video từ đường link</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 10 }}>Hỗ trợ YouTube, TikTok, Instagram, Facebook, 1000+ trang.</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <input className="form-input" style={{ flex: 1, minWidth: 220 }} placeholder="https://youtube.com/watch?v=..." value={dlUrl} onChange={e => setDlUrl(e.target.value)} />
+                <button className="btn btn-primary" style={{ flex: 'none' }} onClick={doDownload} disabled={dlLoading || !dlUrl.trim()}>
+                  {dlLoading ? <><Loader2 size={14} className="spin" /> Đang tải...</> : <><Download size={14} /> Tải</>}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
