@@ -97,9 +97,9 @@ class AutoPromptResponse(BaseModel):
 
 
 # 2.5-flash = primary (đã verify chạy OK với key user). gemini-3.5-flash CÓ trên API nhưng key
-# free hiện bị 429 -> KHÔNG để primary (sẽ phí 1 call lỗi mỗi lần). lite + 2.0-flash làm fallback.
-# Nếu sau này user nâng plan có quota 3.5-flash thì đưa nó lên đầu. Vòng lặp tự bỏ model lỗi.
-GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash")
+# Thứ tự ưu tiên: lite TRƯỚC (quota free rộng + ổn định, ít dính 429/“no valid Part” của model thinking),
+# rồi 2.5-flash, rồi 2.0-flash. _gemini_json tự bỏ model lỗi và thử model kế (timeout chống treo).
+GEMINI_MODELS = ("gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash")
 MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-reduce dùng MAX_SCENES_MR
 MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song
@@ -165,30 +165,22 @@ def _loads_lenient(text: str) -> dict:
 
 
 def _gemini_json(api_key: str, prompt: str, max_tokens: int = 8192) -> dict:
-    """Gemini JSON mode + fallback model (429/404/quota) + bỏ JSON-mode khi SDK cũ + bóc fence."""
+    """Gemini JSON mode + fallback BỀN: mỗi model thử JSON-mode rồi plain; LỖI GÌ cũng bỏ model đó,
+    thử model kế (không re-raise giữa chừng). timeout/model chống SDK retry-backoff treo lâu khi 429."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
     cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
+    ropts = {"timeout": 30}   # chặn SDK retry backoff trên 429 -> fallback nhanh, frontend khỏi timeout
     last = None
     for mname in GEMINI_MODELS:
-        try:
-            txt = genai.GenerativeModel(mname).generate_content(prompt, generation_config=cfg).text.strip()
-            return _loads_lenient(txt)
-        except Exception as e:
-            last = e
-            low = str(e).lower()
-            if any(k in low for k in ("429", "quota", "exceeded", "404", "not found", "not supported",
-                                      "unavailable", "response_mime_type", "response_schema", "max_output")):
-                log.warning("gemini %s strict/unavailable (%s) -> thử plain / model kế", mname, low[:80])
-                try:
-                    txt = genai.GenerativeModel(mname).generate_content(prompt).text.strip()
-                    return _loads_lenient(txt)
-                except Exception as e2:
-                    last = e2
-                    continue
-            if isinstance(e, json.JSONDecodeError):
-                continue
-            raise
+        for gc in (cfg, None):   # JSON-mode trước, rồi plain (SDK cũ/chặn JSON / "no valid Part")
+            try:
+                txt = genai.GenerativeModel(mname).generate_content(
+                    prompt, generation_config=gc, request_options=ropts).text.strip()
+                return _loads_lenient(txt)
+            except Exception as e:
+                last = e
+        log.warning("gemini %s bỏ qua (%s) -> thử model kế", mname, str(last).lower()[:90])
     raise last if last else RuntimeError("Gemini không phản hồi")
 
 
