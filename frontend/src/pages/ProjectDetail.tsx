@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { projectsApi, mediaApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
+import { Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp } from 'lucide-react'
+
+// Thu gọn prompt còn 3 dòng (bấm "Xem thêm" để bung)
+const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 
 export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?: () => void }) {
   const { id } = useParams<{ id: string }>()
@@ -10,6 +14,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [loading, setLoading] = useState(true)
   const [editingScene, setEditingScene] = useState<string | null>(null)
   const [editPrompt, setEditPrompt] = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())   // scene id -> đang bung prompt
+  const toggleExpand = (sid: string) => setExpanded(s => {
+    const n = new Set(s); n.has(sid) ? n.delete(sid) : n.add(sid); return n
+  })
   const [merging, setMerging] = useState(false)
   const [mergeUrl, setMergeUrl] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -399,15 +407,26 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                       style={{ marginBottom: 8, fontSize: 13 }}
                     />
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}>💾 Lưu</button>
+                      <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}><Save size={13} /> Lưu</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => setEditingScene(null)}>Hủy</button>
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 8, color: 'var(--text)' }}>
+                    <div style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 6, color: 'var(--text)',
+                      ...(expanded.has(scene.id) ? {} : CLAMP) }}>
                       {scene.prompt}
                     </div>
+                    {scene.prompt && scene.prompt.length > 160 && (
+                      <button onClick={() => toggleExpand(scene.id)}
+                        style={{ background: 'none', border: 'none', color: 'var(--accent2)', cursor: 'pointer',
+                          fontSize: 12, fontWeight: 600, padding: 0, marginBottom: 10,
+                          display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        {expanded.has(scene.id)
+                          ? <><ChevronUp size={13} /> Thu gọn</>
+                          : <><ChevronDown size={13} /> Xem thêm</>}
+                      </button>
+                    )}
                     {scene.narration && (
                       <div style={{
                         fontSize: 12, color: 'var(--text2)', fontStyle: 'italic',
@@ -420,10 +439,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn btn-ghost btn-sm"
                         onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
-                        ✏️ Sửa
+                        <Pencil size={13} /> Sửa
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => rerenderScene(scene.id)}>
-                        🔄 Render lại
+                        <RefreshCw size={13} /> Render lại
                       </button>
                       {scene.status === 'pending' && (
                         <button className="btn btn-primary btn-sm" onClick={async () => {
@@ -431,19 +450,19 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                           await projectsApi.renderScene(id, scene.id)
                           pushLog(`Đang render scene ${scene.index + 1}...`)
                           load(true)
-                        }}>▶ Render</button>
+                        }}><Play size={13} /> Render</button>
                       )}
                       {scene.status === 'done' && scene.video_file && (
                         <>
                           <a href={`/uploads/${scene.video_file}`} download={`scene_${scene.index + 1}.mp4`}
-                            className="btn btn-primary btn-sm">⬇️ Tải</a>
+                            className="btn btn-primary btn-sm"><Download size={13} /> Tải</a>
                           <button className="btn btn-ghost btn-sm"
-                            onClick={() => navigator.clipboard.writeText(scene.prompt)}>📋 Copy</button>
+                            onClick={() => navigator.clipboard.writeText(scene.prompt)}><Copy size={13} /> Copy</button>
                         </>
                       )}
                       {/* Import video thủ công */}
                       <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
-                        📥 Import
+                        <Upload size={13} /> Import
                         <input type="file" accept="video/*" style={{ display: 'none' }}
                           onChange={async e => {
                             const f = e.target.files?.[0]; if (!f || !id) return
@@ -454,7 +473,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                       </label>
                       {/* Set start image for I2V */}
                       <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }} title="Đặt ảnh gốc cho I2V">
-                        🖼 I2V
+                        <ImagePlus size={13} /> I2V
                         <input type="file" accept="image/*" style={{ display: 'none' }}
                           onChange={async e => {
                             const f = e.target.files?.[0]; if (!f || !id) return
