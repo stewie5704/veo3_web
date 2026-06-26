@@ -193,7 +193,8 @@ class DownloadRequest(BaseModel):
 async def download_from_url(body: DownloadRequest, user: User = Depends(get_current_user)):
     out_name = f"dl_{uuid.uuid4().hex[:10]}.mp4"
     out_path = UPLOAD_PATH / out_name
-    cmd = ["yt-dlp", "-f", body.quality, "--no-playlist", "--merge-output-format", "mp4",
+    import sys
+    cmd = [sys.executable, "-m", "yt_dlp", "-f", body.quality, "--no-playlist", "--merge-output-format", "mp4",
            "-o", str(out_path), body.url]
     proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)

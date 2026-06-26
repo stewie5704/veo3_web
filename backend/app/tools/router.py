@@ -806,10 +806,10 @@ async def copy_idea(
 
     # Download video info via yt-dlp (chạy trong thread — không khoá event loop)
     try:
-        import subprocess, json as _json
+        import subprocess, sys, json as _json
         result = await asyncio.to_thread(
             subprocess.run,
-            ["yt-dlp", "--dump-json", "--no-playlist", body.url],
+            [sys.executable, "-m", "yt_dlp", "--dump-json", "--no-playlist", body.url],
             capture_output=True, text=True, timeout=30,
         )
         if result.returncode != 0:
