@@ -119,19 +119,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     finally { setLoadingPrompts(false) }
   }
 
+  // Tự nhập kịch bản: phân tích xong TẠO + RENDER thẳng — BỎ bước duyệt (user đã có kịch bản rồi).
   async function parseScript() {
     if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
-    setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
-    setLoadingPrompts(true); setStep('review')
+    setError(''); setLoadingPrompts(true)
     try {
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
-      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
       const bc = res.characters || []
-      setBibleChars(bc)
-      setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
-      pushLog(`Đã phân tích kịch bản ${(res.scenes || res.prompts).length} cảnh`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setStep('setup') }
-    finally { setLoadingPrompts(false) }
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
+      const n = (res.scenes?.length || res.prompts?.length || 0)
+      pushLog(`Đã phân tích kịch bản ${n} cảnh`)
+      // Chỉ hỏi xác nhận khi TỐN Gem (model trả phí); model free thì tạo luôn cho nhanh.
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
   }
 
   function addScene() {
@@ -156,14 +159,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     finally { setAddingChar(false) }
   }
 
-  async function createNew(autoRender: boolean) {
+  // data: cho phép tạo THẲNG từ kết quả phân tích (bỏ bước duyệt) thay vì đọc từ state (chưa kịp cập nhật)
+  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string> }) {
+    const sScenes = data?.scenes ?? scenes
+    const sPrompts = data?.prompts ?? prompts
+    const sNarr = data?.narrations ?? narrations
+    const sBible = data?.bible ?? bibleChars
+    const sCharVoices = data?.charVoices ?? charVoices
     // Nếu có kịch bản chi tiết -> lấy prompt (tiếng Anh) + lời thoại từ scenes (đã chỉnh sửa); else dùng format phẳng (Copy Idea)
-    const basePrompts = scenes.length ? scenes.map(s => s.prompt || s.image || '') : prompts
-    const baseNarr = scenes.length
-      ? scenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
-      : narrations
+    const basePrompts = sScenes.length ? sScenes.map(s => s.prompt || s.image || '') : sPrompts
+    const baseNarr = sScenes.length
+      ? sScenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
+      : sNarr
     // giọng riêng theo nhân vật nói trong mỗi cảnh (fallback giọng mặc định)
-    const baseVoices = scenes.length ? scenes.map(s => charVoices[(s.speaker || '').trim()] || voice) : []
+    const baseVoices = sScenes.length ? sScenes.map(s => sCharVoices[(s.speaker || '').trim()] || voice) : []
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
@@ -181,12 +190,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
         audio_mode: audioMode, voiceover, voice, voices: baseVoices,
-        character_bible: bibleChars,   // -> backend sinh chân dung AI giữ mặt mọi cảnh
+        character_bible: sBible,   // -> backend sinh chân dung AI giữ mặt mọi cảnh
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
       nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo dự án thất bại'); setCreating(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo dự án thất bại'); setCreating(false); setLoadingPrompts(false) }
   }
 
   const addBScene = () => setBScenes(s => [...s, { prompt: '', narration: '' }])
@@ -399,7 +408,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
               <div style={{ flex: 1 }} />
               <button className="cmp-cta" onClick={mode === 'manual' ? parseScript : genPrompts} disabled={loadingPrompts || !idea.trim()}>
-                {loadingPrompts ? <><Loader2 size={14} className="spin" /> Đang xử lý...</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích kịch bản →' : 'Viết kịch bản →'}</>}
+                {loadingPrompts ? <><Loader2 size={14} className="spin" /> {mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang xử lý...'}</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích & tạo phim →' : 'Viết kịch bản →'}</>}
               </button>
             </div>
           </>)}
