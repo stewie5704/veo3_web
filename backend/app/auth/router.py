@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
 from app.auth.models import User
@@ -66,6 +66,14 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     token = create_access_token({"sub": user.id})
+    return TokenResponse(access_token=token)
+
+
+@router.post("/extension-token", response_model=TokenResponse)
+async def extension_token(user: User = Depends(get_current_user)):
+    """Token sống lâu (30 ngày) cho Chrome extension — chỉ cấp cho user ĐÃ đăng nhập (token 24h).
+    Extension cắm WebSocket lâu dài; web app vẫn dùng token 24h như cũ -> không yếu bảo mật web."""
+    token = create_access_token({"sub": user.id, "ext": True}, expires_delta=timedelta(days=30))
     return TokenResponse(access_token=token)
 
 

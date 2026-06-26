@@ -8,7 +8,20 @@ const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
 
 let ws = null;
-const state = { connected: false, cookiesSent: false, projectId: "", error: "" };
+let everOpened = false;      // phiên WS hiện tại đã open chưa (phân biệt rớt mạng vs token chết)
+let reconnectTimer = null;
+const state = { connected: false, cookiesSent: false, projectId: "", error: "", needLogin: false };
+
+// Token còn hợp lệ không? 401/403 = chết -> đừng reconnect nữa, bắt user đăng nhập lại.
+// Lỗi mạng/server-down -> coi như "chưa chắc" (giữ token, cứ thử lại).
+async function tokenValid(server, token) {
+  try {
+    const r = await fetch(`${server.replace(/\/+$/, "")}/api/v1/auth/me`, {
+      headers: { authorization: "Bearer " + token },
+    });
+    return !(r.status === 401 || r.status === 403);
+  } catch (e) { return true; }
+}
 
 // ── config ───────────────────────────────────────────────────────────────────
 async function getConfig() {
@@ -144,21 +157,37 @@ async function solveCaptcha(action) {
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
+async function killTokenAndPromptLogin() {
+  await chrome.storage.local.remove(["token"]);
+  state.connected = false;
+  state.needLogin = true;
+  state.error = "Token hết hạn — mở popup đăng nhập lại";
+}
+
 async function connect() {
   const { server, token } = await getConfig();
-  if (!server || !token) { state.error = "Chưa đăng nhập (mở popup để kết nối)"; return; }
+  if (!server || !token) { if (!state.needLogin) state.error = "Chưa đăng nhập (mở popup để kết nối)"; return; }
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
+  everOpened = false;
   try { ws = new WebSocket(wsUrl(server, token)); }
   catch (e) { state.error = "URL server sai: " + e; return; }
 
-  ws.onopen = () => { state.connected = true; state.error = ""; pushCookies(); };
+  ws.onopen = () => { everOpened = true; state.connected = true; state.error = ""; state.needLogin = false; pushCookies(); };
   ws.onerror = () => { try { ws.close(); } catch (e) {} };
-  ws.onclose = (ev) => {
+  ws.onclose = async (ev) => {
     state.connected = false;
     ws = null;
-    if (ev && ev.code === 4001) state.error = "Token hết hạn — đăng nhập lại";
-    setTimeout(connect, 3000); // auto-reconnect
+    // Server từ chối rõ ràng (close code) -> token hỏng.
+    if (ev && (ev.code === 4001 || ev.code === 4002)) { await killTokenAndPromptLogin(); return; }
+    // Bắt tay bị 403 (reject trước accept) -> client thấy code 1006, KHÔNG bao giờ open.
+    // Verify token: chết -> dừng loop + báo đăng nhập lại (hết cảnh quay vòng 403 vô tận).
+    if (!everOpened) {
+      const ok = await tokenValid(server, token);
+      if (!ok) { await killTokenAndPromptLogin(); return; }
+    }
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 3000); // rớt tạm thời -> thử lại
   };
   ws.onmessage = async (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
@@ -186,7 +215,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "status") { sendResponse(state); return false; }
   if (msg.type === "reconnect") {
     try { if (ws) ws.close(); } catch (e) {}
-    ws = null; state.error = "";
+    ws = null; state.error = ""; state.needLogin = false;
+    clearTimeout(reconnectTimer);
     connect().then(() => sendResponse({ ok: true }));
     return true;
   }

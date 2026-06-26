@@ -35,7 +35,16 @@ $("connect").onclick = async () => {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.access_token) { setStatus("❌ " + (d.detail || "Đăng nhập thất bại")); return; }
-    await chrome.storage.local.set({ server, token: d.access_token });
+    // Đổi sang token sống lâu (30 ngày) dành riêng cho extension -> đỡ phải đăng nhập lại mỗi 24h
+    let token = d.access_token;
+    try {
+      const er = await fetch(`${server}/api/v1/auth/extension-token`, {
+        method: "POST", headers: { authorization: "Bearer " + d.access_token },
+      });
+      const ed = await er.json().catch(() => ({}));
+      if (er.ok && ed.access_token) token = ed.access_token;
+    } catch (e) { /* fallback dùng token 24h */ }
+    await chrome.storage.local.set({ server, token });
     setStatus("✅ Đăng nhập OK, đang kết nối…");
     chrome.runtime.sendMessage({ type: "reconnect" }, () => setTimeout(refresh, 800));
   } catch (e) {

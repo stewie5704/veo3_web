@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { projectsApi, videosApi } from '../api/client'
+import { projectsApi, videosApi, extensionApi } from '../api/client'
 import { useToast } from '../components/Toast'
-import { Trash2, Download, Search, RefreshCw, Play, Loader2, FolderOpen } from 'lucide-react'
+import { Trash2, Download, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } from 'lucide-react'
 
 type SortBy = 'newest' | 'oldest'
 
@@ -14,6 +14,7 @@ export default function MyVideos() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('newest')
+  const [extOk, setExtOk] = useState<boolean | null>(null)   // extension kết nối? (null = chưa biết)
 
   async function load() {
     setLoading(true)
@@ -26,7 +27,12 @@ export default function MyVideos() {
     try { setVideos(await videosApi.list(100)) } catch { setVideos([]) }
     setLoading(false)
   }
+  async function retryVideo(id: string) {
+    try { await videosApi.retry(id); toast('Đang render lại...', 'success'); load() }
+    catch (e: any) { toast(e?.response?.data?.detail || 'Render lại thất bại', 'error') }
+  }
   useEffect(() => { load() }, [])
+  useEffect(() => { extensionApi.status().then(s => setExtOk(!!s.connected)).catch(() => setExtOk(null)) }, [])
 
   const sortFn = (a: any, b: any) => sortBy === 'newest'
     ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -63,6 +69,12 @@ export default function MyVideos() {
         </div>
         <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={13} /></button>
       </div>
+
+      {extOk === false && (
+        <div className="alert alert-warn" style={{ marginBottom: 18 }}>
+          <AlertCircle size={15} /> Extension chưa kết nối — render sẽ lỗi. Mở extension và <strong>đăng nhập lại</strong>, rồi mở 1 tab Flow.
+        </div>
+      )}
 
       {/* Search + sort */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 22, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -178,6 +190,11 @@ export default function MyVideos() {
                             <a href={`/api/v1/videos/${v.id}/download/0`} download className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
                               <Download size={12} /> Tải
                             </a>
+                          )}
+                          {v.status === 'failed' && (
+                            <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => retryVideo(v.id)}>
+                              <RefreshCw size={12} /> Render lại
+                            </button>
                           )}
                           <button className="btn btn-danger btn-sm btn-icon" onClick={async () => { await videosApi.delete(v.id); setVideos(vs => vs.filter(x => x.id !== v.id)) }}>
                             <Trash2 size={12} />

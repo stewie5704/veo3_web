@@ -161,6 +161,27 @@ async def create_r2v(
     return _job_to_response(job)
 
 
+@router.post("/{job_id}/retry", response_model=JobResponse)
+async def retry_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render lại 1 video lẻ đã fail (vd lỗi captcha/extension) — khỏi phải tạo lại từ đầu."""
+    job = await db.get(VideoJob, job_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy job")
+    _ensure_can_render(user)
+    job.status = JobStatus.pending
+    job.error_msg = None
+    job.progress = 0
+    await db.commit()
+    await db.refresh(job)
+    background_tasks.add_task(run_video_job, job.id, user.id)
+    return _job_to_response(job)
+
+
 @router.get("/", response_model=list[JobResponse])
 async def list_jobs(
     user: User = Depends(get_current_user),

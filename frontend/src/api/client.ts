@@ -54,6 +54,7 @@ export const videosApi = {
   },
   list: (limit = 20, offset = 0) => api.get(`/videos/?limit=${limit}&offset=${offset}`).then(r => r.data),
   get: (id: string) => api.get(`/videos/${id}`).then(r => r.data),
+  retry: (id: string) => api.post(`/videos/${id}/retry`).then(r => r.data),
   delete: (id: string) => api.delete(`/videos/${id}`).then(r => r.data),
   downloadUrl: (jobId: string, fileIndex: number) => `/api/v1/videos/${jobId}/download/${fileIndex}`,
 }
