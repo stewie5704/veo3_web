@@ -5,7 +5,7 @@ import { pushLog } from './Dashboard'
 import {
   Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
   FileText, Film, Trash2, Pause, FolderOpen, ArrowLeft, Check, Cpu, RectangleHorizontal, Clock,
-  Languages, Calendar, ScrollText,
+  Languages, Calendar, ScrollText, Clapperboard, Loader2, AlertCircle,
 } from 'lucide-react'
 import AddPartPanel from '../components/AddPartPanel'
 
@@ -438,22 +438,17 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   <video src={`/uploads/${scene.video_file}`} controls preload="metadata"
                     style={{ width: '100%', borderRadius: 8, background: '#000', display: 'block' }} />
                 ) : (
-                  <div style={{
-                    width: '100%', aspectRatio: scene.aspect_ratio === '9:16' ? '9/16' : '16/9',
-                    maxHeight: 160,
-                    background: 'var(--bg3)', borderRadius: 8,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    gap: 8, color: 'var(--text2)', fontSize: 12,
-                  }}>
-                    {scene.status === 'pending' && <><span style={{ fontSize: 28 }}>⏳</span>Chờ tạo</>}
-                    {scene.status === 'processing' && <><span className="spinner" /><span>Đang tạo...</span></>}
+                  <div className={`scene-ph${scene.status === 'processing' ? ' shimmer' : ''}`}
+                    style={{ width: '100%', aspectRatio: scene.aspect_ratio === '9:16' ? '9/16' : '16/9', maxHeight: 160 }}>
+                    {scene.status === 'pending' && (
+                      <><div className="scene-ph-orb wait"><Clapperboard size={22} /></div><span>Chờ tạo</span></>
+                    )}
+                    {scene.status === 'processing' && (
+                      <><div className="scene-ph-orb run"><Loader2 size={22} className="spin" /></div><span>Đang tạo...</span></>
+                    )}
                     {scene.status === 'failed' && (
-                      <>
-                        <span style={{ fontSize: 28 }}>❌</span>
-                        <span style={{ color: '#fca5a5', textAlign: 'center', padding: '0 8px', fontSize: 11 }}>
-                          {scene.error_msg?.slice(0, 80)}
-                        </span>
-                      </>
+                      <><div className="scene-ph-orb fail"><AlertCircle size={22} /></div>
+                        <span style={{ color: '#fca5a5', textAlign: 'center', padding: '0 10px', fontSize: 11 }}>{scene.error_msg?.slice(0, 80)}</span></>
                     )}
                   </div>
                 )}

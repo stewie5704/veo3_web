@@ -443,6 +443,17 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @keyframes loadSlide{0%{transform:translateX(-110%)}100%{transform:translateX(240%)}}
 @media(prefers-reduced-motion:reduce){.creating-orb,.creating-orb svg,.load-bar-fill{animation:none}}
 
+/* Placeholder cảnh chưa render (Chờ tạo / Đang tạo / Lỗi) — orb gradient thay icon đồng hồ cát */
+.scene-ph{border-radius:10px;background:var(--bg3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text2);font-size:12.5px;font-weight:600;position:relative;overflow:hidden}
+.scene-ph-orb{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;flex:none}
+.scene-ph-orb.wait{background:linear-gradient(140deg,var(--accent),var(--accent-dark));animation:phPing 1.9s ease-out infinite}
+@keyframes phPing{0%{box-shadow:0 0 0 0 var(--accent-glow)}70%,100%{box-shadow:0 0 0 15px transparent}}
+.scene-ph-orb.run{background:var(--grad);box-shadow:0 6px 22px -6px var(--accent-glow)}
+.scene-ph-orb.fail{background:rgba(248,113,113,.14);color:#fca5a5;border:1px solid rgba(248,113,113,.4)}
+.scene-ph.shimmer::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.07) 50%,transparent 65%);transform:translateX(-100%);animation:phShimmer 1.6s ease-in-out infinite}
+@keyframes phShimmer{to{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.scene-ph-orb.wait,.scene-ph.shimmer::after{animation:none}}
+
 /* ── Chống Safari iOS tự phóng to khi gõ vào ô nhập (cần font-size >=16px) ── */
 @media (max-width:600px){
   input,textarea,select,.form-input,.form-textarea{font-size:16px}
