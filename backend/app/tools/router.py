@@ -2,12 +2,16 @@
 Tools router: Image generation, TTS, Auto-prompt, Copy Idea.
 """
 import asyncio
+import html as _htmlmod
+import ipaddress
 import json
 import logging
 import re
+import socket
 import unicodedata
 import uuid
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -694,6 +698,158 @@ NGÔN NGỮ (bắt buộc): mọi mô tả + style_lock + prompt + thông số m
     except Exception as e:
         log.exception("parse-script error: %s", e)
         raise HTTPException(500, f"Lỗi phân tích kịch bản: {e}")
+
+
+# ── Lấy ảnh sản phẩm từ link sàn TMĐT (best-effort og:image) ─────────────────
+
+_PROD_IMG_DIR = IMG_PATH / "chars"   # serve tại /images/chars/
+_PROD_IMG_DIR.mkdir(parents=True, exist_ok=True)
+_FETCH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,*/*",
+    "Accept-Language": "vi,en;q=0.8",
+}
+# Regex CÓ CẬN trên (chống ReDoS): duyệt từng thẻ <meta> rồi bóc property/content riêng.
+_META_TAG_RE = re.compile(r'<meta\b[^>]{0,1500}>', re.I)
+_META_PROP_RE = re.compile(r'(?:property|name)\s*=\s*["\']([^"\']{1,120})["\']', re.I)
+_META_CONTENT_RE = re.compile(r'content\s*=\s*["\']([^"\']{1,3000})["\']', re.I)
+_OG_IMG_KEYS = {"og:image", "og:image:secure_url", "twitter:image", "twitter:image:src"}
+_OG_TITLE_KEYS = {"og:title", "twitter:title"}
+# Chỉ cho link TRANG từ các sàn TMĐT -> kẻ tấn công không điều khiển được DNS các domain này (loại DNS-rebinding/SSRF tùy ý).
+_SHOP_HOSTS = ("shopee.vn", "shopee.com", "shp.ee", "tiktok.com", "lazada.vn", "lazada.com", "tiki.vn", "sendo.vn")
+_MAX_HTML = 700_000
+_MAX_IMG = 12_000_000
+_last_fetch: dict[str, float] = {}   # rate-limit nhẹ per-user
+
+
+def _host_is_public(host: str) -> bool:
+    """Chống SSRF: host phân giải ra IP công khai (chặn localhost/mạng nội bộ)."""
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0].split("%")[0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
+                or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
+
+
+def _host_allowed(host: str) -> bool:
+    h = (host or "").lower()
+    return any(h == d or h.endswith("." + d) for d in _SHOP_HOSTS)
+
+
+def _check_page_url(u: str) -> str:
+    p = urlparse(u)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        raise HTTPException(400, "Link không hợp lệ")
+    if not _host_allowed(p.hostname):
+        raise HTTPException(400, "Chỉ hỗ trợ link Shopee / TikTok Shop / Lazada / Tiki / Sendo. Hãy upload ảnh thủ công.")
+    if not _host_is_public(p.hostname):
+        raise HTTPException(400, "Link không hợp lệ")
+    return u
+
+
+def _check_img_url(u: str) -> str:
+    p = urlparse(u)
+    if p.scheme not in ("http", "https") or not p.hostname or not _host_is_public(p.hostname):
+        raise HTTPException(400, "Ảnh sản phẩm không hợp lệ")
+    return u
+
+
+def _extract_og(page: str) -> tuple[str, str]:
+    """Bóc og:image + og:title bằng cách duyệt từng thẻ <meta> với quantifier CÓ CẬN -> tuyến tính, không ReDoS."""
+    og_img = og_title = ""
+    for mt in _META_TAG_RE.finditer(page):
+        tag = mt.group(0)
+        pm = _META_PROP_RE.search(tag)
+        if not pm:
+            continue
+        key = pm.group(1).lower()
+        if key not in _OG_IMG_KEYS and key not in _OG_TITLE_KEYS:
+            continue
+        cm = _META_CONTENT_RE.search(tag)
+        if not cm:
+            continue
+        val = _htmlmod.unescape(cm.group(1)).strip()
+        if not og_img and key in _OG_IMG_KEYS:
+            og_img = val
+        elif not og_title and key in _OG_TITLE_KEYS:
+            og_title = val
+        if og_img and og_title:
+            break
+    return og_img, og_title
+
+
+class ProductLinkRequest(BaseModel):
+    url: str
+
+
+async def _fetch_capped(client: httpx.AsyncClient, url: str, max_bytes: int, validator):
+    """Theo redirect thủ công (validate TỪNG hop bằng validator), stream + cắt sớm chống OOM. Trả (headers, body, final_url)."""
+    for _ in range(5):
+        validator(url)
+        async with client.stream("GET", url, headers=_FETCH_HEADERS) as resp:
+            loc = resp.headers.get("location")
+            if resp.status_code in (301, 302, 303, 307, 308) and loc:
+                url = urljoin(url, loc)
+                continue
+            cl = resp.headers.get("content-length")
+            if cl and cl.isdigit() and int(cl) > max_bytes:
+                raise HTTPException(400, "Nội dung quá lớn")
+            buf = bytearray()
+            async for chunk in resp.aiter_bytes():
+                buf += chunk
+                if len(buf) > max_bytes:
+                    raise HTTPException(400, "Nội dung quá lớn")
+            return resp.headers, bytes(buf), url
+    raise HTTPException(400, "Link chuyển hướng quá nhiều lần")
+
+
+@router.post("/product-from-link")
+async def product_from_link(body: ProductLinkRequest, user: User = Depends(get_current_user)):
+    """Best-effort: dán link sản phẩm sàn TMĐT (allowlist) -> og:image + tên. Chống SSRF (allowlist host + chặn IP nội bộ mỗi hop) + giới hạn kích thước + rate-limit. Sàn chặn bot -> báo lỗi để upload tay."""
+    now = asyncio.get_running_loop().time()
+    if now - _last_fetch.get(user.id, 0.0) < 3.0:
+        raise HTTPException(429, "Thao tác quá nhanh, đợi vài giây rồi thử lại.")
+    _last_fetch[user.id] = now
+
+    start = _check_page_url((body.url or "").strip())
+    try:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=12.0) as client:
+            _hdr, raw, page_url = await _fetch_capped(client, start, _MAX_HTML, _check_page_url)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Không tải được trang (sàn có thể chặn). Hãy upload ảnh thủ công.")
+
+    og_img, og_title = await asyncio.to_thread(_extract_og, raw.decode("utf-8", "ignore"))
+    if not og_img:
+        raise HTTPException(400, "Không tìm thấy ảnh sản phẩm trong link. Hãy upload ảnh thủ công.")
+    img_url = urljoin(page_url, og_img)
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=15.0) as client:
+            ihdr, data, _ = await _fetch_capped(client, img_url, _MAX_IMG, _check_img_url)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Không tải được ảnh sản phẩm. Hãy upload ảnh thủ công.")
+    ctype = (ihdr.get("content-type") or "").lower()
+    if not ctype.startswith("image/") or not (100 <= len(data) <= _MAX_IMG):
+        raise HTTPException(400, "Ảnh sản phẩm không hợp lệ. Hãy upload ảnh thủ công.")
+
+    ext = ".png" if "png" in ctype else ".webp" if "webp" in ctype else ".jpg"
+    fname = f"prod_{uuid.uuid4().hex[:12]}{ext}"
+    (_PROD_IMG_DIR / fname).write_bytes(data)
+    return {"image_url": f"/images/chars/{fname}", "title": og_title[:120]}
 
 
 # ── TTS ───────────────────────────────────────────────────────────────────────

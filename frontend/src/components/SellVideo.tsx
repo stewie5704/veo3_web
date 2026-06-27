@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { videosApi } from '../api/client'
+import { videosApi, toolsApi } from '../api/client'
 import { pushLog } from '../pages/Dashboard'
 import VideoFeed from './VideoFeed'
 import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle } from 'lucide-react'
@@ -49,6 +49,8 @@ export default function SellVideo() {
   const [dur, setDur] = useState(6)
   const [loading, setLoading] = useState(false)
   const [showAdv, setShowAdv] = useState(false)
+  const [link, setLink] = useState('')
+  const [linkLoading, setLinkLoading] = useState(false)
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
 
@@ -70,6 +72,26 @@ export default function SellVideo() {
     setPrompt(
 `Candid iPhone footage, ${sceneTxt[scene]}. ${subj} naturally shows and tries on the EXACT ${prod} from the product reference — keep the SAME color, pattern, print, logo and cut, do NOT alter it. They turn to show the fit, soft genuine smile, slight handheld camera shake, realistic skin texture. ${toneTxt[tone]}.
 [negative] warping, morphing, altered logo or print, extra fingers, plastic skin, text artifacts`)
+  }
+
+  async function importFromLink() {
+    const u = link.trim()
+    if (!u) return
+    setError(''); setLinkLoading(true)
+    try {
+      const res = await toolsApi.productFromLink(u)
+      const r = await fetch(res.image_url)
+      if (!r.ok) throw new Error('img')
+      const blob = await r.blob()
+      if (!blob.type.startsWith('image/')) throw new Error('not-image')
+      const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
+      setProduct(new File([blob], `product.${ext}`, { type: blob.type }))
+      setProductPrev(res.image_url)
+      if (res.title && !name.trim()) setName(res.title)
+      setLink('')
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Không lấy được ảnh từ link. Hãy upload ảnh thủ công.')
+    } finally { setLinkLoading(false) }
   }
 
   async function doSell() {
@@ -98,6 +120,17 @@ export default function SellVideo() {
         <div className="tool-composer">
           <div className="card" style={{ margin: 0 }}>
             <div className="card-header"><ShoppingBag size={15} /> Video bán hàng <small>Ảnh sản phẩm (+ KOL) → video mặc/cầm sản phẩm tự nhiên cho TikTok Shop</small></div>
+
+            {/* Dán link sản phẩm — tự lấy ảnh (best-effort) */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              <input className="form-input" style={{ flex: 1, minWidth: 200 }}
+                placeholder="Dán link sản phẩm (Shopee / TikTok Shop / Lazada) — tự lấy ảnh"
+                value={link} onChange={e => setLink(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); importFromLink() } }} />
+              <button className="btn btn-ghost btn-sm" onClick={importFromLink} disabled={linkLoading || !link.trim()}>
+                {linkLoading ? <><Loader2 size={13} className="spin" /> Đang lấy...</> : <>🔗 Lấy ảnh</>}
+              </button>
+            </div>
 
             {/* Ảnh + mô tả — bố cục giống tool "Ảnh → Video": ảnh trái, mô tả phải */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>

@@ -120,6 +120,7 @@ export const toolsApi = {
   copyIdea: (data: { url: string; style?: string; scene_count?: number }) =>
     api.post('/tools/copy-idea', data).then(r => r.data),
   styles: () => api.get('/tools/styles').then(r => r.data),  // [{id,name}]
+  productFromLink: (url: string) => api.post('/tools/product-from-link', { url }).then(r => r.data),  // {image_url, title}
 }
 
 export const charactersApi = {
