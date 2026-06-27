@@ -99,8 +99,8 @@ export default function SellVideo() {
           <div className="card" style={{ margin: 0 }}>
             <div className="card-header"><ShoppingBag size={15} /> Video bán hàng <small>Ảnh sản phẩm (+ KOL) → video mặc/cầm sản phẩm tự nhiên cho TikTok Shop</small></div>
 
-            {/* Ảnh */}
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', marginBottom: 22, flexWrap: 'wrap' }}>
+            {/* Ảnh + mô tả — bố cục giống tool "Ảnh → Video": ảnh trái, mô tả phải */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
                 <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
@@ -117,9 +117,22 @@ export default function SellVideo() {
                     onChange={e => { const f = e.target.files?.[0] || null; setKol(f); setKolPrev(f ? URL.createObjectURL(f) : null) }} />
                 </label>
               </div>
-              <input className="form-input" style={{ flex: 1, minWidth: 180 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize)"
-                value={name} onChange={e => setName(e.target.value)} />
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Mô tả cảnh</div>
+                <div style={{ position: 'relative' }}>
+                  <textarea className="form-textarea" rows={4} style={{ minHeight: 'auto' }}
+                    value={prompt} onChange={e => setPrompt(e.target.value)}
+                    placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
+                  <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
+                    <Sparkles size={13} /> Trợ lý viết
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Tên sản phẩm — giúp trợ lý viết sát hơn */}
+            <input className="form-input" style={{ width: '100%', marginBottom: 20 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp trợ lý viết sát hơn"
+              value={name} onChange={e => setName(e.target.value)} />
 
             {/* Bối cảnh */}
             <div style={{ marginBottom: 20 }}>
@@ -138,19 +151,6 @@ export default function SellVideo() {
                 {SELL_TONES.map(t => (
                   <button key={t.v} className={tone === t.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTone(t.v)}>{t.label}</button>
                 ))}
-              </div>
-            </div>
-
-            {/* Mô tả */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Mô tả cảnh</div>
-              <div style={{ position: 'relative' }}>
-                <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
-                  value={prompt} onChange={e => setPrompt(e.target.value)}
-                  placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
-                <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
-                  <Sparkles size={13} /> Trợ lý viết
-                </button>
               </div>
             </div>
 
