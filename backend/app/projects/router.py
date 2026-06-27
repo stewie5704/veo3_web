@@ -52,74 +52,77 @@ def build_portrait_prompt(c: dict) -> str:
             "wardrobe. No text, no watermark, no logo.")
 
 
-async def _prep_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
-    """2b: sinh chân dung AI cho từng nhân vật trong bible -> lưu thành Character (project) -> rồi dispatch
-    cảnh (run_scene_job tự đính các ảnh này làm reference MỌI cảnh => giữ mặt + đồng bộ). Lỗi/không có
-    extension/đã có nhân vật upload sẵn -> bỏ qua sinh ảnh, vẫn dispatch (fallback text-only)."""
+_portrait_inflight: set[str] = set()   # project_id đang sinh chân dung -> single-flight, chống tạo Character trùng
+
+async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list) -> int:
+    """Sinh CHÂN DUNG AI cho MỖI nhân vật trong bible CHƯA có Character (khớp tên bằng _norm_name — ĐÚNG
+    chuẩn hoá của cast-lock) -> lưu Character(project). Nhân vật đã có ảnh (upload/clone/sinh trước) giữ
+    NGUYÊN. Trả số chân dung vừa tạo. Cần Google (cookies+gproj); thiếu -> 0 (fallback text-only).
+    Single-flight theo project: nếu đang chạy cho project này thì bỏ qua (tránh đua tạo Character trùng tên)."""
+    from ..tools.router import _norm_name   # cùng chuẩn hoá tên với cast-lock (NFC + bỏ dấu câu + casefold)
+    if project_db_id in _portrait_inflight:
+        return 0
+    _portrait_inflight.add(project_db_id)
+    made = 0
     try:
         async with AsyncSessionLocal() as db:
             user = await db.get(User, user_id)
             cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
             gproj = (user.google_project_id if user else "") or ""
             res = await db.execute(select(Character).where(Character.project_id == project_db_id))
-            already = res.scalars().first() is not None
-        if cookies and gproj and not already:
-            async def _one(ch: dict):
-                name = str(ch.get("name") or "").strip()
-                if not name:
-                    return
-                try:
-                    files = await generate_images_flow(
-                        user_id=user_id, cookies=cookies, project_id=gproj,
-                        prompt=build_portrait_prompt(ch), count=1, aspect_ratio="1:1",
-                        out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
-                    if files:
-                        async with AsyncSessionLocal() as db:
-                            db.add(Character(user_id=user_id, name=name, image_file=files[0],
-                                             project_id=project_db_id))
-                            await db.commit()
-                        log.info("portrait ok: %s -> %s", name, files[0])
-                except Exception as e:
-                    log.warning("portrait gen failed for %s: %s", name, e)
-            await asyncio.gather(*[_one(c) for c in (bible or [])[:4] if isinstance(c, dict)])
+            existing = {_norm_name(c.name) for c in res.scalars().all()}
+        # nhân vật còn thiếu ảnh, khử trùng tên NGAY trong lô (tránh sinh 2 lần cùng người)
+        need: list[dict] = []
+        seen = set(existing)
+        for c in (bible or []):
+            if not isinstance(c, dict):
+                continue
+            nm = str(c.get("name") or "").strip()
+            nk = _norm_name(nm)
+            if nm and nk not in seen:
+                seen.add(nk)
+                need.append(c)
+        if not (cookies and gproj and need):
+            return 0
+
+        async def _one(ch: dict):
+            nonlocal made
+            name = str(ch.get("name") or "").strip()
+            try:
+                files = await generate_images_flow(
+                    user_id=user_id, cookies=cookies, project_id=gproj,
+                    prompt=build_portrait_prompt(ch), count=1, aspect_ratio="1:1",
+                    out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
+                if files:
+                    async with AsyncSessionLocal() as db:
+                        db.add(Character(user_id=user_id, name=name, image_file=files[0],
+                                         project_id=project_db_id))
+                        await db.commit()
+                    made += 1
+                    log.info("portrait ok: %s -> %s", name, files[0])
+            except Exception as e:
+                log.warning("portrait gen failed for %s: %s", name, e)
+        await asyncio.gather(*[_one(c) for c in need[:8]])
     except Exception as e:
-        log.warning("prep portraits failed (project %s): %s", project_db_id, e)
+        log.error("gen portraits failed (project %s): %s", project_db_id, e)
+    finally:
+        _portrait_inflight.discard(project_db_id)
+    return made
+
+
+async def _prep_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
+    """2b (tạo dự án): bù chân dung cho từng nhân vật bible CHƯA có ảnh -> run_scene_job tự đính làm
+    reference MỌI cảnh (giữ mặt + đồng bộ). (Trước đây bỏ qua TẤT CẢ nếu dự án đã có 1 nhân vật bất kỳ
+    -> nhân vật AI mất chân dung; nay bù theo từng tên.) Rồi dispatch cảnh."""
+    await _gen_portraits_for_bible(project_db_id, user_id, bible)
     for sid in scene_ids:
         dispatch_scene(sid, user_id)
 
 
 async def _prep_new_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
-    """Thêm phần mới: CHỈ sinh chân dung cho nhân vật MỚI (tên chưa có trong dự án) — nhân vật cũ
-    giữ nguyên ảnh đã có => mặt khớp xuyên suốt các phần. Rồi dispatch các cảnh mới."""
-    try:
-        async with AsyncSessionLocal() as db:
-            user = await db.get(User, user_id)
-            cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
-            gproj = (user.google_project_id if user else "") or ""
-            res = await db.execute(select(Character).where(Character.project_id == project_db_id))
-            existing_names = {(c.name or "").strip().lower() for c in res.scalars().all()}
-        new_chars = [c for c in (bible or []) if isinstance(c, dict)
-                     and str(c.get("name") or "").strip()
-                     and str(c.get("name")).strip().lower() not in existing_names]
-        if cookies and gproj and new_chars:
-            async def _one(ch: dict):
-                name = str(ch.get("name") or "").strip()
-                try:
-                    files = await generate_images_flow(
-                        user_id=user_id, cookies=cookies, project_id=gproj,
-                        prompt=build_portrait_prompt(ch), count=1, aspect_ratio="1:1",
-                        out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
-                    if files:
-                        async with AsyncSessionLocal() as db:
-                            db.add(Character(user_id=user_id, name=name, image_file=files[0],
-                                             project_id=project_db_id))
-                            await db.commit()
-                        log.info("new-part portrait ok: %s -> %s", name, files[0])
-                except Exception as e:
-                    log.warning("new-part portrait failed for %s: %s", name, e)
-            await asyncio.gather(*[_one(c) for c in new_chars[:4]])
-    except Exception as e:
-        log.warning("prep new portraits failed (project %s): %s", project_db_id, e)
+    """Thêm phần mới: bù chân dung cho nhân vật còn THIẾU ảnh (mới, hoặc cũ chưa kịp sinh ở phần trước)
+    -> nhân vật cũ đã có ảnh giữ NGUYÊN => mặt khớp xuyên phần. Rồi dispatch cảnh mới."""
+    await _gen_portraits_for_bible(project_db_id, user_id, bible)
     for sid in scene_ids:
         dispatch_scene(sid, user_id)
 
@@ -731,6 +734,42 @@ async def export_prompts(
         if s.narration:
             lines.append(f"[Narration: {s.narration}]")
     return {"text": "\n".join(lines), "scene_count": len(scenes)}
+
+
+@router.post("/{project_id}/portraits")
+async def gen_portraits(
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tạo (bù) ảnh CHÂN DUNG GIỮ MẶT cho các nhân vật của dự án còn thiếu ảnh — để mọi cảnh được đính
+    reference, giữ mặt đồng bộ xuyên các phần. Chạy nền; sau đó render lại cảnh để áp ảnh mới."""
+    from ..tools.router import _norm_name   # dedup tên đồng nhất với cast-lock
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    # google_connected & google_project_id set độc lập -> kiểm cả hai, tránh hứa 'đang tạo' mà tạo 0 ảnh
+    if not (user.google_connected and user.google_cookies and user.google_project_id):
+        raise HTTPException(400, "Phiên Google chưa đầy đủ — kết nối lại Google Ultra (extension) rồi thử lại")
+    bible = _safe_bible(proj.character_bible)
+    if not bible:
+        raise HTTPException(400, "Dự án chưa có hồ sơ nhân vật để tạo chân dung")
+    res = await db.execute(select(Character).where(Character.project_id == project_id))
+    existing = {_norm_name(c.name) for c in res.scalars().all()}
+    missing, seen = [], set(existing)
+    for c in bible:
+        if not isinstance(c, dict):
+            continue
+        nm = str(c.get("name") or "").strip()
+        nk = _norm_name(nm)
+        if nm and nk not in seen:
+            seen.add(nk); missing.append(c)
+    if not missing:
+        return {"generating": 0, "detail": "Mọi nhân vật đã có ảnh chân dung"}
+    if project_id in _portrait_inflight:
+        return {"generating": 0, "detail": "Đang tạo ảnh chân dung, đợi chút rồi tải lại trang"}
+    asyncio.create_task(_gen_portraits_for_bible(project_id, user.id, bible))
+    return {"generating": min(len(missing), 8)}
 
 
 @router.post("/{project_id}/add-scenes", response_model=ProjectDetailResponse)

@@ -47,6 +47,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [partSearch, setPartSearch] = useState('')
   const [partFilter, setPartFilter] = useState<'all' | 'active' | 'failed' | 'unrendered'>('all')
   const [menuScene, setMenuScene] = useState<string | null>(null)   // scene đang mở menu "⋯"
+  const [genningPortraits, setGenningPortraits] = useState(false)   // đang tạo ảnh chân dung giữ mặt
 
   async function load(silent = false) {
     if (!id) return
@@ -169,6 +170,36 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
+  async function doGenPortraits() {
+    if (!id) return
+    setGenningPortraits(true)
+    try {
+      const r = await projectsApi.genPortraits(id)
+      if (!r.generating) { notify(r.detail || 'Mọi nhân vật đã có ảnh chân dung'); return }
+      notify(`Đang tạo ${r.generating} ảnh chân dung giữ mặt — chờ ~30–60 giây...`)
+      // Sinh ảnh chạy nền (lâu hơn 4s nhiều) -> poll tới khi có chân dung, giữ nút khoá suốt lúc đó.
+      const before = project?.characters?.length || 0
+      let appeared = false
+      for (let i = 0; i < 9; i++) {
+        await new Promise(res => setTimeout(res, 6000))
+        try {
+          const p = await projectsApi.get(id)
+          detectTransitions(p); setProject(p)
+          if ((p.characters?.length || 0) > before) { appeared = true; break }
+        } catch { /* ignore, thử vòng sau */ }
+      }
+      notify(
+        appeared
+          ? 'Đã tạo ảnh giữ mặt. Cảnh chưa render sẽ tự dùng; cảnh đã xong thì bấm "Tạo lại" để áp.'
+          : 'Chưa tạo được ảnh — kiểm tra kết nối Google/extension rồi thử lại.',
+        appeared ? 'success' : 'error')
+    } catch (e: any) {
+      notify(e?.response?.data?.detail || 'Tạo chân dung thất bại', 'error')
+    } finally {
+      setGenningPortraits(false)
+    }
+  }
+
   async function uploadProjChar() {
     if (!id || !pcName.trim() || !pcFile) return
     setPcBusy(true)
@@ -251,6 +282,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const allDone = doneCount === totalCount && totalCount > 0
   const hasActive = project.scenes.some((s: any) => s.status === 'pending' || s.status === 'processing')
   const hasUnrendered = project.scenes.some((s: any) => !s.video_file)
+  // Cảnh báo giữ mặt: có hồ sơ nhân vật (bible) nhưng CHƯA có ảnh chân dung nào -> mặt dễ lệch giữa các cảnh/phần.
+  // Chỉ cảnh khi portraitCount === 0 (chưa neo mặt gì); có ≥1 ảnh thì coi như đã neo, không nag (tránh false-positive khi bible > số ảnh).
+  const bibleCount = project.character_bible?.length || 0
+  const portraitCount = project.characters?.length || 0
+  const missingPortraits = bibleCount > 0 && portraitCount === 0
 
   // ── Gom cảnh theo Phần (cho bố cục 2 cột khi truyện nhiều phần) ──
   const scenes: any[] = project.scenes
@@ -608,6 +644,27 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           </div>
         )}
       </div>
+
+      {/* Cảnh báo giữ mặt — thiếu ảnh chân dung nhân vật */}
+      {missingPortraits && (
+        <div className="alert" style={{
+          marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)',
+        }}>
+          <AlertCircle size={16} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 220, fontSize: 12.5, lineHeight: 1.55 }}>
+            <b style={{ color: 'var(--yellow)' }}>Nhân vật chưa có ảnh giữ mặt</b> — mặt dễ <b>lệch giữa các cảnh / phần</b>.
+            Bấm tạo ảnh: cảnh chưa render sẽ tự dùng, cảnh đã xong thì bấm <b>Tạo lại</b> để áp.
+          </div>
+          {user?.google_connected ? (
+            <button className="btn btn-primary btn-sm" onClick={doGenPortraits} disabled={genningPortraits}>
+              {genningPortraits ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang tạo...</> : <><ImagePlus size={13} /> Tạo ảnh giữ mặt</>}
+            </button>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>Kết nối Google Ultra ở Cài đặt để tạo.</span>
+          )}
+        </div>
+      )}
 
       {/* Cảnh — 2 cột khi truyện nhiều phần, lưới cảnh 1 cột khi 1 phần */}
       {multiPart ? (

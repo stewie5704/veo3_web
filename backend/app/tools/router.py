@@ -299,9 +299,14 @@ def _cast_lock_note(cast: list | None) -> str:
     if not lines:
         return ""
     return ("\n*** NHÂN VẬT ĐÃ CÓ TỪ CÁC PHẦN TRƯỚC — BẮT BUỘC DÙNG LẠI Y NGUYÊN ***\n"
-            "Đưa các nhân vật dưới đây vào characters[] với ĐÚNG name (không đổi/dịch tên), "
-            "GIỮ NGUYÊN ngoại hình của họ, và tham chiếu họ trong scenes. CHỈ thêm nhân vật MỚI "
-            "nếu phần này thực sự giới thiệu người mới:\n" + "\n".join(lines) + "\n")
+            "Các nhân vật dưới đây ĐÃ xuất hiện ở phần trước và ĐÃ có ảnh giữ mặt. BẮT BUỘC:\n"
+            "1) Đưa họ vào characters[] với ĐÚNG name bên dưới — KHÔNG đổi, KHÔNG dịch sang ngôn ngữ khác, "
+            "KHÔNG viết tắt, KHÔNG thêm họ/biệt danh. Tên phải khớp TỪNG KÝ TỰ.\n"
+            "2) GIỮ NGUYÊN toàn bộ ngoại hình (mặt, tóc, trang phục, đặc điểm) của họ.\n"
+            "3) Trong MỖI cảnh có mặt họ, hãy gọi ĐÍCH DANH bằng đúng tên đó trong phần mô tả/hành động — "
+            "TUYỆT ĐỐI KHÔNG thay bằng đại từ hay vai chung ('người đàn ông', 'cô gái', 'anh ấy') vì hệ thống "
+            "dựa vào tên để đính đúng ảnh giữ mặt.\n"
+            "4) CHỈ thêm nhân vật MỚI nếu phần này thực sự giới thiệu người mới.\n" + "\n".join(lines) + "\n")
 
 
 def _clean_cast(cast: list | None) -> list:

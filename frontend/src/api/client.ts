@@ -82,6 +82,7 @@ export const projectsApi = {
   resume: (id: string) => api.post(`/projects/${id}/resume`).then(r => r.data),
   rename: (id: string, name: string) => api.patch(`/projects/${id}`, { name }).then(r => r.data),
   addScenes: (id: string, data: any) => api.post(`/projects/${id}/add-scenes`, data).then(r => r.data),
+  genPortraits: (id: string) => api.post(`/projects/${id}/portraits`).then(r => r.data),
   updatePartScript: (id: string, part: number, idea: string) =>
     api.patch(`/projects/${id}/part-script`, { part, idea }).then(r => r.data),
   updateScene: (projectId: string, sceneId: string, data: any) =>
