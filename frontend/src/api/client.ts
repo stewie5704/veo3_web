@@ -121,6 +121,8 @@ export const toolsApi = {
     api.post('/tools/copy-idea', data).then(r => r.data),
   styles: () => api.get('/tools/styles').then(r => r.data),  // [{id,name}]
   productFromLink: (url: string) => api.post('/tools/product-from-link', { url }).then(r => r.data),  // {image_url, title}
+  sellPrompt: (data: { product?: string; scene?: string; tone?: string; has_kol?: boolean }) =>
+    api.post('/tools/sell-prompt', data).then(r => r.data),  // {prompt} — LLM viết prompt video bán hàng
 }
 
 export const charactersApi = {

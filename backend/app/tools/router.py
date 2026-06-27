@@ -852,6 +852,55 @@ async def product_from_link(body: ProductLinkRequest, user: User = Depends(get_c
     return {"image_url": f"/images/chars/{fname}", "title": og_title[:120]}
 
 
+# ── Trợ lý viết prompt cho Video bán hàng (LLM) ──────────────────────────────
+
+_SCENE_VI = {"street": "đường phố ban ngày, nắng tự nhiên", "studio": "studio sáng, ánh sáng dịu",
+             "cafe": "quán cafe ấm cúng bên cửa sổ", "home": "tại nhà, ánh sáng cửa sổ tự nhiên"}
+_TONE_VI = {"ugc": "UGC quay tay tự nhiên, đời thường (không phải quảng cáo studio)",
+            "young": "trẻ trung, năng lượng", "lux": "sang xịn, tinh tế", "fun": "vui nhộn, hài hước"}
+
+
+class SellPromptRequest(BaseModel):
+    product: str = ""
+    scene: str = "street"
+    tone: str = "ugc"
+    has_kol: bool = False
+
+
+@router.post("/sell-prompt")
+async def sell_prompt(body: SellPromptRequest, user: User = Depends(get_current_user)):
+    """Trợ lý LLM viết prompt Veo cho video bán hàng (khóa sản phẩm + UGC tự nhiên). Cần Gemini key; không có -> frontend tự fallback template."""
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key để dùng trợ lý viết (vào Cài đặt thêm key).")
+    product = _sanitize(body.product)[:120].strip()
+    scene = _SCENE_VI.get(body.scene, _SCENE_VI["street"])
+    tone = _TONE_VI.get(body.tone, _TONE_VI["ugc"])
+    subj = ("the SAME person shown in the reference image (keep their face and hair identical)"
+            if body.has_kol else "a natural, friendly Vietnamese model")
+    prod_line = f'Sản phẩm chính: "{product}".' if product else "Sản phẩm chính: đúng món trong ảnh tham chiếu."
+    system = f"""Bạn là prompt-engineer cho Google Veo 3.1, chuyên video BÁN HÀNG affiliate TikTok Shop: dọc 9:16, ~6-8 giây, cảm giác QUAY TAY tự nhiên (UGC), người thật khoe sản phẩm.
+
+{prod_line}
+Bối cảnh: {scene}. Tông: {tone}.
+
+Viết MỘT prompt TIẾNG ANH cho Veo theo thứ tự:
+[cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [{subj} cầm/mặc/dùng và khoe sản phẩm tự nhiên, 1-2 hành động cụ thể] -> [bối cảnh + thời điểm + ánh sáng CÓ NGUỒN, daylight tự nhiên] -> [cảm giác UGC quay tay: handheld nhẹ, da thật có texture, KHÔNG bóng bẩy].
+
+BẮT BUỘC chèn khóa sản phẩm: "keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it".
+TUYỆT ĐỐI KHÔNG: lời thoại, dấu ngoặc kép thoại, says/voiceover/narrator; KHÔNG tả lại khuôn mặt KOL (đã có ảnh ref). Cụ thể, điện ảnh-đời-thường, 2-4 câu.
+
+Trả về JSON DUY NHẤT: {{"prompt":"<đoạn prompt tiếng Anh>"}} — KHÔNG markdown, KHÔNG chữ ngoài JSON."""
+    try:
+        res = await asyncio.to_thread(_gemini_json, dec(user.gemini_api_key), system, 1024)
+    except Exception as e:
+        log.warning("sell-prompt lỗi: %s", e)
+        raise HTTPException(500, "Trợ lý viết đang lỗi, thử lại hoặc tự gõ mô tả.")
+    p = (res.get("prompt") or "").strip() if isinstance(res, dict) else ""
+    if not p:
+        raise HTTPException(500, "Trợ lý chưa viết được, thử lại nhé.")
+    return {"prompt": p}
+
+
 # ── TTS ───────────────────────────────────────────────────────────────────────
 
 class TTSRequest(BaseModel):

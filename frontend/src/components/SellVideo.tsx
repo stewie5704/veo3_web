@@ -44,17 +44,18 @@ export default function SellVideo() {
   const [scene, setScene] = useState('street')
   const [tone, setTone] = useState('ugc')
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState(GEN_MODELS[0].key)   // FREE mặc định
+  const [model, setModel] = useState('veo_3_1_t2v_fast_portrait_ultra')   // portrait -> ra DỌC (Lite/FREE chỉ ra ngang)
   const [aspect, setAspect] = useState('9:16')            // dọc cho TikTok
   const [dur, setDur] = useState(6)
   const [loading, setLoading] = useState(false)
   const [showAdv, setShowAdv] = useState(false)
   const [link, setLink] = useState('')
   const [linkLoading, setLinkLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
 
-  function aiPrompt() {
+  function localPrompt(): string {
     const sceneTxt: Record<string, string> = {
       street: 'on a busy city street, natural daylight',
       studio: 'in a clean bright studio with soft lighting',
@@ -69,9 +70,21 @@ export default function SellVideo() {
     }
     const subj = kol ? 'the person in the reference (keep their face identical)' : 'a friendly young Vietnamese model'
     const prod = name.trim() || 'the product'
-    setPrompt(
-`Candid iPhone footage, ${sceneTxt[scene]}. ${subj} naturally shows and tries on the EXACT ${prod} from the product reference — keep the SAME color, pattern, print, logo and cut, do NOT alter it. They turn to show the fit, soft genuine smile, slight handheld camera shake, realistic skin texture. ${toneTxt[tone]}.
-[negative] warping, morphing, altered logo or print, extra fingers, plastic skin, text artifacts`)
+    return `Candid iPhone footage, ${sceneTxt[scene]}. ${subj} naturally shows and tries on the EXACT ${prod} from the product reference — keep the SAME color, pattern, print, logo and cut, do NOT alter it. They turn to show the fit, soft genuine smile, slight handheld camera shake, realistic skin texture. ${toneTxt[tone]}.
+[negative] warping, morphing, altered logo or print, extra fingers, plastic skin, text artifacts`
+  }
+
+  // Trợ lý: gọi LLM (Gemini) viết prompt sát sản phẩm; không có key / lỗi -> fallback mẫu nội bộ.
+  async function aiPrompt() {
+    setAiLoading(true)
+    try {
+      const res = await toolsApi.sellPrompt({ product: name.trim(), scene, tone, has_kol: !!kol })
+      setPrompt(res.prompt || localPrompt())
+    } catch {
+      setPrompt(localPrompt())
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   async function importFromLink() {
@@ -156,8 +169,8 @@ export default function SellVideo() {
                   <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
                     value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
-                  <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
-                    <Sparkles size={13} /> Trợ lý viết
+                  <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt} disabled={aiLoading}>
+                    {aiLoading ? <><Loader2 size={13} className="spin" /> Đang viết...</> : <><Sparkles size={13} /> Trợ lý viết</>}
                   </button>
                 </div>
               </div>
@@ -208,6 +221,12 @@ export default function SellVideo() {
                   💡 Sản phẩm trơn/ít chi tiết giữ tốt; họa tiết·chữ·logo phức tạp có thể lệch nhẹ (model free). Cần nét hơn thì chọn Quality.
                 </div>
               </>
+            )}
+
+            {aspect !== '16:9' && !model.includes('portrait') && (
+              <div style={{ fontSize: 11.5, color: 'var(--yellow)', marginBottom: 12, lineHeight: 1.5, padding: '8px 11px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: 10 }}>
+                ⚠ Model đang chọn ra video <b>NGANG</b>. Muốn ra <b>DỌC</b> (TikTok) hãy chọn model có chữ <b>“portrait”</b> (Fast / Quality) trong “Tùy chọn”.
+              </div>
             )}
 
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product || !prompt.trim()}>
