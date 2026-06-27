@@ -44,7 +44,7 @@ export default function SellVideo() {
   const [scene, setScene] = useState('street')
   const [tone, setTone] = useState('ugc')
   const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState('veo_3_1_t2v_fast_portrait_ultra')   // portrait -> ra DỌC (Lite/FREE chỉ ra ngang)
+  const [model, setModel] = useState(GEN_MODELS[0].key)   // FREE (lite) — lite vẫn ra dọc 9:16 được
   const [aspect, setAspect] = useState('9:16')            // dọc cho TikTok
   const [dur, setDur] = useState(6)
   const [loading, setLoading] = useState(false)
@@ -221,12 +221,6 @@ export default function SellVideo() {
                   💡 Sản phẩm trơn/ít chi tiết giữ tốt; họa tiết·chữ·logo phức tạp có thể lệch nhẹ (model free). Cần nét hơn thì chọn Quality.
                 </div>
               </>
-            )}
-
-            {aspect !== '16:9' && !model.includes('portrait') && (
-              <div style={{ fontSize: 11.5, color: 'var(--yellow)', marginBottom: 12, lineHeight: 1.5, padding: '8px 11px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: 10 }}>
-                ⚠ Model đang chọn ra video <b>NGANG</b>. Muốn ra <b>DỌC</b> (TikTok) hãy chọn model có chữ <b>“portrait”</b> (Fast / Quality) trong “Tùy chọn”.
-              </div>
             )}
 
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product || !prompt.trim()}>
