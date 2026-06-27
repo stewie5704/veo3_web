@@ -397,12 +397,6 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 6, color: '#fff', background: 'var(--grad)' }}>
             Cảnh {scene.index + 1}
           </span>
-          <span className={`badge badge-${st}`} style={{ position: 'absolute', top: 8, right: 8 }}>
-            {st === 'pending' && '⏳ Chờ'}
-            {st === 'processing' && '🔄 Đang tạo'}
-            {st === 'done' && '✅ Xong'}
-            {st === 'failed' && '❌ Lỗi'}
-          </span>
         </div>
 
         {/* Body */}
