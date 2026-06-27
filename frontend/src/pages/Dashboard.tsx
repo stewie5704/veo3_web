@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  Zap, FolderOpen, Library, Wrench, Settings,
+  FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
   Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen, Scissors,
   Film, Layers, Image, Volume2, Download, Users, BookOpen,
@@ -9,7 +9,6 @@ import {
   BarChart3, CreditCard, Share2,
 } from 'lucide-react'
 import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
-import CreateVideo from './CreateVideo'
 import Projects from './Projects'
 import ProjectDetail from './ProjectDetail'
 import MyVideos from './MyVideos'
@@ -31,8 +30,7 @@ export function pushLog(msg: string, level = 'info') {
 type NavItem = { path: string; icon: any; label: string; exact?: boolean; userOnly?: boolean; adminOnly?: boolean }
 // userOnly = chỉ user thường (admin không tạo video, ẩn đi). adminOnly = chỉ admin.
 const NAV: NavItem[] = [
-  { path: '/', icon: Zap, label: 'Tạo Video', exact: true, userOnly: true },
-  { path: '/projects', icon: FolderOpen, label: 'Dự án', userOnly: true },
+  { path: '/projects', icon: FolderOpen, label: 'Tạo video', userOnly: true },
   { path: '/videos', icon: Library, label: 'Thư viện', userOnly: true },
   { path: '/tools', icon: Wrench, label: 'Công cụ', userOnly: true },
   { path: '/billing', icon: Crown, label: 'Nâng gói', userOnly: true },
@@ -101,9 +99,9 @@ export default function Dashboard() {
     }).catch(() => nav('/login'))
   }, [])
 
-  // Admin chỉ quản lý → vào thẳng trang Admin (không phải trang Tạo Video)
+  // Trang '/' cũ (Tạo Video) đã bỏ — gộp vào 'Tạo video' (= /projects). Điều hướng '/' theo vai trò.
   useEffect(() => {
-    if (user?.is_admin && loc.pathname === '/') nav('/admin', { replace: true })
+    if (user && loc.pathname === '/') nav(user.is_admin ? '/admin' : '/projects', { replace: true })
   }, [user, loc.pathname])
 
   // Load project list
@@ -497,7 +495,7 @@ export default function Dashboard() {
       }}>
         <main className="main-content" style={{ flex: 1, paddingBottom: logOpen ? 250 : 56 }}>
           <Routes>
-            <Route path="/" element={<CreateVideo user={user} />} />
+            <Route path="/" element={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>} />
             <Route path="/projects" element={<Projects user={user} onCreated={loadProjects} />} />
             <Route path="/projects/:id" element={<ProjectDetail user={user} onUpdate={loadProjects} />} />
             <Route path="/videos" element={<MyVideos />} />
