@@ -228,6 +228,7 @@ class ProjectResponse(BaseModel):
     voiceover: bool = False
     voice: str = "Kore"
     stopped: bool = False
+    character_bible: list = []   # dàn nhân vật đã khóa -> gửi lại làm cast khi thêm phần
     created_at: datetime
     updated_at: datetime
 
@@ -245,6 +246,14 @@ class ProjChar(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     scenes: list[SceneResponse] = []
     characters: list[ProjChar] = []
+
+
+def _safe_bible(raw) -> list:
+    try:
+        b = json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        return []
+    return b if isinstance(b, list) else []
 
 
 async def _project_chars(db: AsyncSession, project_id: str) -> list[ProjChar]:
@@ -283,6 +292,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
         stopped=bool(getattr(p, "stopped", False)),
+        character_bible=_safe_bible(getattr(p, "character_bible", None)),
         created_at=p.created_at, updated_at=p.updated_at,
     )
 
@@ -310,6 +320,7 @@ async def create_project(
         audio_mode=body.audio_mode or "voiceover",
         voiceover=(body.audio_mode or "voiceover") == "voiceover",
         voice=body.voice or "Kore",
+        character_bible=json.dumps(body.character_bible, ensure_ascii=False) if body.character_bible else None,
     )
     db.add(proj)
     await db.flush()
@@ -768,6 +779,21 @@ async def add_scenes(
             ps = {}
         ps[str(next_part)] = body.idea.strip()
         proj.part_scripts = json.dumps(ps, ensure_ascii=False)
+
+    # Gộp bible: giữ NGUYÊN mô tả nhân vật cũ, chỉ thêm nhân vật mới (theo tên) -> KHÓA xuyên phần
+    if body.character_bible:
+        try:
+            old = json.loads(proj.character_bible or "[]")
+        except (ValueError, TypeError):
+            old = []
+        if not isinstance(old, list):   # cột chứa JSON hợp lệ nhưng không phải list (null/dict/số) -> reset
+            old = []
+        seen = {str(c.get("name", "")).strip().lower() for c in old if isinstance(c, dict)}
+        for c in body.character_bible:
+            nm = str(c.get("name", "")).strip().lower()
+            if nm and nm not in seen:
+                old.append(c); seen.add(nm)
+        proj.character_bible = json.dumps(old, ensure_ascii=False)
 
     new_scenes = []
     for i, p in enumerate(prompts):

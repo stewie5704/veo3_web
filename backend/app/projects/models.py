@@ -41,6 +41,8 @@ class Project(Base):
     # Seed CỐ ĐỊNH cho cả dự án -> mọi cảnh dùng chung 1 seed => mặt nhân vật ổn định
     # giữa các cảnh (Veo re-roll mặt mới mỗi seed). 0 = dự án cũ -> runner suy seed ổn định từ id.
     seed: Mapped[int] = mapped_column(Integer, default=lambda: random.randint(1, 2 ** 31 - 1))
+    # Hồ sơ nhân vật (bible) của dự án — JSON list[CharacterBible]; dùng KHÓA cast cho các phần sau
+    character_bible: Mapped[str | None] = mapped_column(Text, nullable=True)
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
     hd: Mapped[bool] = mapped_column(Boolean, default=False)   # all scenes upscaled to 1080p

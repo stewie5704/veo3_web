@@ -58,10 +58,11 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     if (!idea.trim()) { setError(mode === 'manual' ? 'Dán kịch bản phần mới' : 'Nhập ý tưởng phần mới'); return }
     setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
     setLoading(true); setStep('review')
+    const cast = project.character_bible || []   // KHÓA nhân vật đã có -> phần này dùng lại y nguyên
     try {
       const res = mode === 'manual'
-        ? await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio })
-        : await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio })
+        ? await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio, cast })
+        : await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio, cast })
       setPrompts(res.prompts || []); setNarrations(res.narrations || []); setScenes(res.scenes || [])
       setBibleChars(res.characters || [])
     } catch (e: any) { setError(e.response?.data?.detail || 'Tạo kịch bản thất bại'); setStep('setup') }

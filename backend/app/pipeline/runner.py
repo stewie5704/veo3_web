@@ -861,9 +861,22 @@ async def run_scene_job(scene_id: str, user_id: str):
             proj_stopped = bool(getattr(proj, "stopped", False)) if proj else False
             proj_seed = int(getattr(proj, "seed", 0) or 0)
             # Ảnh nhân vật RIÊNG của project -> reference giữ mặt cho MỌI cảnh (không cần @mention).
+            # Veo cap 3 ref: ưu tiên nhân vật CÓ MẶT trong cảnh (tên xuất hiện ở prompt/thoại),
+            # rồi mới tới còn lại -> mỗi cảnh đính đúng nhân vật của nó khi dự án có >3 người.
             from app.characters.models import Character
             res_ch = await db.execute(select(Character).where(Character.project_id == scene.project_id))
-            char_ref_files = [c.image_file for c in res_ch.scalars().all() if c.image_file]
+            all_chars = [c for c in res_ch.scalars().all() if c.image_file]
+            _hay = f"{scene.prompt or ''} {scene.narration or ''}".lower()
+
+            def _present(nm: str) -> bool:
+                nm = (nm or "").strip().lower()
+                # tên ngắn (<3) dễ dính nhầm trong từ thường (An trong "bàn") -> xếp vào 'others';
+                # tên dài hơn match theo BIÊN TỪ (Unicode-aware) thay vì substring thô.
+                return len(nm) >= 3 and re.search(rf"(?<!\w){re.escape(nm)}(?!\w)", _hay) is not None
+
+            present = [c for c in all_chars if _present(c.name)]
+            others = [c for c in all_chars if c not in present]
+            char_ref_files = [c.image_file for c in (present + others)]
 
         extra_ref_paths = [str(CHAR_PATH / f) for f in char_ref_files]
         use_seed = proj_seed or _stable_seed(project_db_id)

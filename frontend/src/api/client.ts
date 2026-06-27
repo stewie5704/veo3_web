@@ -106,9 +106,9 @@ export const projectsApi = {
 
 
 export const toolsApi = {
-  autoprompt: (data: { idea: string; scene_count?: number; style?: string; language?: string; aspect_ratio?: string }) =>
+  autoprompt: (data: { idea: string; scene_count?: number; style?: string; language?: string; aspect_ratio?: string; cast?: any[] }) =>
     api.post('/tools/autoprompt', data).then(r => r.data),
-  parseScript: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string }) =>
+  parseScript: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
     api.post('/tools/parse-script', data).then(r => r.data),
   tts: (data: { text: string; voice?: string }) =>
     api.post('/tools/tts', data).then(r => r.data),

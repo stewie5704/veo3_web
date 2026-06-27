@@ -48,6 +48,7 @@ def _lightweight_migrate(conn):
         ("users", "affiliate_rate_locked", "BOOLEAN DEFAULT FALSE"),
         ("users", "wallet_balance", "INTEGER DEFAULT 0"),
         ("users", "auto_renew", "BOOLEAN DEFAULT FALSE"),
+        ("projects", "character_bible", "TEXT"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
