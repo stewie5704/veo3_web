@@ -4,7 +4,7 @@ import {
   FolderOpen, Library, Wrench, Settings,
   LogOut, Wifi, WifiOff, Gem, Terminal, ChevronUp, ChevronDown,
   Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen, Scissors,
-  Film, Layers, Image, Volume2, Download, Users, BookOpen,
+  Film, Layers, Image, Volume2, Download, Users, BookOpen, ShoppingBag,
   Puzzle, Plug, Clapperboard, Ratio, LifeBuoy,
   BarChart3, CreditCard, Share2,
 } from 'lucide-react'
@@ -44,6 +44,7 @@ const NAV: NavItem[] = [
 const TOOL_SUB = [
   { t: 'i2v', label: 'Ảnh → Video', icon: Film },
   { t: 'r2v', label: 'Giữ mặt → Video', icon: Layers },
+  { t: 'sell', label: 'Video bán hàng', icon: ShoppingBag },
   { t: 'image', label: 'Tạo ảnh', icon: Image },
   { t: 'tts', label: 'Đọc thành giọng nói', icon: Volume2 },
   { t: 'cut', label: 'Cắt video', icon: Scissors },
