@@ -147,7 +147,8 @@ body::after{
 .sidebar-bottom{margin-top:auto;padding:14px;border-top:1px solid var(--border)}
 
 /* ── Main ── */
-.main-content{margin-left:240px;flex:1;padding:28px 32px;min-height:100dvh;animation:fade-up 0.25s ease}
+/* Lưu ý: offset trái do <div> cha trong Dashboard xử lý (navWidth + panel dự án) — KHÔNG đặt margin-left ở đây nữa (trước bị margin đôi, hở 240px). */
+.main-content{flex:1;padding:28px 32px;min-height:100dvh;animation:fade-up 0.25s ease}
 
 /* ── Card ── */
 .card{
