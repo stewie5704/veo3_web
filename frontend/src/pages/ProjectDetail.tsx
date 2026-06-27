@@ -463,7 +463,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     <div>
       {/* CSS bố cục 2 cột + lưới cảnh + responsive */}
       <style>{`
-        .tp-grid{display:grid;grid-template-columns:286px 1fr;gap:16px;align-items:start}
+        .tp-grid{display:grid;grid-template-columns:286px 1fr;gap:16px;align-items:stretch}
         .tp-left{position:sticky;top:16px}
         .tp-row:hover{background:rgba(255,255,255,0.04)}
         .scene-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px;align-items:start}
