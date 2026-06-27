@@ -26,6 +26,7 @@ class User(Base):
     # Quota & usage
     quota_videos: Mapped[int] = mapped_column(Integer, default=100)  # -1 = unlimited
     videos_generated: Mapped[int] = mapped_column(Integer, default=0)
+    images_generated: Mapped[int] = mapped_column(Integer, default=0)
 
     # Subscription (time-based plan): active = plan != 'free' AND plan_expires_at > now
     plan: Mapped[str] = mapped_column(String(20), default="free")

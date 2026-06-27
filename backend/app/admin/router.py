@@ -1,9 +1,14 @@
-"""Admin router — user management, stats, payments, ban/unban, quota, plan grants."""
+"""Admin router — user management, stats, payments, ban/unban, plan grants, media usage."""
+import json
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from pydantic import BaseModel
 from datetime import datetime, timezone
+
+from app.config import UPLOAD_PATH
 
 from app.database import get_db
 from app.auth.router import get_current_user
@@ -34,7 +39,8 @@ class UpdateUserRequest(BaseModel):
     is_admin: bool | None = None
     quota_videos: int | None = None
     display_name: str | None = None
-    grant_plan: str | None = None   # plan id (m1/m6/m12) → activate/extend manually
+    grant_plan: str | None = None   # plan id (m1/m6/m12) → activate/EXTEND from current expiry
+    set_plan: str | None = None     # plan id or 'free' → SET directly (manual up/down-grade / cancel)
     is_affiliate: bool | None = None
     affiliate_rate: int | None = None
 
@@ -96,6 +102,44 @@ async def get_stats(admin: User = Depends(require_admin), db: AsyncSession = Dep
     }
 
 
+def _fsize(rel: str) -> int:
+    try:
+        p = UPLOAD_PATH / rel
+        return p.stat().st_size if p.exists() else 0
+    except OSError:
+        return 0
+
+
+def _with_1080(rel: str) -> int:
+    """size of a clip + its cached 1080p version if present."""
+    p = Path(rel)
+    return _fsize(rel) + _fsize(str(p.with_name(p.stem + "__1080" + p.suffix)))
+
+
+async def _user_media(db: AsyncSession, user_id: str) -> tuple[int, int]:
+    """Returns (video_clips_count, storage_bytes) for a user, from their VideoJobs,
+    project Scenes and merged project files on disk."""
+    clips = 0
+    size = 0
+    jobs = (await db.execute(select(VideoJob).where(VideoJob.user_id == user_id))).scalars().all()
+    for j in jobs:
+        for f in json.loads(j.output_files or "[]"):
+            clips += 1
+            size += _with_1080(f)
+    srows = (await db.execute(
+        select(Scene.video_file).where(Scene.user_id == user_id, Scene.video_file.isnot(None))
+    )).all()
+    for (vf,) in srows:
+        clips += 1
+        size += _with_1080(vf)
+    mrows = (await db.execute(
+        select(Project.merged_file).where(Project.user_id == user_id, Project.merged_file.isnot(None))
+    )).all()
+    for (mf,) in mrows:
+        size += _fsize(mf)
+    return clips, size
+
+
 @router.get("/users")
 async def list_users(
     admin: User = Depends(require_admin),
@@ -107,16 +151,22 @@ async def list_users(
         q = q.where(User.username.ilike(f"%{search}%") | User.email.ilike(f"%{search}%"))
     res = await db.execute(q)
     users = res.scalars().all()
-    return [{
-        "id": u.id, "email": u.email, "username": u.username,
-        "display_name": u.display_name,
-        "is_active": u.is_active, "is_admin": u.is_admin, "is_banned": u.is_banned,
-        "google_connected": u.google_connected, "has_gemini_key": u.has_gemini_key,
-        "quota_videos": u.quota_videos, "videos_generated": u.videos_generated,
-        "plan": u.plan, "plan_active": subscription.is_active(u),
-        "plan_expires_at": u.plan_expires_at.isoformat() if u.plan_expires_at else None,
-        "created_at": u.created_at, "last_login": u.last_login,
-    } for u in users]
+    out = []
+    for u in users:
+        clips, storage = await _user_media(db, u.id)
+        out.append({
+            "id": u.id, "email": u.email, "username": u.username,
+            "display_name": u.display_name,
+            "is_active": u.is_active, "is_admin": u.is_admin, "is_banned": u.is_banned,
+            "google_connected": u.google_connected, "has_gemini_key": u.has_gemini_key,
+            "is_affiliate": u.is_affiliate,
+            "clips": clips, "images": getattr(u, "images_generated", 0) or 0,
+            "storage_bytes": storage,
+            "plan": u.plan, "plan_active": subscription.is_active(u),
+            "plan_expires_at": u.plan_expires_at.isoformat() if u.plan_expires_at else None,
+            "created_at": u.created_at, "last_login": u.last_login,
+        })
+    return out
 
 
 @router.patch("/users/{user_id}")
@@ -151,6 +201,14 @@ async def update_user(
             subscription.activate(user, body.grant_plan)
         except ValueError:
             raise HTTPException(400, f"Gói không hợp lệ: {body.grant_plan}")
+    if body.set_plan:
+        if body.set_plan == "free":
+            subscription.cancel(user)
+        else:
+            try:
+                subscription.set_plan(user, body.set_plan)
+            except ValueError:
+                raise HTTPException(400, f"Gói không hợp lệ: {body.set_plan}")
     await db.commit()
     return {"ok": True, "plan": user.plan,
             "plan_expires_at": user.plan_expires_at.isoformat() if user.plan_expires_at else None}

@@ -13,6 +13,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db, AsyncSessionLocal
 from app.auth.router import get_current_user
 from app.auth.models import User
@@ -698,6 +699,7 @@ async def _resolve_char_ref_paths(prompt: str, char_ids: list[str], user_id: str
 async def gen_image(
     body: ImageGenRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     if not user.google_connected:
         raise HTTPException(400, "Cần kết nối Google Ultra để tạo ảnh")
@@ -717,6 +719,9 @@ async def gen_image(
     except Exception as e:
         log.exception("Image gen error: %s", e)
         raise HTTPException(500, str(e))
+    if files:
+        user.images_generated = (user.images_generated or 0) + len(files)
+        await db.commit()
     return ImageGenResponse(image_urls=[f"/images/{f}" for f in files])
 
 

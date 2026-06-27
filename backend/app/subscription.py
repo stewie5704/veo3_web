@@ -47,6 +47,22 @@ def activate(user, plan_id: str) -> None:
     user.plan_expires_at = (start + timedelta(days=int(plan["days"]))).replace(tzinfo=None)
 
 
+def set_plan(user, plan_id: str) -> None:
+    """Admin manual SET: replace the plan and reset expiry to now + plan.days
+    (unlike activate() which extends). Use for manual up/down-grade."""
+    plan = PLANS.get(plan_id)
+    if not plan:
+        raise ValueError(f"unknown plan {plan_id}")
+    user.plan = plan_id
+    user.plan_expires_at = (_now() + timedelta(days=int(plan["days"]))).replace(tzinfo=None)
+
+
+def cancel(user) -> None:
+    """Admin manual cancel → back to free, no active subscription."""
+    user.plan = "free"
+    user.plan_expires_at = None
+
+
 def ensure_can_generate(user) -> None:
     """Raise HTTP 402 if the user has no active subscription."""
     if not is_active(user):

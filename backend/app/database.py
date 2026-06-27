@@ -44,6 +44,7 @@ def _lightweight_migrate(conn):
         ("users", "referred_by", "VARCHAR(36)"),
         ("users", "is_affiliate", "BOOLEAN DEFAULT FALSE"),
         ("users", "affiliate_rate", "INTEGER DEFAULT 20"),
+        ("users", "images_generated", "INTEGER DEFAULT 0"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:

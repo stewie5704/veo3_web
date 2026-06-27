@@ -13,6 +13,13 @@ const TABS: Tab[] = ['overview', 'users', 'payments', 'affiliate']
 
 const fmtVND = (n: number) => (n ?? 0).toLocaleString('vi-VN') + '₫'
 const fmtNum = (n: number) => (n ?? 0).toLocaleString('vi-VN')
+function fmtBytes(b: number) {
+  if (!b) return '0'
+  if (b >= 1024 ** 3) return (b / 1024 ** 3).toFixed(2) + ' GB'
+  if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(1) + ' MB'
+  if (b >= 1024) return (b / 1024).toFixed(0) + ' KB'
+  return b + ' B'
+}
 
 const GATEWAY_LABEL: Record<string, string> = { payos: 'Banking', binance: 'USDT', manual: 'Thủ công' }
 
@@ -37,8 +44,6 @@ export default function Admin() {
   const [search, setSearch] = useState('')
   const [payFilter, setPayFilter] = useState('')
   const [loading, setLoading] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [editQuota, setEditQuota] = useState(100)
   const [activating, setActivating] = useState<string | null>(null)
 
   function loadOverview() {
@@ -214,7 +219,7 @@ export default function Admin() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Người dùng', 'Trạng thái', 'Google', 'Gói', 'Quota', 'Videos', 'Tạo', 'Thao tác'].map(h => (
+                  {['Người dùng', 'Trạng thái', 'Google', 'Gói', 'Storage', 'Đã tạo', 'Tạo', 'Thao tác'].map(h => (
                     <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                   ))}
                 </tr>
@@ -254,29 +259,23 @@ export default function Admin() {
                         {u.plan_active
                           ? <span className="badge badge-done" title={u.plan_expires_at ? `Hết hạn ${String(u.plan_expires_at).slice(0, 10)}` : ''}>{u.plan}</span>
                           : <span style={{ color: 'var(--text3)', fontSize: 11 }}>{u.plan || 'free'}</span>}
-                        <select defaultValue="" title="Cấp / gia hạn gói"
-                          onChange={e => { if (e.target.value) { patch(u.id, { grant_plan: e.target.value }); e.currentTarget.value = '' } }}
+                        <select defaultValue="" title="Nâng / hạ / hủy gói (đặt trực tiếp)"
+                          onChange={e => { const v = e.target.value; if (v) { patch(u.id, { set_plan: v }); e.currentTarget.value = '' } }}
                           style={{ fontSize: 11, padding: '2px 4px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text2)' }}>
-                          <option value="">+ Cấp</option>
-                          {plans.map((p: any) => <option key={p.id} value={p.id}>{p.label} · {p.days}d</option>)}
+                          <option value="">Đổi gói</option>
+                          {plans.map((p: any) => <option key={p.id} value={p.id}>→ {p.label} ({p.days}d)</option>)}
+                          <option value="free">✕ Hủy gói (free)</option>
                         </select>
                       </div>
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      {editing === u.id ? (
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <input type="number" value={editQuota} onChange={e => setEditQuota(+e.target.value)}
-                            style={{ width: 64, padding: '2px 6px', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }} />
-                          <button className="btn btn-primary btn-sm" onClick={() => { patch(u.id, { quota_videos: editQuota }); setEditing(null) }}>✓</button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>✕</button>
-                        </div>
-                      ) : (
-                        <span style={{ cursor: 'pointer', color: 'var(--accent2)' }} onClick={() => { setEditing(u.id); setEditQuota(u.quota_videos) }}>
-                          {u.quota_videos === -1 ? '∞' : u.quota_videos}
-                        </span>
-                      )}
+                    <td style={{ padding: '10px 12px', color: 'var(--text2)', fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtBytes(u.storage_bytes)}
                     </td>
-                    <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>{u.videos_generated}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: 'var(--text)' }}>{u.clips}</span> clip
+                      <span style={{ color: 'var(--text3)' }}> · </span>
+                      <span style={{ color: 'var(--text)' }}>{u.images}</span> ảnh
+                    </td>
                     <td style={{ padding: '10px 12px', color: 'var(--text3)', fontSize: 11 }}>{new Date(u.created_at).toLocaleDateString('vi-VN')}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', gap: 4 }}>
