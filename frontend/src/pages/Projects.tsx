@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
 import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket } from 'lucide-react'
+import SellVideo from '../components/SellVideo'
 
 // Các bước hiển thị khi đang phân tích + tạo (cho cảm giác đang chạy, đỡ thấy lâu)
 const CREATE_STEPS = [
@@ -61,7 +62,7 @@ const VOICES = [
   { id: 'Orus', label: 'Orus (nam)' },
 ]
 
-type Tab = 'new' | 'batch' | 'copy'
+type Tab = 'new' | 'batch' | 'copy' | 'sell'
 
 export default function Projects({ user, onCreated }: { user: any; onCreated?: () => void }) {
   const nav = useNavigate()
@@ -310,9 +311,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <div className="page-title" style={{ margin: 0 }}>Tạo dự án mới</div>
         <div className="cmp-tabs" style={{ marginLeft: 'auto' }}>
-          {(['new', 'batch', 'copy'] as Tab[]).map(t => (
+          {(['new', 'batch', 'copy', 'sell'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setError('') }}>
-              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ mô tả từng cảnh' : 'Chép ý tưởng'}
+              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ mô tả từng cảnh' : t === 'copy' ? 'Chép ý tưởng' : 'Video bán hàng'}
             </button>
           ))}
         </div>
@@ -708,6 +709,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           </button>
         </div>
       )}
+
+      {/* VIDEO BÁN HÀNG — KOL + sản phẩm (component dùng chung) */}
+      {tab === 'sell' && <SellVideo />}
     </div>
   )
 }
