@@ -1,19 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { billingApi } from '../api/client'
 import { useToast } from '../components/Toast'
+import PaymentModal, { type PaymentOrder } from '../components/PaymentModal'
+import WelcomeCelebration from '../components/WelcomeCelebration'
 import {
   Crown, Check, Loader2, CalendarCheck, RefreshCw, Shield, Sparkles,
-  Zap, CreditCard, Coins, X, ExternalLink, Bot,
+  Zap, CreditCard, Coins, Bot,
 } from 'lucide-react'
 
 type PayMethod = 'payos' | 'binance'
-
-type BinanceModal = {
-  orderId: string
-  usdt: number
-  qrUrl: string
-  universalUrl: string
-}
 
 const BASE_FEATURES = [
   'Tạo video không giới hạn',
@@ -22,168 +17,28 @@ const BASE_FEATURES = [
   'Giữ mặt nhân vật xuyên cảnh',
 ]
 
-// ─── Binance QR modal ──────────────────────────────────────────────────────
-
-function BinanceQRModal({ data, onClose }: { data: BinanceModal; onClose: () => void }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 999,
-        background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'linear-gradient(160deg,#1a1614,#120f0d)',
-          border: '1px solid rgba(249,115,22,0.22)',
-          borderRadius: 22, padding: '28px 26px', width: '100%', maxWidth: 360,
-          boxShadow: '0 40px 100px -20px rgba(0,0,0,0.9)',
-          position: 'relative',
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 14, right: 14,
-            background: 'rgba(255,255,255,0.06)', border: 'none',
-            borderRadius: 8, width: 30, height: 30, cursor: 'pointer',
-            display: 'grid', placeItems: 'center', color: 'var(--text3)',
-          }}
-        >
-          <X size={14} />
-        </button>
-
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-          Thanh toán USDT
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
-          Mở app Binance → quét mã QR bên dưới
-        </div>
-
-        {data.qrUrl ? (
-          <div style={{
-            background: '#fff', borderRadius: 14, padding: 12, marginBottom: 18,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <img
-              src={data.qrUrl}
-              alt="Binance Pay QR code"
-              style={{ width: 220, height: 220, display: 'block' }}
-            />
-          </div>
-        ) : (
-          <div style={{
-            height: 244, borderRadius: 14, marginBottom: 18,
-            background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.1)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: 8, color: 'var(--text3)', fontSize: 12,
-          }}>
-            <Loader2 size={20} className="spin" />
-            Đang tải mã QR...
-          </div>
-        )}
-
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Số tiền</div>
-          <div style={{
-            fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em',
-            background: 'linear-gradient(115deg,#F5A623,#F7931A)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>
-            {data.usdt.toFixed(2)}
-            <span style={{ fontSize: 14, fontWeight: 600, WebkitTextFillColor: 'transparent' }}> USDT</span>
-          </div>
-        </div>
-
-        {data.universalUrl && (
-          <a
-            href={data.universalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              width: '100%', padding: '11px 0', borderRadius: 11, marginBottom: 12,
-              background: 'linear-gradient(115deg,#F5A623,#F7931A)',
-              color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none',
-              fontFamily: 'inherit',
-            }}
-          >
-            <ExternalLink size={13} /> Mở app Binance
-          </a>
-        )}
-
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-          fontSize: 12, color: 'var(--text3)',
-        }}>
-          <Loader2 size={12} className="spin" /> Đang chờ xác nhận thanh toán...
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main component ────────────────────────────────────────────────────────
-
 export default function Billing() {
   const toast = useToast()
   const [plans, setPlans] = useState<any[]>([])
   const [sub, setSub] = useState<any>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [method, setMethod] = useState<PayMethod>('payos')
-  const [binanceModal, setBinanceModal] = useState<BinanceModal | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [order, setOrder] = useState<PaymentOrder | null>(null)
+  const [orderPlanLabel, setOrderPlanLabel] = useState('')
+  const [celebration, setCelebration] = useState<{ planLabel: string; giftCount: number } | null>(null)
 
   function load() {
     billingApi.plans().then(d => setPlans(d.plans || [])).catch(() => {})
     billingApi.me().then(setSub).catch(() => {})
   }
   useEffect(load, [])
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
-  function startPolling(orderId: string) {
-    if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = setInterval(async () => {
-      try {
-        const s = await billingApi.orderStatus(orderId)
-        if (s.status === 'paid') {
-          clearInterval(pollRef.current!)
-          pollRef.current = null
-          setBinanceModal(null)
-          toast('Thanh toán thành công! Gói đã được kích hoạt.', 'success')
-          load()
-        }
-      } catch { /* ignore poll errors */ }
-    }, 3000)
-  }
-
-  function closeModal() {
-    if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = null
-    setBinanceModal(null)
-  }
-
-  async function buy(planId: string) {
+  async function buy(planId: string, label: string) {
     setBusy(planId)
     try {
       const r = await billingApi.checkout(planId, method)
-      if (method === 'payos' && r.pay_url) {
-        window.location.href = r.pay_url
-      } else if (method === 'binance' && r.qr_url) {
-        setBinanceModal({
-          orderId: r.order_id,
-          usdt: r.usdt_amount,
-          qrUrl: r.qr_url,
-          universalUrl: r.universal_url || r.deeplink || '',
-        })
-        startPolling(r.order_id)
-      } else {
-        toast('Đã tạo đơn hàng. Liên hệ admin để kích hoạt gói.', 'info')
-      }
+      setOrderPlanLabel(label)
+      setOrder(r as PaymentOrder)
     } catch (e: any) {
       toast(e.response?.data?.detail || 'Lỗi tạo đơn hàng', 'error')
     } finally {
@@ -191,8 +46,14 @@ export default function Billing() {
     }
   }
 
+  function onPaid(info: { status: any }) {
+    const giftCount = info.status?.gift_count || 0
+    setOrder(null)
+    setCelebration({ planLabel: orderPlanLabel, giftCount })
+    load()
+  }
+
   const fmt = (n: number) => (n ?? 0).toLocaleString('vi-VN')
-  // m6 is center-featured when all 3 plans load in order
   const hasFeaturedCenter = plans.length === 3 && plans[1]?.id === 'm6'
 
   return (
@@ -430,7 +291,7 @@ export default function Billing() {
                 {/* CTA */}
                 <button
                   disabled={busy === p.id}
-                  onClick={() => buy(p.id)}
+                  onClick={() => buy(p.id, p.label)}
                   style={{
                     marginTop: 'auto', width: '100%', padding: '13px 0',
                     borderRadius: 12, fontSize: 13.5, fontWeight: 700,
@@ -488,8 +349,24 @@ export default function Billing() {
         ))}
       </div>
 
-      {/* ── Binance QR modal ── */}
-      {binanceModal && <BinanceQRModal data={binanceModal} onClose={closeModal} />}
+      {/* ── In-app payment modal ── */}
+      {order && (
+        <PaymentModal
+          order={order}
+          planLabel={orderPlanLabel}
+          onSuccess={onPaid}
+          onClose={() => setOrder(null)}
+        />
+      )}
+
+      {/* ── Welcome celebration ── */}
+      {celebration && (
+        <WelcomeCelebration
+          planLabel={celebration.planLabel}
+          giftCount={celebration.giftCount}
+          onClose={() => setCelebration(null)}
+        />
+      )}
     </div>
   )
 }

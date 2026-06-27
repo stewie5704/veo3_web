@@ -36,6 +36,7 @@ def _lightweight_migrate(conn):
         ("projects", "part_scripts", "TEXT"),
         ("video_jobs", "start_image", "VARCHAR(500)"),
         ("video_jobs", "ref_images", "TEXT"),
+        ("payments", "expires_at", "TIMESTAMP"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:

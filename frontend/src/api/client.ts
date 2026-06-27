@@ -157,6 +157,8 @@ export const billingApi = {
     api.post('/billing/checkout', { plan, method }).then(r => r.data),
   orderStatus: (orderId: string) =>
     api.get(`/billing/order/${orderId}/status`).then(r => r.data),
+  cancelOrder: (orderId: string) =>
+    api.post(`/billing/order/${orderId}/cancel`).then(r => r.data),
   myAssistants: () => api.get('/billing/assistants').then(r => r.data),
 }
 

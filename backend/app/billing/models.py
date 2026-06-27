@@ -17,6 +17,7 @@ class Payment(Base):
     status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / paid / failed
     gateway_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)  # txn id or order code
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # 5-min order window
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
