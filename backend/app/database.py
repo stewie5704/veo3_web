@@ -45,6 +45,9 @@ def _lightweight_migrate(conn):
         ("users", "is_affiliate", "BOOLEAN DEFAULT FALSE"),
         ("users", "affiliate_rate", "INTEGER DEFAULT 20"),
         ("users", "images_generated", "INTEGER DEFAULT 0"),
+        ("users", "affiliate_rate_locked", "BOOLEAN DEFAULT FALSE"),
+        ("users", "wallet_balance", "INTEGER DEFAULT 0"),
+        ("users", "auto_renew", "BOOLEAN DEFAULT FALSE"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
@@ -65,6 +68,6 @@ async def init_db():
         from app.sessions.models import UserSession  # noqa: F401
         from app.projects.models import Project, Scene  # noqa: F401
         from app.characters.models import Character  # noqa: F401
-        from app.billing.models import Payment, AssistantGift, Commission  # noqa: F401
+        from app.billing.models import Payment, AssistantGift, Commission, WalletTxn  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_lightweight_migrate)

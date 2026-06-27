@@ -165,6 +165,17 @@ export const adminApi = {
   commissions: (status = '') => api.get(`/admin/commissions?status=${status}`).then(r => r.data),
   payCommission: (id: string) => api.post(`/admin/commissions/${id}/pay`).then(r => r.data),
   voidCommission: (id: string) => api.delete(`/admin/commissions/${id}`).then(r => r.data),
+  withdrawals: (status = 'pending') => api.get(`/admin/withdrawals?status=${status}`).then(r => r.data),
+  approveWithdrawal: (id: string) => api.post(`/admin/withdrawals/${id}/approve`).then(r => r.data),
+  rejectWithdrawal: (id: string) => api.post(`/admin/withdrawals/${id}/reject`).then(r => r.data),
+}
+
+export const affiliateApi = {
+  me: () => api.get('/affiliate/me').then(r => r.data),
+  withdraw: (amount_t: number, bank: string) =>
+    api.post('/affiliate/withdraw', { amount_t, bank }).then(r => r.data),
+  setAutoRenew: (enabled: boolean) =>
+    api.post('/affiliate/auto-renew', { enabled }).then(r => r.data),
 }
 
 export const statusApi = {
@@ -176,6 +187,8 @@ export const billingApi = {
   me: () => api.get('/billing/me').then(r => r.data),
   checkout: (plan: string, method: string) =>
     api.post('/billing/checkout', { plan, method }).then(r => r.data),
+  topup: (amount: number, method: string) =>
+    api.post('/billing/topup', { amount, method }).then(r => r.data),
   orderStatus: (orderId: string) =>
     api.get(`/billing/order/${orderId}/status`).then(r => r.data),
   cancelOrder: (orderId: string) =>

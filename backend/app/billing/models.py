@@ -36,6 +36,20 @@ class Commission(Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class WalletTxn(Base):
+    """Ledger of every wallet movement (VND). Withdrawals carry status pending/done/rejected."""
+    __tablename__ = "wallet_txns"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)   # signed VND effect on balance
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # commission|topup|withdraw|renew|refund|adjust
+    status: Mapped[str] = mapped_column(String(12), default="done")  # done|pending|rejected (withdrawals)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)   # bank info / context
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class AssistantGift(Base):
     """Tracks AI-assistant bundles gifted to users on first purchase. One record per user."""
     __tablename__ = "assistant_gifts"

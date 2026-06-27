@@ -16,6 +16,7 @@ from app.characters.router import router as characters_router
 from app.media.router import router as media_router
 from app.admin.router import router as admin_router
 from app.billing.router import router as billing_router
+from app.affiliate_router import router as affiliate_router
 from app.auth.router import get_current_user
 
 IMG_PATH = UPLOAD_PATH.parent / "images"
@@ -39,7 +40,43 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         import logging
         logging.getLogger("veo3").warning("recover_orphan_scenes failed: %s", e)
-    yield
+    import asyncio
+    renew_task = asyncio.create_task(_auto_renew_loop())
+    try:
+        yield
+    finally:
+        renew_task.cancel()
+
+
+async def _auto_renew_loop():
+    """Mỗi 30 phút: gia hạn gói từ ví cho user bật auto-renew & sắp hết hạn."""
+    import asyncio, logging
+    from app.database import AsyncSessionLocal
+    from app.auth.models import User
+    from app.billing import gateway
+    from sqlalchemy import select
+    log = logging.getLogger("veo3.autorenew")
+    while True:
+        try:
+            await asyncio.sleep(1800)
+            async with AsyncSessionLocal() as db0:
+                ids = (await db0.execute(
+                    select(User.id).where(User.auto_renew == True, User.plan != "free")  # noqa: E712
+                )).scalars().all()
+            # Mỗi user 1 session riêng: lỗi 1 user không làm hỏng cả lượt; vòng lặp đơn
+            # luồng nên không có 2 lần gia hạn song song cùng 1 user (đây là path DUY NHẤT).
+            for uid in ids:
+                try:
+                    async with AsyncSessionLocal() as db:
+                        u = await db.get(User, uid)
+                        if u:
+                            await gateway.maybe_auto_renew(db, u)
+                except Exception as e:
+                    log.warning("auto-renew %s failed: %s", uid, e)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.warning("auto-renew loop error: %s", e)
 
 
 app = FastAPI(title="VEO3 Web API", version="2.0.0", lifespan=lifespan)
@@ -64,7 +101,8 @@ async def ban_check(request: Request, call_next):
 
 # API Routers
 for r in [auth_router, profile_router, videos_router, projects_router,
-          tools_router, characters_router, media_router, admin_router, billing_router]:
+          tools_router, characters_router, media_router, admin_router, billing_router,
+          affiliate_router]:
     app.include_router(r, prefix="/api/v1")
 app.include_router(sessions_router)  # WebSocket /ws/extension
 

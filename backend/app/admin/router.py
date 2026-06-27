@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, update
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
@@ -15,10 +15,10 @@ from app.auth.router import get_current_user
 from app.auth.models import User
 from app.videos.models import VideoJob
 from app.projects.models import Project, Scene
-from app.billing.models import Payment, AssistantGift, Commission
+from app.billing.models import Payment, AssistantGift, Commission, WalletTxn
 from app.plans import PLANS
 from app import subscription
-from app.affiliate import ensure_referral_code
+from app.affiliate import ensure_referral_code, credit_wallet
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -203,6 +203,7 @@ async def update_user(
             await ensure_referral_code(db, user)
     if body.affiliate_rate is not None:
         user.affiliate_rate = max(0, min(100, body.affiliate_rate))
+        user.affiliate_rate_locked = True   # admin đặt tay -> khóa bậc, không auto lên theo tu tiên
     if body.grant_plan:
         try:
             subscription.activate(user, body.grant_plan)
@@ -371,12 +372,79 @@ async def pay_commission(
 async def void_commission(
     commission_id: str, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
 ):
-    """Hủy hoa hồng (vd khách hoàn tiền / đơn sai) — gỡ khỏi tổng phải trả."""
+    """Hủy hoa hồng (vd khách hoàn tiền / đơn sai). Vì hoa hồng đã tự cộng vào ví,
+    hủy sẽ TRỪ LẠI số đó khỏi ví affiliate (clawback)."""
     c = await db.get(Commission, commission_id)
     if not c:
         raise HTTPException(404, "Hoa hồng không tồn tại")
-    await db.delete(c)
+    # Atomic paid→voided (idempotent: chỉ 1 lần thu hồi dù bấm trùng). Giữ row để lưu vết.
+    res = await db.execute(
+        update(Commission).where(Commission.id == commission_id, Commission.status == "paid")
+        .values(status="voided", paid_at=None)
+    )
+    if res.rowcount == 1:
+        aff = await db.get(User, c.affiliate_id)
+        if aff:
+            # clamp ở 0: nếu CTV đã rút mất rồi thì không cho ví âm
+            deduct = min(int(c.amount), int(aff.wallet_balance or 0))
+            if deduct > 0:
+                await credit_wallet(db, aff, -deduct, "adjust", note="Thu hồi hoa hồng (hủy)")
     await db.commit()
+    return {"ok": True}
+
+
+# ─── Withdrawals (rút ví) ────────────────────────────────────────────────────
+
+@router.get("/withdrawals")
+async def list_withdrawals(
+    admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+    status: str = "pending",
+):
+    q = (select(WalletTxn, User.username, User.email)
+         .join(User, User.id == WalletTxn.user_id, isouter=True)
+         .where(WalletTxn.kind == "withdraw")
+         .order_by(desc(WalletTxn.created_at)).limit(100))
+    if status:
+        q = q.where(WalletTxn.status == status)
+    rows = (await db.execute(q)).all()
+    return [{
+        "id": w.id, "username": un, "email": em,
+        "amount": -int(w.amount),   # gross VND (txn lưu số âm)
+        "status": w.status, "note": w.note,
+        "created_at": w.created_at.isoformat() if w.created_at else None,
+        "processed_at": w.processed_at.isoformat() if w.processed_at else None,
+    } for w, un, em in rows]
+
+
+@router.post("/withdrawals/{txn_id}/approve")
+async def approve_withdrawal(
+    txn_id: str, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+):
+    w = await db.get(WalletTxn, txn_id)
+    if not w or w.kind != "withdraw":
+        raise HTTPException(404, "Yêu cầu rút không tồn tại")
+    if w.status == "pending":
+        w.status = "done"
+        w.processed_at = _now()
+        await db.commit()
+    return {"ok": True}
+
+
+@router.post("/withdrawals/{txn_id}/reject")
+async def reject_withdrawal(
+    txn_id: str, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+):
+    """Từ chối: hoàn lại số tiền đã giữ về ví user."""
+    w = await db.get(WalletTxn, txn_id)
+    if not w or w.kind != "withdraw":
+        raise HTTPException(404, "Yêu cầu rút không tồn tại")
+    if w.status == "pending":
+        w.status = "rejected"
+        w.processed_at = _now()
+        user = await db.get(User, w.user_id)
+        if user:
+            await credit_wallet(db, user, -int(w.amount), "refund", note="Hoàn tiền rút bị từ chối")
+        await db.commit()
     return {"ok": True}
 
 

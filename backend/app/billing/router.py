@@ -29,17 +29,52 @@ async def list_plans():
 
 @router.get("/me")
 async def my_subscription(user: User = Depends(get_current_user)):
+    # KHÔNG auto-renew ở đây (GET không được gây side-effect tiền). Việc gia hạn do
+    # _auto_renew_loop chạy nền (đơn luồng) đảm nhiệm → tránh race trừ tiền 2 lần.
+    bal = int(getattr(user, "wallet_balance", 0) or 0)
     return {
         "plan": user.plan,
         "active": subscription.is_active(user),
         "expires_at": user.plan_expires_at.isoformat() if user.plan_expires_at else None,
         "days_left": subscription.days_left(user),
+        "wallet_vnd": bal,
+        "wallet_t": round(bal / 10_000, 2),
+        "auto_renew": bool(getattr(user, "auto_renew", False)),
     }
 
 
 class CheckoutReq(BaseModel):
     plan: str
     method: str = "payos"   # "payos" | "binance"
+
+
+class TopupReq(BaseModel):
+    amount: int             # VND nạp vào ví
+    method: str = "payos"
+
+
+@router.post("/topup")
+async def topup(body: TopupReq, user: User = Depends(get_current_user),
+                db: AsyncSession = Depends(get_db)):
+    if body.amount < 10_000:
+        raise HTTPException(400, "Nạp tối thiểu 10.000đ (1 T)")
+    if body.method not in ("payos", "binance"):
+        raise HTTPException(400, "Phương thức thanh toán không hợp lệ")
+    expires_at = _utcnow_naive() + timedelta(seconds=ORDER_TTL_SECONDS)
+    pay = Payment(
+        user_id=user.id, plan="topup", amount=int(body.amount),
+        currency="VND", gateway=body.method, expires_at=expires_at,
+    )
+    db.add(pay)
+    await db.commit()
+    await db.refresh(pay)
+    result = await gateway.create_payment_url(pay, user)
+    await db.commit()
+    return {
+        "order_id": pay.id, "amount": pay.amount, "currency": pay.currency,
+        "expires_at": expires_at.replace(tzinfo=timezone.utc).isoformat(),
+        **result,
+    }
 
 
 @router.post("/checkout")

@@ -40,7 +40,10 @@ class User(Base):
     referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)
     referred_by: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)  # affiliate user id
     is_affiliate: Mapped[bool] = mapped_column(Boolean, default=True)   # mọi user đều là affiliate
-    affiliate_rate: Mapped[int] = mapped_column(Integer, default=10)    # commission %, mặc định 10
+    affiliate_rate: Mapped[int] = mapped_column(Integer, default=10)    # commission %, dùng khi locked
+    affiliate_rate_locked: Mapped[bool] = mapped_column(Boolean, default=False)  # admin đặt tay -> khóa, không auto lên bậc
+    wallet_balance: Mapped[int] = mapped_column(Integer, default=0)     # số dư ví (VND); hiển thị T coin = /10000
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=False)    # tự gia hạn gói từ ví
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

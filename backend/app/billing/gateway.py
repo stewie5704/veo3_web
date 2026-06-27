@@ -21,11 +21,11 @@ import logging
 import secrets
 import time
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
@@ -422,24 +422,38 @@ async def mark_paid_and_activate(db, payment, gateway_ref: str | None = None) ->
     from app.auth.models import User
     from app import subscription
     from app.billing.assistants import gift_assistants_if_eligible
+    from app.billing.models import Payment as _Pay
     from app.plans import PLANS
 
-    if payment.status == "paid":
+    # Atomically claim the paid-transition: exactly ONE concurrent caller (PayOS webhook,
+    # Binance webhook, status poller, admin activate) wins rowcount==1; the rest bail.
+    # An atomic UPDATE..WHERE works on BOTH SQLite and Postgres — FOR UPDATE is a silent
+    # no-op on SQLite, so we must not rely on it. This prevents double topup-credit /
+    # double plan-activation / double gift.
+    res = await db.execute(
+        sa_update(_Pay).where(_Pay.id == payment.id, _Pay.status != "paid")
+        .values(status="paid", paid_at=_utcnow_naive())
+    )
+    if res.rowcount != 1:
+        await db.commit()   # someone else already settled it
         return
-
-    payment.status = "paid"
-    payment.paid_at = _utcnow_naive()
+    payment = (await db.execute(select(_Pay).where(_Pay.id == payment.id))).scalar_one()
     if gateway_ref:
         payment.gateway_ref = gateway_ref
 
     user = await db.get(User, payment.user_id)
     if user:
-        subscription.activate(user, payment.plan)
-        count = int(PLANS.get(payment.plan, {}).get("assistants", 0))
-        if count > 0:
-            await gift_assistants_if_eligible(db, user.id, payment.id, count)
-        from app.affiliate import record_commission
-        await record_commission(db, payment, user)
+        if payment.plan == "topup":
+            # Nạp ví: cộng số tiền vào ví, KHÔNG kích hoạt gói / không hoa hồng
+            from app.affiliate import credit_wallet
+            await credit_wallet(db, user, int(payment.amount), "topup", note="Nạp ví")
+        else:
+            subscription.activate(user, payment.plan)
+            count = int(PLANS.get(payment.plan, {}).get("assistants", 0))
+            if count > 0:
+                await gift_assistants_if_eligible(db, user.id, payment.id, count)
+            from app.affiliate import record_commission
+            await record_commission(db, payment, user)
 
     try:
         await db.commit()
@@ -447,3 +461,38 @@ async def mark_paid_and_activate(db, payment, gateway_ref: str | None = None) ->
         # A concurrent paid-transition (webhook vs poller vs admin) already recorded
         # this — the unique(commission.payment_id) constraint fired. Treat as done.
         await db.rollback()
+
+
+async def maybe_auto_renew(db, user) -> bool:
+    """If the user opted into auto-renew and their plan is expired / within 1 day of expiry,
+    and the wallet covers it, deduct the plan price from the wallet and extend the plan."""
+    if not getattr(user, "auto_renew", False):
+        return False
+    if not user.plan or user.plan == "free":
+        return False
+    from app.plans import PLANS as _PLANS
+    plan = _PLANS.get(user.plan)
+    if not plan:
+        return False
+    exp = user.plan_expires_at
+    now = _utcnow_naive()
+    if exp and exp > now + timedelta(days=1):
+        return False   # chưa tới hạn (chỉ gia hạn khi còn ≤1 ngày hoặc đã hết)
+    price = int(plan["price"])
+    from app.auth.models import User as _User
+    from app.billing.models import WalletTxn
+    from app import subscription
+    # Atomic deduct: chỉ trừ nếu ví còn đủ (rowcount==1) — không bị mất cập nhật nếu
+    # có lệnh rút chạy song song. Vòng auto-renew đơn luồng nên không gia hạn trùng.
+    res = await db.execute(
+        sa_update(_User).where(_User.id == user.id, _User.wallet_balance >= price)
+        .values(wallet_balance=_User.wallet_balance - price)
+    )
+    if res.rowcount != 1:
+        return False
+    db.add(WalletTxn(user_id=user.id, amount=-price, kind="renew", status="done",
+                     note=f"Tự gia hạn {user.plan}", processed_at=_utcnow_naive()))
+    subscription.activate(user, user.plan)   # cộng dồn ngày (ORM ghi plan_expires_at)
+    await db.commit()
+    log.info("auto-renew %s plan=%s -%s", user.id, user.plan, price)
+    return True

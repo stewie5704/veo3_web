@@ -17,6 +17,7 @@ import Tools from './Tools'
 import Settings2 from './Settings'
 import Admin from './Admin'
 import Billing from './Billing'
+import Affiliate from './Affiliate'
 import Guide from './Guide'
 
 export const logStore: { msg: string; level: string; ts: string }[] = []
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { path: '/videos', icon: Library, label: 'Thư viện', userOnly: true },
   { path: '/tools', icon: Wrench, label: 'Công cụ', userOnly: true },
   { path: '/billing', icon: Crown, label: 'Nâng gói', userOnly: true },
+  { path: '/affiliate', icon: Share2, label: 'Cộng tác viên', userOnly: true },
   { path: '/guide', icon: BookOpen, label: 'Hướng dẫn' },
   { path: '/settings', icon: Settings, label: 'Cài đặt' },
   { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
@@ -501,6 +503,7 @@ export default function Dashboard() {
             <Route path="/videos" element={<MyVideos />} />
             <Route path="/tools" element={<Tools user={user} />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/affiliate" element={<Affiliate />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/settings" element={<Settings2 user={user} onUpdate={setUser} />} />
             {user?.is_admin && <Route path="/admin" element={<Admin />} />}

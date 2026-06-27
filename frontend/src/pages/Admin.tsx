@@ -41,6 +41,7 @@ export default function Admin() {
   const [plans, setPlans] = useState<any[]>([])
   const [affiliates, setAffiliates] = useState<any[]>([])
   const [commissions, setCommissions] = useState<any[]>([])
+  const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [affSearch, setAffSearch] = useState('')
   const [affResults, setAffResults] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -62,6 +63,7 @@ export default function Admin() {
   }
   function loadAffiliates() { adminApi.affiliates().then(setAffiliates).catch(() => {}) }
   function loadCommissions() { adminApi.commissions().then(setCommissions).catch(() => {}) }
+  function loadWithdrawals() { adminApi.withdrawals('pending').then(setWithdrawals).catch(() => {}) }
 
   useEffect(() => {
     loadOverview()
@@ -69,15 +71,11 @@ export default function Admin() {
     billingApi.plans().then(d => setPlans(d.plans || [])).catch(() => {})
   }, [])
   useEffect(() => { if (tab === 'payments') loadPayments(payFilter) }, [tab, payFilter])
-  useEffect(() => { if (tab === 'affiliate') { loadAffiliates(); loadCommissions() } }, [tab])
+  useEffect(() => { if (tab === 'affiliate') { loadAffiliates(); loadCommissions(); loadWithdrawals() } }, [tab])
 
   function copyRefLink(code: string) {
     const link = `${window.location.origin}/register?ref=${code}`
     navigator.clipboard?.writeText(link).then(() => toast('Đã chép link giới thiệu', 'success'))
-  }
-  async function payCommission(id: string) {
-    try { await adminApi.payCommission(id); toast('Đã đánh dấu trả hoa hồng', 'success'); loadCommissions(); loadAffiliates() }
-    catch { toast('Lỗi', 'error') }
   }
   async function voidCommission(id: string) {
     if (!confirm('Hủy hoa hồng này? (dùng khi khách hoàn tiền / đơn sai)')) return
@@ -93,6 +91,15 @@ export default function Admin() {
       await adminApi.updateUser(id, { affiliate_rate: Math.max(0, Math.min(100, rate)) })
       toast('Đã đặt % hoa hồng', 'success'); loadAffiliates(); affSearchRun()
     } catch { toast('Lỗi', 'error') }
+  }
+  async function approveW(id: string) {
+    try { await adminApi.approveWithdrawal(id); toast('Đã duyệt — nhớ chuyển khoản cho CTV', 'success'); loadWithdrawals() }
+    catch { toast('Lỗi', 'error') }
+  }
+  async function rejectW(id: string) {
+    if (!confirm('Từ chối yêu cầu rút này? Tiền sẽ hoàn lại ví CTV.')) return
+    try { await adminApi.rejectWithdrawal(id); toast('Đã từ chối & hoàn ví', 'info'); loadWithdrawals() }
+    catch { toast('Lỗi', 'error') }
   }
 
   async function patch(id: string, data: any) {
@@ -375,6 +382,42 @@ export default function Admin() {
       {/* ─── AFFILIATE ─── */}
       {tab === 'affiliate' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Withdrawal requests */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="card-header" style={{ marginBottom: 0 }}>
+                <Wallet size={15} /> Yêu cầu rút tiền {withdrawals.length > 0 && <span style={{ color: '#fbbf24' }}>({withdrawals.length})</span>}
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={loadWithdrawals}><RefreshCw size={13} /> Làm mới</button>
+            </div>
+            {withdrawals.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Không có yêu cầu rút đang chờ.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <tbody>
+                    {withdrawals.map(w => (
+                      <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ fontWeight: 600 }}>{w.username || '—'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{w.email}</div>
+                        </td>
+                        <td style={{ padding: '10px 12px', fontWeight: 700 }}>{fmtVND(w.amount)}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text2)', maxWidth: 360 }}>{w.note}</td>
+                        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button className="btn btn-primary btn-sm" onClick={() => approveW(w.id)}><CheckCircle size={12} /> Đã chi</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => rejectW(w.id)}>Từ chối</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Set % for a chosen user */}
           <div className="card">
             <div className="card-header"><Percent size={15} /> Đặt % hoa hồng cho người được chọn</div>
@@ -491,20 +534,19 @@ export default function Admin() {
                       <td style={{ padding: '10px 12px', fontWeight: 700 }}>{fmtVND(c.amount)}</td>
                       <td style={{ padding: '10px 12px', color: 'var(--text3)' }}>{c.rate}%</td>
                       <td style={{ padding: '10px 12px' }}>
-                        {c.status === 'paid' ? <span className="badge badge-done">Đã trả</span> : <span className="badge badge-pending">Chờ trả</span>}
+                        {c.status === 'paid'
+                          ? <span className="badge badge-done">Đã vào ví</span>
+                          : c.status === 'voided'
+                            ? <span className="badge badge-failed">Đã hủy</span>
+                            : <span className="badge badge-pending">Chờ</span>}
                       </td>
                       <td style={{ padding: '10px 12px', color: 'var(--text3)', fontSize: 11 }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—'}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {c.status !== 'paid' && (
-                            <button className="btn btn-primary btn-sm" onClick={() => payCommission(c.id)}>
-                              <CheckCircle size={12} /> Đã trả
-                            </button>
-                          )}
-                          <button className="btn btn-ghost btn-sm btn-icon" title="Hủy hoa hồng" onClick={() => voidCommission(c.id)}>
+                        {c.status === 'paid' && (
+                          <button className="btn btn-ghost btn-sm btn-icon" title="Hủy & thu hồi hoa hồng" onClick={() => voidCommission(c.id)}>
                             <Trash2 size={12} />
                           </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   ))}
