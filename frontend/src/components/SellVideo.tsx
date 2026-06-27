@@ -48,6 +48,7 @@ export default function SellVideo() {
   const [aspect, setAspect] = useState('9:16')            // dọc cho TikTok
   const [dur, setDur] = useState(6)
   const [loading, setLoading] = useState(false)
+  const [showAdv, setShowAdv] = useState(false)
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
 
@@ -98,9 +99,10 @@ export default function SellVideo() {
           <div className="card" style={{ margin: 0 }}>
             <div className="card-header"><ShoppingBag size={15} /> Video bán hàng <small>Ảnh sản phẩm (+ KOL) → video mặc/cầm sản phẩm tự nhiên cho TikTok Shop</small></div>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 12, flexWrap: 'wrap' }}>
+            {/* Ảnh */}
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', marginBottom: 22, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 5, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
                 <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
                   {productPrev ? <img src={productPrev} alt="" /> : <Plus size={22} />}
                   <input ref={prodRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -108,7 +110,7 @@ export default function SellVideo() {
                 </label>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 5, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
                 <label className="img-add" title="Ảnh KOL / người mẫu (tùy chọn)">
                   {kolPrev ? <img src={kolPrev} alt="" /> : <Plus size={22} />}
                   <input ref={kolRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -119,44 +121,65 @@ export default function SellVideo() {
                 value={name} onChange={e => setName(e.target.value)} />
             </div>
 
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 8 }}>
-              {SELL_SCENES.map(s => (
-                <button key={s.v} className={scene === s.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setScene(s.v)}>{s.label}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
-              {SELL_TONES.map(t => (
-                <button key={t.v} className={tone === t.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTone(t.v)}>{t.label}</button>
-              ))}
-            </div>
-
-            <div style={{ position: 'relative', marginBottom: 12 }}>
-              <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
-                value={prompt} onChange={e => setPrompt(e.target.value)}
-                placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
-              <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
-                <Sparkles size={13} /> Trợ lý viết
-              </button>
+            {/* Bối cảnh */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Bối cảnh</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {SELL_SCENES.map(s => (
+                  <button key={s.v} className={scene === s.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setScene(s.v)}>{s.label}</button>
+                ))}
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Chất lượng</label>
-                <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
-                  {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                </select></div>
-              <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tỉ lệ</label>
-                <select className="form-select" value={aspect} onChange={e => setAspect(e.target.value)}>
-                  {ASPECTS.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
-                </select></div>
-              <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng</label>
-                <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
-                  {[4, 6, 8].map(d => <option key={d} value={d}>{d}s</option>)}
-                </select></div>
+            {/* Tông */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Tông video</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {SELL_TONES.map(t => (
+                  <button key={t.v} className={tone === t.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTone(t.v)}>{t.label}</button>
+                ))}
+              </div>
             </div>
 
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.5 }}>
-              💡 Sản phẩm trơn/ít chi tiết giữ tốt; họa tiết·chữ·logo phức tạp có thể lệch nhẹ (model free). Cần nét hơn thì chọn Quality.
+            {/* Mô tả */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Mô tả cảnh</div>
+              <div style={{ position: 'relative' }}>
+                <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
+                  value={prompt} onChange={e => setPrompt(e.target.value)}
+                  placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
+                <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
+                  <Sparkles size={13} /> Trợ lý viết
+                </button>
+              </div>
             </div>
+
+            {/* Tùy chọn nâng cao (giấu cho đỡ ngộp — đã có mặc định FREE / 9:16 / 6s) */}
+            <button onClick={() => setShowAdv(v => !v)}
+              style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: showAdv ? 12 : 18 }}>
+              ⚙ Tùy chọn (chất lượng · tỉ lệ · thời lượng) {showAdv ? '▴' : '▾'}
+            </button>
+            {showAdv && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Chất lượng</label>
+                    <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
+                      {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                    </select></div>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tỉ lệ</label>
+                    <select className="form-select" value={aspect} onChange={e => setAspect(e.target.value)}>
+                      {ASPECTS.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
+                    </select></div>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng</label>
+                    <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
+                      {[4, 6, 8].map(d => <option key={d} value={d}>{d}s</option>)}
+                    </select></div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 18, lineHeight: 1.5 }}>
+                  💡 Sản phẩm trơn/ít chi tiết giữ tốt; họa tiết·chữ·logo phức tạp có thể lệch nhẹ (model free). Cần nét hơn thì chọn Quality.
+                </div>
+              </>
+            )}
 
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product || !prompt.trim()}>
               {loading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
