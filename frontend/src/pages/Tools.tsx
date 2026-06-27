@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toolsApi, charactersApi, mediaApi, videosApi } from '../api/client'
 import { pushLog } from './Dashboard'
+import DownloadMenu from '../components/DownloadMenu'
 import {
   Users, Plus, Trash2, Mic, Image, Scissors, Download,
   Volume2, AlertCircle, CheckCircle, Loader2, ExternalLink,
@@ -51,7 +52,6 @@ function VideoFeed({ jobs }: { jobs: any[] }) {
         return (
           <div key={j.id} className="video-card">
             <div className="video-preview" style={{ position: 'relative' }}>
-              {j.hd && j.status === 'done' && file && <span className="hd-badge">HD</span>}
               {j.status === 'done' && file ? (
                 <video src={`/uploads/${file}`} controls preload="metadata"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -69,9 +69,9 @@ function VideoFeed({ jobs }: { jobs: any[] }) {
             <div className="video-card-body">
               <div className="video-card-prompt">{j.prompt}</div>
               {j.status === 'done' && file && (
-                <a href={`/api/v1/videos/${j.id}/download/0`} download className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>
-                  <Download size={12} /> Tải
-                </a>
+                <div style={{ marginTop: 8 }}>
+                  <DownloadMenu base={`/videos/${j.id}/download/0`} filename={`veo3_${j.id.slice(0, 6)}.mp4`} />
+                </div>
               )}
             </div>
           </div>

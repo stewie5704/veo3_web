@@ -495,152 +495,49 @@ async def _is_stopped(project_db_id: str) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1080p upscale — hybrid: real Flow upsampler (paid tier) then ffmpeg fallback
+# On-demand 1080p upscale — used at DOWNLOAD time, NOT during render. Generation
+# stays at the model's native 720p; the user opts into 1080p only when downloading.
+# Result is cached next to the source so repeat downloads are instant.
 # ─────────────────────────────────────────────────────────────────────────────
-UPSCALE_ENDPOINT = "video:batchAsyncGenerateVideoUpsampleVideo"  # medium-confidence; fail-soft
-UPSAMPLER_MODEL = "veo_3_1_upsampler_1080p"
-UPSCALE_POLL_TRIES = 18   # ×POLL_INTERVAL(10s) = ~180s cap; 1080p upsample usually 30-60s
-_UPSCALE_DIMS = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}
+_UPSCALE_DIMS = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080),
+                 "4:3": (1440, 1080), "3:4": (1080, 1440)}
 
 
-def _build_upscale_body(project_id: str, source_media_id: str, aspect: str,
-                        recaptcha: str, seed: int) -> dict:
-    return {
-        "mediaGenerationContext": {"batchId": str(uuid.uuid4())},
-        "clientContext": {
-            "projectId": project_id, "tool": "PINHOLE", "userPaygateTier": PAYGATE_TIER,
-            "sessionId": f";{int(time.time() * 1000)}",
-            "recaptchaContext": {"token": recaptcha, "applicationType": "RECAPTCHA_APPLICATION_TYPE_WEB"},
-        },
-        "requests": [{
-            "aspectRatio": aspect,
-            "resolution": "VIDEO_UPSAMPLE_RESOLUTION_1080P",
-            "seed": seed,
-            "videoInput": {"mediaId": source_media_id},
-            "videoModelKey": UPSAMPLER_MODEL,
-            "metadata": {},
-        }],
-        "useV2ModelConfig": True,
-    }
-
-
-async def _flow_upscale(user_id: str, cookies: str, token: str, project_id: str,
-                        source_media_id: str, aspect_ratio: str, seed: int, target: Path,
-                        char_project_id: str | None = None) -> bool:
-    """Submit a Flow 1080p upsample, poll, download the new media over `target`.
-    Returns False (no raise) on any failure — incl. free tier returning empty."""
-    from app.sessions.router import request_captcha
-
-    recaptcha = await request_captcha(user_id)
-    if not recaptcha:
-        return False
-    aspect = ASPECT_MAP.get(aspect_ratio, "VIDEO_ASPECT_RATIO_LANDSCAPE")
-    body = _build_upscale_body(project_id, source_media_id, aspect, recaptcha, seed)
-
-    code, resp = await _api_post(UPSCALE_ENDPOINT, body, token)
-    if code in (401, 403):
-        token = await _get_bearer_token(cookies) or token
-        code, resp = await _api_post(UPSCALE_ENDPOINT, body, token)
-    if code != 200 or not isinstance(resp, dict):
-        # 404/400/INVALID = the endpoint string is likely wrong (unverified) — surface it
-        # loudly instead of silently falling back, so we can confirm/fix from logs.
-        if code in (400, 404) or "INVALID" in str(resp).upper():
-            log.warning("Flow upscale endpoint rejected (HTTP %s) — %r may be wrong; resp=%s",
-                        code, UPSCALE_ENDPOINT, str(resp)[:200])
-        else:
-            log.info("upscale not available (HTTP %s) — skip", code)
-        return False
-    new_id = _media_id_from_generate(resp)
-    if not new_id:
-        return False   # free/low-priority tier silently returns no media
-
-    poll_body = {"media": [{"name": new_id, "projectId": project_id}]}
-    for _i in range(UPSCALE_POLL_TRIES):
-        await asyncio.sleep(POLL_INTERVAL)
-        if char_project_id and _i % 2 == 1 and await _is_stopped(char_project_id):
-            return False   # user bấm Dừng — bỏ upscale, giữ bản 720p
-        code, poll = await _api_post("video:batchCheckAsyncVideoGenerationStatus", poll_body, token)
-        if code != 200 or not isinstance(poll, dict):
-            continue
-        items = poll.get("media") or []
-        if not items:
-            continue
-        status = (((items[0].get("mediaMetadata") or {}).get("mediaStatus") or {})
-                  .get("mediaGenerationStatus") or "").upper()
-        if any(h in status for h in FAIL_HINTS):
-            return False
-        if any(h in status for h in DONE_HINTS):
-            break
-    else:
-        return False
-
-    tmp = target.with_suffix(".1080.mp4")
-    if await _download_video(new_id, cookies, project_id, tmp):
-        # Only clobber the known-good 720p if the HD file is plausibly complete
-        # (a truncated download must never replace a good clip with a worse one).
-        try:
-            old_sz = target.stat().st_size if target.exists() else 0
-            new_sz = tmp.stat().st_size
-        except OSError:
-            new_sz = old_sz = 0
-        if new_sz >= max(1, int(old_sz * 0.9)):
-            os.replace(tmp, target)
-            log.info("Flow 1080p upscale OK -> %s", target.name)
-            return True
-        log.warning("upscale download too small (%s < %s) — keep 720p", new_sz, old_sz)
-    tmp.unlink(missing_ok=True)
-    return False
-
-
-async def _ffmpeg_upscale_1080(target: Path, aspect_ratio: str) -> bool:
-    """Re-encode `target` up to 1080p with lanczos. Returns True on success."""
+async def ensure_1080(src: Path, aspect_ratio: str = "16:9") -> Path | None:
+    """Return a cached 1080p version of `src`, creating it with ffmpeg if needed.
+    NON-destructive: the original is never modified. Returns None on failure (caller
+    then serves the original 720p)."""
+    if (settings.upscale_mode or "hybrid").lower() == "off" or not src.exists():
+        return None
+    cache = src.with_name(src.stem + "__1080" + src.suffix)
+    try:
+        if cache.exists() and cache.stat().st_size > 0 and cache.stat().st_mtime >= src.stat().st_mtime:
+            return cache   # already upscaled this exact source
+    except OSError:
+        pass
     w, h = _UPSCALE_DIMS.get(aspect_ratio, (1920, 1080))
-    tmp = target.with_suffix(".up.mp4")
+    tmp = cache.with_suffix(".tmp.mp4")
     try:
         proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", str(target),
+            "ffmpeg", "-y", "-i", str(src),
             "-vf", f"scale={w}:{h}:flags=lanczos",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
             "-c:a", "copy", str(tmp),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
-        _, err = await asyncio.wait_for(proc.communicate(), timeout=180)
+        _, err = await asyncio.wait_for(proc.communicate(), timeout=600)
         if proc.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
-            os.replace(tmp, target)
-            log.info("ffmpeg upscale 1080p OK -> %s", target.name)
-            return True
-        log.warning("ffmpeg upscale rc=%s: %s", proc.returncode, (err or b"")[-300:])
+            os.replace(tmp, cache)
+            log.info("1080p ready -> %s", cache.name)
+            return cache
+        log.warning("ffmpeg 1080p rc=%s: %s", proc.returncode, (err or b"")[-300:])
     except Exception as e:
-        log.warning("ffmpeg upscale error: %s", e)
-    tmp.unlink(missing_ok=True)
-    return False
-
-
-async def _upscale_to_1080(user_id: str, cookies: str, token: str, project_id: str,
-                           source_media_id: str, model_key: str, aspect_ratio: str,
-                           seed: int, fname: str, char_project_id: str | None = None) -> bool:
-    """Hybrid upscale of UPLOAD_PATH/fname → 1080p. Returns True if it is now HD.
-    Fully fail-soft: never raises, never breaks the render if upscale is unavailable."""
-    mode = (settings.upscale_mode or "hybrid").lower()
-    if mode == "off":
-        return False
-    target = UPLOAD_PATH / fname
-    if not target.exists():
-        return False
-    # Real Flow upsampler only works on paid tiers; the free *_low_priority model
-    # returns empty → don't waste a captcha on it, go straight to ffmpeg.
-    if mode in ("hybrid", "flow") and "low_priority" not in (model_key or ""):
-        try:
-            if await _flow_upscale(user_id, cookies, token, project_id,
-                                   source_media_id, aspect_ratio, seed, target, char_project_id):
-                return True
-        except Exception as e:
-            log.warning("flow upscale failed (%s) — fallback", e)
-        if mode == "flow":
-            return False
-    if mode in ("hybrid", "ffmpeg"):
-        return await _ffmpeg_upscale_1080(target, aspect_ratio)
-    return False
+        log.warning("ensure_1080 error: %s", e)
+    try:
+        tmp.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return None
 
 
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
@@ -649,9 +546,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                         char_project_id: str | None = None,
                         seed: int | None = None,
                         extra_ref_paths: list[str] | None = None,
-                        dialogue: str = "", character_speak: bool = False) -> tuple[str, bool]:
-    """Generate ONE video on Flow, download it, upscale to 1080p (hybrid).
-    Returns (filename relative to UPLOAD_PATH, is_hd). Raises RuntimeError on failure."""
+                        dialogue: str = "", character_speak: bool = False) -> str:
+    """Generate ONE video on Flow and download it (native 720p — 1080p is an
+    opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
     from app.sessions.router import request_captcha
 
     token = await _get_bearer_token(cookies)
@@ -747,9 +644,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     fname = f"{out_stem}.mp4"
     if not await _download_video(media_id, cookies, project_id, UPLOAD_PATH / fname):
         raise RuntimeError("Render xong nhưng tải video thất bại")
-    hd = await _upscale_to_1080(user_id, cookies, token, project_id,
-                                media_id, key, aspect_ratio, use_seed, fname, char_project_id)
-    return fname, hd
+    return fname
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -791,7 +686,6 @@ async def run_video_job(job_id: str, user_id: str):
 
         await _update_job(job_id, status=JobStatus.processing, progress=5)
         outputs: list[str] = []
-        hd_all = True   # HD badge only if EVERY produced output is 1080p
         last_err = ""
         for i in range(count):
             seed0 = random.randint(1, 2 ** 31 - 1)
@@ -804,11 +698,10 @@ async def run_video_job(job_id: str, user_id: str):
                     extra_ref_paths=extra_ref_paths, seed=sd)
             try:
                 try:
-                    fname, hd = await _gen(seed0)
+                    fname = await _gen(seed0)
                 except _ProminentBlocked:   # ảnh giữ mặt: dương-tính-giả -> đổi seed thử lại 1 lần
-                    fname, hd = await _gen((seed0 * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
+                    fname = await _gen((seed0 * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
                 outputs.append(fname)
-                hd_all = hd_all and hd
             except _ProminentBlocked:
                 last_err = ("Google chặn ảnh tham chiếu: người NỔI TIẾNG hoặc lọc nhầm "
                             "(mặt thường vẫn qua). Đổi ảnh nhân vật AI khác.")
@@ -823,7 +716,7 @@ async def run_video_job(job_id: str, user_id: str):
             return
         await _update_job(job_id, status=JobStatus.done, progress=100,
                           output_files=json.dumps(outputs), thumbnails=json.dumps([]),
-                          hd=(hd_all and bool(outputs)), error_msg=(last_err or None),
+                          error_msg=(last_err or None),
                           completed_at=datetime.now(timezone.utc).replace(tzinfo=None))
         log.info("Job %s done: %d/%d videos", job_id, len(outputs), count)
     except Exception as e:
@@ -1042,12 +935,12 @@ async def run_scene_job(scene_id: str, user_id: str):
 
             try:
                 try:
-                    fname, hd = await _gen(use_seed)
+                    fname = await _gen(use_seed)
                 except _ProminentBlocked:
                     # bộ lọc người thường là dương-tính-giả -> đổi seed render lại 1 lần (hay qua).
                     # Ảnh ref khoá danh tính nên đổi seed không lệch mặt.
                     log.warning("scene %s PROMINENT -> thử lại seed mới", scene_id)
-                    fname, hd = await _gen((use_seed * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
+                    fname = await _gen((use_seed * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
             except _ProminentBlocked:
                 await _update_scene(status=SceneStatus.failed, error_msg=(
                     "Google chặn ảnh giữ mặt: thường do người NỔI TIẾNG hoặc bộ lọc nhận nhầm "
@@ -1068,8 +961,8 @@ async def run_scene_job(scene_id: str, user_id: str):
                 except Exception as e:
                     log.warning("voiceover scene %s failed: %s", scene_id, e)
 
-            await _update_scene(status=SceneStatus.done, video_file=fname, hd=hd)
-            log.info("Scene %s done (hd=%s)", scene_id, hd)
+            await _update_scene(status=SceneStatus.done, video_file=fname)
+            log.info("Scene %s done", scene_id)
         await _try_auto_merge(project_db_id)
     except asyncio.CancelledError:
         # Worker shutdown/deploy: KHÔNG ghi DB (event loop đang đóng), để nguyên trạng thái và
@@ -1103,7 +996,6 @@ async def _try_auto_merge(project_id: str):
             if proj0 and proj0.merged_file:   # đã ghép rồi -> bỏ qua (idempotent)
                 return
             video_files = [s.video_file for s in sorted(scenes, key=lambda s: s.index) if s.video_file]
-            all_hd = bool(scenes) and all(getattr(s, "hd", False) for s in scenes)
         if not video_files:
             return
 
@@ -1129,7 +1021,6 @@ async def _try_auto_merge(project_id: str):
                     proj = await db.get(Project, project_id)
                     if proj:
                         proj.merged_file = out_name
-                        proj.hd = all_hd
                         await db.commit()
                 log.info("Auto-merge done: %s", out_name)
         except Exception as e:

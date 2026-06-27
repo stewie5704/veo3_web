@@ -1,5 +1,5 @@
-import { Download, Trash2 } from 'lucide-react'
-import { videosApi } from '../api/client'
+import { Trash2 } from 'lucide-react'
+import DownloadMenu from './DownloadMenu'
 
 interface Props {
   job: any
@@ -9,12 +9,10 @@ interface Props {
 
 export default function VideoCard({ job, fileIndex, onDelete }: Props) {
   const videoUrl = `/uploads/${job.output_files[fileIndex]}`
-  const downloadUrl = videosApi.downloadUrl(job.id, fileIndex)
 
   return (
     <div className="video-card">
-      <div className="video-preview" style={{ position: 'relative' }}>
-        {job.hd && <span className="hd-badge">HD</span>}
+      <div className="video-preview">
         <video
           src={videoUrl}
           controls
@@ -29,13 +27,11 @@ export default function VideoCard({ job, fileIndex, onDelete }: Props) {
           {new Date(job.created_at).toLocaleDateString('vi-VN')}
         </div>
         <div className="video-card-actions">
-          <a
-            href={downloadUrl}
-            download={`veo3_video_${fileIndex + 1}.mp4`}
-            className="btn btn-primary btn-sm"
-          >
-            <Download size={12} /> Tải về
-          </a>
+          <DownloadMenu
+            base={`/videos/${job.id}/download/${fileIndex}`}
+            filename={`veo3_video_${fileIndex + 1}.mp4`}
+            flex
+          />
           {onDelete && (
             <button className="btn btn-danger btn-sm" onClick={onDelete}>
               <Trash2 size={12} />

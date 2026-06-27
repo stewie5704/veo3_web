@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectsApi, videosApi, extensionApi } from '../api/client'
 import { useToast } from '../components/Toast'
-import { Trash2, Download, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } from 'lucide-react'
+import DownloadMenu from '../components/DownloadMenu'
+import { Trash2, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } from 'lucide-react'
 
 type SortBy = 'newest' | 'oldest'
 
@@ -140,7 +141,6 @@ export default function MyVideos() {
                         <div style={{ position: 'absolute', top: 8, left: 8 }}>
                           <span className="badge badge-done" style={{ fontSize: 10 }}>{done}/{total} cảnh</span>
                         </div>
-                        {p.hd && <span className="hd-badge">HD</span>}
                       </div>
                       <div className="video-card-body">
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
@@ -176,7 +176,6 @@ export default function MyVideos() {
                   return (
                     <div key={v.id} className="video-card">
                       <div className="video-preview" style={{ position: 'relative' }}>
-                        {v.hd && v.status === 'done' && firstFile && <span className="hd-badge">HD</span>}
                         {v.status === 'done' && firstFile ? (
                           <video src={`/uploads/${firstFile}`} preload="metadata" controls
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -192,9 +191,7 @@ export default function MyVideos() {
                         <div className="video-card-prompt">{v.prompt}</div>
                         <div className="video-card-actions">
                           {v.status === 'done' && firstFile && (
-                            <a href={`/api/v1/videos/${v.id}/download/0`} download className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
-                              <Download size={12} /> Tải
-                            </a>
+                            <DownloadMenu base={`/videos/${v.id}/download/0`} filename={`veo3_${v.id.slice(0, 6)}.mp4`} flex />
                           )}
                           {v.status === 'failed' && (
                             <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => retryVideo(v.id)}>

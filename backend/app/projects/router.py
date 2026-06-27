@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, delete
 from pydantic import BaseModel
@@ -207,7 +208,6 @@ class SceneResponse(BaseModel):
     model_key: str
     start_image: str | None
     wait_for_prev: bool
-    hd: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -228,7 +228,6 @@ class ProjectResponse(BaseModel):
     voiceover: bool = False
     voice: str = "Kore"
     stopped: bool = False
-    hd: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -254,12 +253,11 @@ async def _project_chars(db: AsyncSession, project_id: str) -> list[ProjChar]:
 
 
 async def _invalidate_merge(db: AsyncSession, project_id: str) -> None:
-    """A scene is being re-rendered/replaced → the merged file + project HD flag are now
-    stale. Clear them so _try_auto_merge re-runs and recomputes from the new scene set."""
+    """A scene is being re-rendered/replaced → the old merged final.mp4 is now stale.
+    Clear it so _try_auto_merge re-runs once all scenes are done again."""
     proj = await db.get(Project, project_id)
-    if proj and (proj.merged_file or getattr(proj, "hd", False)):
+    if proj and proj.merged_file:
         proj.merged_file = None
-        proj.hd = False
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -271,7 +269,6 @@ def scene_to_resp(s: Scene) -> SceneResponse:
         video_file=s.video_file, aspect_ratio=s.aspect_ratio,
         duration_seconds=s.duration_seconds, model_key=s.model_key,
         start_image=s.start_image, wait_for_prev=s.wait_for_prev,
-        hd=bool(getattr(s, "hd", False)),
     )
 
 
@@ -286,7 +283,6 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
         stopped=bool(getattr(p, "stopped", False)),
-        hd=bool(getattr(p, "hd", False)),
         created_at=p.created_at, updated_at=p.updated_at,
     )
 
@@ -529,8 +525,7 @@ async def resume_project(
         raise HTTPException(404, "Không tìm thấy dự án")
     subscription.ensure_can_generate(user)
     proj.stopped = False
-    proj.merged_file = None   # scene set changing → old concat/hd are stale, force re-merge
-    proj.hd = False
+    proj.merged_file = None   # scene set changing → old concat is stale, force re-merge
     res = await db.execute(select(Scene).where(
         Scene.project_id == project_id, Scene.video_file.is_(None)).order_by(Scene.index))
     todo = res.scalars().all()
@@ -625,10 +620,57 @@ async def import_video(
     scene.video_file = fname
     scene.status = SceneStatus.done
     scene.error_msg = None
-    scene.hd = False   # manual upload — unknown resolution, don't claim HD
     await _invalidate_merge(db, project_id)
     await db.commit()
     return {"ok": True, "video_file": fname}
+
+
+@router.get("/{project_id}/scenes/{scene_id}/download")
+async def download_scene(
+    project_id: str, scene_id: str,
+    res: str = "720",   # "720" = original | "1080" = upscale on demand
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    scene = await db.get(Scene, scene_id)
+    if not scene or scene.project_id != project_id or scene.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy scene")
+    if not scene.video_file:
+        raise HTTPException(404, "Cảnh chưa có video")
+    path = UPLOAD_PATH / scene.video_file
+    if not path.exists():
+        raise HTTPException(404, "File đã bị xóa")
+    tag = "720p"
+    if res == "1080":
+        from app.pipeline.runner import ensure_1080
+        hd = await ensure_1080(path, scene.aspect_ratio)
+        if hd:
+            path, tag = hd, "1080p"
+    return FileResponse(str(path), filename=f"canh_{scene.index + 1}_{tag}.mp4", media_type="video/mp4")
+
+
+@router.get("/{project_id}/download-merged")
+async def download_merged(
+    project_id: str,
+    res: str = "720",
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    if not proj.merged_file:
+        raise HTTPException(404, "Dự án chưa được ghép")
+    path = UPLOAD_PATH / proj.merged_file
+    if not path.exists():
+        raise HTTPException(404, "File đã bị xóa")
+    tag = "720p"
+    if res == "1080":
+        from app.pipeline.runner import ensure_1080
+        hd = await ensure_1080(path, proj.aspect_ratio)
+        if hd:
+            path, tag = hd, "1080p"
+    return FileResponse(str(path), filename=f"phim_{tag}.mp4", media_type="video/mp4")
 
 
 @router.post("/{project_id}/scenes/{scene_id}/set-start-image")

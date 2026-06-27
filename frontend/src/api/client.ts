@@ -21,6 +21,20 @@ api.interceptors.response.use(
 
 export default api
 
+// Download a protected video through the API (sends the Bearer header, unlike a bare
+// <a download>), as a blob → triggers the browser save dialog. `path` is relative to /api/v1.
+export async function downloadVideoFile(path: string, filename: string) {
+  const r = await api.get(path, { responseType: 'blob' })
+  const href = URL.createObjectURL(r.data as Blob)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 1500)
+}
+
 export const authApi = {
   register: (data: { email: string; username: string; password: string }) =>
     api.post('/auth/register', data).then(r => r.data),

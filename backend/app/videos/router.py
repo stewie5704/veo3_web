@@ -61,7 +61,6 @@ class JobResponse(BaseModel):
     error_msg: str | None
     output_files: list[str]
     thumbnails: list[str]
-    hd: bool = False
     created_at: datetime
     completed_at: datetime | None
 
@@ -83,7 +82,6 @@ def _job_to_response(job: VideoJob) -> JobResponse:
         error_msg=job.error_msg,
         output_files=json.loads(job.output_files or "[]"),
         thumbnails=json.loads(job.thumbnails or "[]"),
-        hd=bool(getattr(job, "hd", False)),
         created_at=job.created_at,
         completed_at=job.completed_at,
     )
@@ -221,6 +219,7 @@ async def get_job(
 async def download_video(
     job_id: str,
     file_index: int,
+    res: str = "720",   # "720" = original | "1080" = upscale on demand
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -236,9 +235,16 @@ async def download_video(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File đã bị xóa")
 
+    tag = "720p"
+    if res == "1080":
+        from app.pipeline.runner import ensure_1080
+        hd = await ensure_1080(file_path, job.aspect_ratio)
+        if hd:
+            file_path, tag = hd, "1080p"
+
     return FileResponse(
         path=str(file_path),
-        filename=f"veo3_{job_id[:8]}_{file_index + 1}.mp4",
+        filename=f"veo3_{job_id[:8]}_{file_index + 1}_{tag}.mp4",
         media_type="video/mp4",
     )
 

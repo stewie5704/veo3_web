@@ -3,11 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { projectsApi, mediaApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
 import {
-  Pencil, RefreshCw, Play, Download, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
+  Pencil, RefreshCw, Play, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
   FileText, Film, Trash2, Pause, FolderOpen, ArrowLeft, Check, Cpu, RectangleHorizontal, Clock,
   Languages, Calendar, ScrollText, Clapperboard, Loader2, AlertCircle,
 } from 'lucide-react'
 import AddPartPanel from '../components/AddPartPanel'
+import DownloadMenu from '../components/DownloadMenu'
 
 // Thu gọn prompt còn 3 dòng (bấm "Xem thêm" để bung)
 const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
@@ -295,7 +296,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <div className="alert alert-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
           <Check size={15} /> Ghép xong!
           <video src={mergeUrl} controls style={{ maxWidth: 400, borderRadius: 8 }} />
-          <a href={mergeUrl} download="final.mp4" className="btn btn-primary btn-sm"><Download size={13} /> Tải final.mp4</a>
+          <DownloadMenu base={`/projects/${id}/download-merged`} filename="phim.mp4" />
         </div>
       )}
 
@@ -434,7 +435,6 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             <div style={{ display: 'flex', gap: 20 }}>
               {/* Video preview */}
               <div style={{ width: 260, flexShrink: 0, position: 'relative' }}>
-                {scene.hd && scene.status === 'done' && scene.video_file && <span className="hd-badge">HD</span>}
                 {scene.status === 'done' && scene.video_file ? (
                   <video src={`/uploads/${scene.video_file}`} controls preload="metadata"
                     style={{ width: '100%', borderRadius: 8, background: '#000', display: 'block' }} />
@@ -529,8 +529,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                       )}
                       {scene.status === 'done' && scene.video_file && (
                         <>
-                          <a href={`/uploads/${scene.video_file}`} download={`scene_${scene.index + 1}.mp4`}
-                            className="btn btn-primary btn-sm"><Download size={13} /> Tải</a>
+                          <DownloadMenu
+                            base={`/projects/${id}/scenes/${scene.id}/download`}
+                            filename={`canh_${scene.index + 1}.mp4`}
+                          />
                           <button className="btn btn-ghost btn-sm"
                             onClick={async () => {
                               try {
