@@ -134,23 +134,19 @@ export default function SellVideo() {
             <input className="form-input" style={{ width: '100%', marginBottom: 12 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp trợ lý viết sát hơn"
               value={name} onChange={e => setName(e.target.value)} />
 
-            {/* Bối cảnh — nhãn cùng hàng với chip cho gọn */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', width: 64, flexShrink: 0 }}>Bối cảnh</span>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
-                {SELL_SCENES.map(s => (
-                  <button key={s.v} className={scene === s.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setScene(s.v)}>{s.label}</button>
-                ))}
+            {/* Bối cảnh + Tông — combobox cho gọn, cùng 1 hàng */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Bối cảnh</label>
+                <select className="form-select" value={scene} onChange={e => setScene(e.target.value)}>
+                  {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+                </select>
               </div>
-            </div>
-
-            {/* Tông */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', width: 64, flexShrink: 0 }}>Tông</span>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
-                {SELL_TONES.map(t => (
-                  <button key={t.v} className={tone === t.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTone(t.v)}>{t.label}</button>
-                ))}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Tông video</label>
+                <select className="form-select" value={tone} onChange={e => setTone(e.target.value)}>
+                  {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+                </select>
               </div>
             </div>
 
