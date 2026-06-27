@@ -555,6 +555,38 @@ async def resume_project(
     return {"ok": True, "resumed": len(todo)}
 
 
+@router.post("/{project_id}/rerender-batch")
+async def rerender_batch(
+    project_id: str,
+    part: int | None = None,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tạo lại HÀNG LOẠT: reset & render lại nhiều cảnh trong 1 lần (để áp ảnh giữ mặt / kịch bản mới
+    cho cả cảnh ĐÃ xong). part=None -> toàn dự án; part=N -> chỉ phần đó. Bỏ qua cảnh đang render."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
+    res = await db.execute(select(Scene).where(
+        Scene.project_id == project_id, Scene.status != SceneStatus.processing).order_by(Scene.index))
+    # lọc theo phần ở Python để khớp cảnh cũ có part=None (=1), như frontend (s.part || 1)
+    todo = [s for s in res.scalars().all() if part is None or (getattr(s, "part", 1) or 1) == part]
+    if not todo:
+        return {"ok": True, "rerendered": 0}
+    proj.stopped = False
+    proj.merged_file = None   # render lại -> concat cũ thành stale
+    for s in todo:
+        s.status = SceneStatus.pending
+        s.error_msg = None
+    await db.commit()
+    for s in todo:
+        await db.refresh(s)
+        dispatch_scene(s.id, user.id)
+    return {"ok": True, "rerendered": len(todo)}
+
+
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneResponse)
 async def update_scene(
     project_id: str, scene_id: str,
