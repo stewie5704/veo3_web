@@ -431,7 +431,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               {/* Hàng nút chính */}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 'auto', alignItems: 'center' }}>
                 {st === 'pending' && (
-                  <button className="btn btn-primary btn-sm" onClick={async () => {
+                  <button className="btn btn-primary btn-sm" title="Tạo video" onClick={async () => {
                     if (!id) return
                     try {
                       notify(`Đang tạo cảnh ${scene.index + 1}...`)
@@ -440,16 +440,16 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     } catch {
                       notify('Tạo cảnh thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
                     }
-                  }}><Play size={13} /> Tạo video</button>
+                  }}><Play size={14} /></button>
                 )}
                 {st === 'done' && scene.video_file && (
-                  <DownloadMenu base={`/projects/${id}/scenes/${scene.id}/download`} filename={`canh_${scene.index + 1}.mp4`} />
+                  <DownloadMenu base={`/projects/${id}/scenes/${scene.id}/download`} filename={`canh_${scene.index + 1}.mp4`} iconOnly />
                 )}
-                <button className="btn btn-ghost btn-sm" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
-                  <Pencil size={13} /> Sửa
+                <button className="btn btn-ghost btn-sm" title="Sửa mô tả" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
+                  <Pencil size={14} />
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => rerenderScene(scene.id)}>
-                  <RefreshCw size={13} /> Tạo lại
+                <button className="btn btn-ghost btn-sm" title="Tạo lại cảnh" onClick={() => rerenderScene(scene.id)}>
+                  <RefreshCw size={14} />
                 </button>
                 <button className="btn btn-ghost btn-sm" title="Thêm thao tác"
                   onClick={() => setMenuScene(m => m === scene.id ? null : scene.id)}

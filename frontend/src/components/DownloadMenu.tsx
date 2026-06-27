@@ -9,11 +9,12 @@ import { useToast } from './Toast'
  * `base` là path tương đối /api/v1 (không kèm query), vd /projects/x/scenes/y/download.
  */
 export default function DownloadMenu({
-  base, filename, flex,
+  base, filename, flex, iconOnly,
 }: {
   base: string
   filename: string
   flex?: boolean
+  iconOnly?: boolean   // chỉ hiện icon (dùng trong card cảnh cho gọn)
 }) {
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -47,10 +48,15 @@ export default function DownloadMenu({
         style={{ width: flex ? '100%' : undefined }}
         disabled={busy !== null}
         onClick={() => setOpen(o => !o)}
+        title={iconOnly ? 'Tải về' : undefined}
       >
         {busy
-          ? <><Loader2 size={12} className="spin" /> {busy === '1080' ? 'Đang tạo 1080p…' : 'Đang tải…'}</>
-          : <><Download size={12} /> Tải về <ChevronDown size={11} style={{ opacity: 0.8 }} /></>}
+          ? (iconOnly
+              ? <Loader2 size={13} className="spin" />
+              : <><Loader2 size={12} className="spin" /> {busy === '1080' ? 'Đang tạo 1080p…' : 'Đang tải…'}</>)
+          : (iconOnly
+              ? <><Download size={14} /> <ChevronDown size={10} style={{ opacity: 0.7 }} /></>
+              : <><Download size={12} /> Tải về <ChevronDown size={11} style={{ opacity: 0.8 }} /></>)}
       </button>
 
       {open && (
