@@ -292,7 +292,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ maxWidth: tab === 'sell' ? '100%' : 760, margin: '0 auto' }}>
       {/* Overlay tiến trình khi phân tích + tạo (manual) — đỡ cảm giác chờ lâu */}
       {overlayOn && (() => {
         const StepIcon = CREATE_STEPS[loadStep].icon
