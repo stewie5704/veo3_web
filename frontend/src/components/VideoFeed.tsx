@@ -19,7 +19,8 @@ export default function VideoFeed({ jobs }: { jobs: any[] }) {
             <div className="video-preview" style={{ position: 'relative' }}>
               {j.status === 'done' && file ? (
                 <video src={`/uploads/${file}`} controls preload="metadata"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  onLoadedMetadata={e => { const v = e.currentTarget; const p = v.parentElement; if (p && v.videoWidth && v.videoHeight) p.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}` }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#0a0807' }} />
               ) : (
                 <div className={`scene-ph${j.status === 'processing' ? ' shimmer' : ''}`} style={{ width: '100%', height: '100%' }}>
                   {j.status === 'failed' ? (
