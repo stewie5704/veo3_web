@@ -9,6 +9,13 @@
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes popIn{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes shimmer{0%{opacity:.4}50%{opacity:.7}100%{opacity:.4}}
+/* Payment modal bling */
+@keyframes scanline{0%{top:6%;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:92%;opacity:0}}
+@keyframes gradShift{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+@keyframes breathe{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}
+@keyframes sparkleTwinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(90deg)}}
+@keyframes shimmerText{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes pulseRing{0%{transform:scale(.85);opacity:.7}100%{transform:scale(2.1);opacity:0}}
 /* Skeleton (placeholder khi AI đang viết kịch bản) — shimmer mượt */
 .skel{border-radius:6px;background:linear-gradient(90deg,var(--bg3) 25%,rgba(255,255,255,0.07) 37%,var(--bg3) 63%);background-size:400% 100%;animation:skel-shimmer 1.3s ease-in-out infinite}
 @keyframes skel-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
