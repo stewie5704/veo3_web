@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
@@ -48,7 +49,18 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         hashed_password=hash_password(body.password),
     )
     db.add(user)
-    await db.commit()
+    await db.flush()   # assign user.id before generating code / linking referrer
+
+    from app.affiliate import ensure_referral_code, attach_referrer
+    await ensure_referral_code(db, user)
+    await attach_referrer(db, user, body.ref)
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent signup won the race on a unique column (email / username / referral_code)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Email hoặc username đã tồn tại")
     await db.refresh(user)
 
     token = create_access_token({"sub": user.id})

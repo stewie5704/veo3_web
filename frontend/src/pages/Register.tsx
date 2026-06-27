@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Scissors } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Scissors, Gift } from 'lucide-react'
 import { authApi } from '../api/client'
 
 export default function Register() {
   const nav = useNavigate()
+  const [params] = useSearchParams()
+  const ref = (params.get('ref') || '').trim()
   const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +18,7 @@ export default function Register() {
     if (form.password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự'); return }
     setLoading(true)
     try {
-      const res = await authApi.register({ email: form.email, username: form.username, password: form.password })
+      const res = await authApi.register({ email: form.email, username: form.username, password: form.password, ref: ref || undefined })
       localStorage.setItem('token', res.access_token)
       nav('/', { replace: true })
     } catch (err: any) {
@@ -51,6 +53,16 @@ export default function Register() {
         </div>
 
         {error && <div className="alert alert-error"><span>⚠️</span> {error}</div>}
+
+        {ref && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px',
+            borderRadius: 11, fontSize: 12.5, color: '#fbbf24',
+            background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)',
+          }}>
+            <Gift size={15} /> Bạn được giới thiệu bởi mã <b>{ref}</b>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

@@ -10,9 +10,10 @@ from app.auth.router import get_current_user
 from app.auth.models import User
 from app.videos.models import VideoJob
 from app.projects.models import Project, Scene
-from app.billing.models import Payment, AssistantGift
+from app.billing.models import Payment, AssistantGift, Commission
 from app.plans import PLANS
 from app import subscription
+from app.affiliate import ensure_referral_code
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -34,6 +35,8 @@ class UpdateUserRequest(BaseModel):
     quota_videos: int | None = None
     display_name: str | None = None
     grant_plan: str | None = None   # plan id (m1/m6/m12) → activate/extend manually
+    is_affiliate: bool | None = None
+    affiliate_rate: int | None = None
 
 
 @router.get("/stats")
@@ -137,6 +140,12 @@ async def update_user(
         user.quota_videos = body.quota_videos
     if body.display_name is not None:
         user.display_name = body.display_name
+    if body.is_affiliate is not None:
+        user.is_affiliate = body.is_affiliate
+        if body.is_affiliate:
+            await ensure_referral_code(db, user)
+    if body.affiliate_rate is not None:
+        user.affiliate_rate = max(0, min(100, body.affiliate_rate))
     if body.grant_plan:
         try:
             subscription.activate(user, body.grant_plan)
@@ -200,6 +209,94 @@ async def activate_payment(
     if pay.status == "paid":
         return {"ok": True, "already": True}
     await gateway.mark_paid_and_activate(db, pay, gateway_ref=f"manual:{admin.username}")
+    return {"ok": True}
+
+
+@router.get("/affiliates")
+async def list_affiliates(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(User).where(User.is_affiliate == True).order_by(desc(User.created_at)))  # noqa: E712
+    affs = res.scalars().all()
+    if not affs:
+        return []
+    ids = [a.id for a in affs]
+
+    # referrals per affiliate
+    rres = await db.execute(
+        select(User.referred_by, func.count()).where(User.referred_by.in_(ids)).group_by(User.referred_by)
+    )
+    referrals = {rid: c for rid, c in rres.all()}
+
+    # commission totals per affiliate + status
+    cres = await db.execute(
+        select(Commission.affiliate_id, Commission.status, func.coalesce(func.sum(Commission.amount), 0))
+        .where(Commission.affiliate_id.in_(ids)).group_by(Commission.affiliate_id, Commission.status)
+    )
+    earned: dict = {}
+    pending: dict = {}
+    for aid, status, total in cres.all():
+        (earned if status == "paid" else pending)[aid] = int(total)
+
+    return [{
+        "id": a.id, "username": a.username, "email": a.email,
+        "referral_code": a.referral_code, "rate": a.affiliate_rate,
+        "referrals": referrals.get(a.id, 0),
+        "earned": earned.get(a.id, 0), "pending": pending.get(a.id, 0),
+    } for a in affs]
+
+
+@router.get("/commissions")
+async def list_commissions(
+    admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+    status: str = "", limit: int = 100, offset: int = 0,
+):
+    Aff = User
+    q = (select(Commission, Aff.username, Aff.email)
+         .join(Aff, Aff.id == Commission.affiliate_id, isouter=True)
+         .order_by(desc(Commission.created_at)).limit(limit).offset(offset))
+    if status:
+        q = q.where(Commission.status == status)
+    rows = (await db.execute(q)).all()
+
+    # referred user names
+    ref_ids = [c.referred_user_id for c, _, _ in rows]
+    refmap: dict = {}
+    if ref_ids:
+        rr = await db.execute(select(User.id, User.username).where(User.id.in_(ref_ids)))
+        refmap = {uid: un for uid, un in rr.all()}
+
+    return [{
+        "id": c.id, "affiliate": aff_user, "affiliate_email": aff_email,
+        "referred_user": refmap.get(c.referred_user_id, "—"),
+        "amount": c.amount, "rate": c.rate, "status": c.status,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "paid_at": c.paid_at.isoformat() if c.paid_at else None,
+    } for c, aff_user, aff_email in rows]
+
+
+@router.post("/commissions/{commission_id}/pay")
+async def pay_commission(
+    commission_id: str, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+):
+    c = await db.get(Commission, commission_id)
+    if not c:
+        raise HTTPException(404, "Hoa hồng không tồn tại")
+    if c.status != "paid":
+        c.status = "paid"
+        c.paid_at = _now()
+        await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/commissions/{commission_id}")
+async def void_commission(
+    commission_id: str, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+):
+    """Hủy hoa hồng (vd khách hoàn tiền / đơn sai) — gỡ khỏi tổng phải trả."""
+    c = await db.get(Commission, commission_id)
+    if not c:
+        raise HTTPException(404, "Hoa hồng không tồn tại")
+    await db.delete(c)
+    await db.commit()
     return {"ok": True}
 
 

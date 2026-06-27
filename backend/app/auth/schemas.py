@@ -5,6 +5,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     username: str
     password: str
+    ref: str | None = None   # affiliate referral code (from ?ref= on the signup link)
 
 
 class LoginRequest(BaseModel):

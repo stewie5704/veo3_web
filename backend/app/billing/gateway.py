@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 import httpx
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 
@@ -437,5 +438,12 @@ async def mark_paid_and_activate(db, payment, gateway_ref: str | None = None) ->
         count = int(PLANS.get(payment.plan, {}).get("assistants", 0))
         if count > 0:
             await gift_assistants_if_eligible(db, user.id, payment.id, count)
+        from app.affiliate import record_commission
+        await record_commission(db, payment, user)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # A concurrent paid-transition (webhook vs poller vs admin) already recorded
+        # this — the unique(commission.payment_id) constraint fired. Treat as done.
+        await db.rollback()

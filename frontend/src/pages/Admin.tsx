@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { adminApi, billingApi } from '../api/client'
 import { useToast } from '../components/Toast'
 import {
   Users, Shield, BarChart3, Trash2, Ban, CheckCircle, Search, RefreshCw,
   CreditCard, DollarSign, Crown, Bot, Loader2, ShieldCheck, Zap, Wallet, Clock,
+  Share2, Copy, Gift, Percent,
 } from 'lucide-react'
 
-type Tab = 'overview' | 'users' | 'payments'
+type Tab = 'overview' | 'users' | 'payments' | 'affiliate'
+const TABS: Tab[] = ['overview', 'users', 'payments', 'affiliate']
 
 const fmtVND = (n: number) => (n ?? 0).toLocaleString('vi-VN') + '₫'
 const fmtNum = (n: number) => (n ?? 0).toLocaleString('vi-VN')
@@ -21,12 +24,16 @@ function statusBadge(s: string) {
 
 export default function Admin() {
   const toast = useToast()
-  const [tab, setTab] = useState<Tab>('overview')
+  const [params] = useSearchParams()
+  const sp = params.get('s') || 'overview'
+  const tab: Tab = (TABS.includes(sp as Tab) ? sp : 'overview') as Tab
   const [stats, setStats] = useState<any>(null)
   const [pool, setPool] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [plans, setPlans] = useState<any[]>([])
+  const [affiliates, setAffiliates] = useState<any[]>([])
+  const [commissions, setCommissions] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [payFilter, setPayFilter] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,6 +53,8 @@ export default function Admin() {
     setLoading(true)
     try { setPayments(await adminApi.payments(f)) } finally { setLoading(false) }
   }
+  function loadAffiliates() { adminApi.affiliates().then(setAffiliates).catch(() => {}) }
+  function loadCommissions() { adminApi.commissions().then(setCommissions).catch(() => {}) }
 
   useEffect(() => {
     loadOverview()
@@ -53,6 +62,21 @@ export default function Admin() {
     billingApi.plans().then(d => setPlans(d.plans || [])).catch(() => {})
   }, [])
   useEffect(() => { if (tab === 'payments') loadPayments(payFilter) }, [tab, payFilter])
+  useEffect(() => { if (tab === 'affiliate') { loadAffiliates(); loadCommissions() } }, [tab])
+
+  function copyRefLink(code: string) {
+    const link = `${window.location.origin}/register?ref=${code}`
+    navigator.clipboard?.writeText(link).then(() => toast('Đã chép link giới thiệu', 'success'))
+  }
+  async function payCommission(id: string) {
+    try { await adminApi.payCommission(id); toast('Đã đánh dấu trả hoa hồng', 'success'); loadCommissions(); loadAffiliates() }
+    catch { toast('Lỗi', 'error') }
+  }
+  async function voidCommission(id: string) {
+    if (!confirm('Hủy hoa hồng này? (dùng khi khách hoàn tiền / đơn sai)')) return
+    try { await adminApi.voidCommission(id); toast('Đã hủy hoa hồng', 'success'); loadCommissions(); loadAffiliates() }
+    catch { toast('Lỗi', 'error') }
+  }
 
   async function patch(id: string, data: any) {
     try {
@@ -90,29 +114,6 @@ export default function Admin() {
           </div>
           <div className="page-subtitle">Doanh thu · người dùng · đơn hàng · hệ thống</div>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
-        {([
-          { k: 'overview', l: 'Tổng quan', i: BarChart3 },
-          { k: 'users', l: 'Người dùng', i: Users },
-          { k: 'payments', l: 'Đơn hàng', i: CreditCard },
-        ] as const).map(t => {
-          const Icon = t.i
-          const on = tab === t.k
-          return (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 9,
-              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all .15s',
-              background: on ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)',
-              color: on ? '#c4b5fd' : 'var(--text3)',
-              outline: on ? '1px solid rgba(168,85,247,0.3)' : '1px solid transparent', fontFamily: 'inherit',
-            }}>
-              <Icon size={14} /> {t.l}
-            </button>
-          )
-        })}
       </div>
 
       {/* ─── OVERVIEW ─── */}
@@ -283,6 +284,10 @@ export default function Admin() {
                           onClick={() => patch(u.id, { is_admin: !u.is_admin })}>
                           <ShieldCheck size={12} color={u.is_admin ? '#fbbf24' : 'var(--text3)'} />
                         </button>
+                        <button className="btn btn-ghost btn-sm btn-icon" title={u.is_affiliate ? 'Gỡ affiliate' : 'Đặt làm affiliate'}
+                          onClick={() => patch(u.id, { is_affiliate: !u.is_affiliate })}>
+                          <Share2 size={12} color={u.is_affiliate ? '#34d399' : 'var(--text3)'} />
+                        </button>
                         <button className="btn btn-ghost btn-sm btn-icon" title={u.is_banned ? 'Mở khóa' : 'Khóa'}
                           onClick={() => patch(u.id, { is_banned: !u.is_banned })}>
                           <Ban size={12} color={u.is_banned ? 'var(--green)' : 'var(--red)'} />
@@ -360,6 +365,114 @@ export default function Admin() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── AFFILIATE ─── */}
+      {tab === 'affiliate' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Affiliates */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div className="card-header" style={{ marginBottom: 0 }}><Share2 size={15} /> Cộng tác viên (Affiliate)</div>
+              <button className="btn btn-ghost btn-sm" onClick={loadAffiliates}><RefreshCw size={13} /> Làm mới</button>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+              Đặt 1 user làm affiliate ở tab <b>Người dùng</b> (nút <Share2 size={11} style={{ verticalAlign: 'middle' }} />). Người được họ giới thiệu mua gói → affiliate nhận % hoa hồng.
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    {['Affiliate', 'Link giới thiệu', 'Đã giới thiệu', 'Hoa hồng (%)', 'Đã trả', 'Còn nợ', ''].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {affiliates.map(a => (
+                    <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ fontWeight: 600 }}>{a.username}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.email}</div>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => copyRefLink(a.referral_code)} title="Sao chép link giới thiệu">
+                          <Copy size={12} /> {a.referral_code}
+                        </button>
+                      </td>
+                      <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>{a.referrals}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Percent size={11} color="var(--text3)" />
+                          <input type="number" defaultValue={a.rate} min={0} max={100}
+                            onBlur={e => { const v = +e.target.value; if (v !== a.rate) patch(a.id, { affiliate_rate: v }) }}
+                            style={{ width: 52, padding: '2px 6px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }} />
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 12px', color: 'var(--green)', fontWeight: 600 }}>{fmtVND(a.earned)}</td>
+                      <td style={{ padding: '10px 12px', color: a.pending > 0 ? '#fbbf24' : 'var(--text3)', fontWeight: 600 }}>{fmtVND(a.pending)}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button className="btn btn-ghost btn-sm btn-icon" title="Gỡ affiliate" onClick={() => { patch(a.id, { is_affiliate: false }); setTimeout(loadAffiliates, 300) }}>
+                          <Trash2 size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {affiliates.length === 0 && (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 36, color: 'var(--text3)' }}>
+                      <Gift size={22} style={{ opacity: 0.4, marginBottom: 6 }} /><div>Chưa có affiliate nào</div>
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Commissions */}
+          <div className="card">
+            <div className="card-header"><DollarSign size={15} /> Hoa hồng</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    {['Affiliate', 'Khách đã mua', 'Hoa hồng', '%', 'Trạng thái', 'Ngày', ''].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {commissions.map(c => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 600 }}>{c.affiliate || '—'}</td>
+                      <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>{c.referred_user}</td>
+                      <td style={{ padding: '10px 12px', fontWeight: 700 }}>{fmtVND(c.amount)}</td>
+                      <td style={{ padding: '10px 12px', color: 'var(--text3)' }}>{c.rate}%</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {c.status === 'paid' ? <span className="badge badge-done">Đã trả</span> : <span className="badge badge-pending">Chờ trả</span>}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: 'var(--text3)', fontSize: 11 }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {c.status !== 'paid' && (
+                            <button className="btn btn-primary btn-sm" onClick={() => payCommission(c.id)}>
+                              <CheckCircle size={12} /> Đã trả
+                            </button>
+                          )}
+                          <button className="btn btn-ghost btn-sm btn-icon" title="Hủy hoa hồng" onClick={() => voidCommission(c.id)}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {commissions.length === 0 && (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 36, color: 'var(--text3)' }}>Chưa có hoa hồng nào</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

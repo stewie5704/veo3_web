@@ -6,6 +6,7 @@ import {
   Shield, Plus, RefreshCw, Crown, PanelLeftClose, PanelLeftOpen, Scissors,
   Film, Layers, Image, Volume2, Download, Users, BookOpen,
   Puzzle, Plug, Clapperboard, Ratio, LifeBuoy,
+  BarChart3, CreditCard, Share2,
 } from 'lucide-react'
 import { authApi, mediaApi, projectsApi, statusApi, extensionApi } from '../api/client'
 import CreateVideo from './CreateVideo'
@@ -50,6 +51,14 @@ const TOOL_SUB = [
   { t: 'chars', label: 'Nhân vật', icon: Users },
 ]
 
+// Mục con của "Admin" — điều hướng tới /admin?s=<section>
+const ADMIN_SUB = [
+  { s: 'overview',  label: 'Tổng quan',   icon: BarChart3 },
+  { s: 'users',     label: 'Người dùng',  icon: Users },
+  { s: 'payments',  label: 'Đơn hàng',    icon: CreditCard },
+  { s: 'affiliate', label: 'Affiliate',   icon: Share2 },
+]
+
 // Mục con của "Hướng dẫn" — điều hướng tới /guide?s=<section_id>
 const GUIDE_SUB = [
   { s: 'overview',   label: 'Tổng quan',               icon: BookOpen },
@@ -77,6 +86,7 @@ export default function Dashboard() {
   const [navExpanded, setNavExpanded] = useState(() => localStorage.getItem('navExpanded') !== '0')
   const [toolsOpen, setToolsOpen] = useState(() => window.location.pathname === '/tools')
   const [guideOpen, setGuideOpen] = useState(() => window.location.pathname === '/guide')
+  const [adminOpen, setAdminOpen] = useState(() => window.location.pathname === '/admin')
   const navWidth = navExpanded ? 208 : 58
   const toggleNav = () => setNavExpanded(v => { localStorage.setItem('navExpanded', v ? '0' : '1'); return !v })
 
@@ -254,6 +264,50 @@ export default function Dashboard() {
                       const sActive = loc.pathname === '/guide' && curS === s.s
                       return (
                         <Link key={s.s} to={`/guide?s=${s.s}`} title={s.label}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
+                            fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',
+                            background: sActive ? 'rgba(249,115,22,0.14)' : 'transparent',
+                            color: sActive ? '#fb923c' : '#80705c',
+                          }}
+                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
+                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}>
+                          <SIcon size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> {s.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          }
+          if (n.path === '/admin') {
+            const curS = new URLSearchParams(loc.search).get('s') || 'overview'
+            return (
+              <div key="/admin" style={{ width: navExpanded ? '100%' : 40 }}>
+                <button onClick={() => navExpanded ? setAdminOpen(o => !o) : nav('/admin')} title="Admin"
+                  style={{
+                    width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 11,
+                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 12px' : 0,
+                    background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
+                    color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
+                  }}>
+                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>Admin</span>}
+                  {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: adminOpen ? 'rotate(180deg)' : 'none' }} />}
+                  {active && !navExpanded && (
+                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
+                  )}
+                </button>
+                {navExpanded && adminOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '3px 0 4px', paddingLeft: 12 }}>
+                    {ADMIN_SUB.map(s => {
+                      const SIcon = s.icon
+                      const sActive = loc.pathname === '/admin' && curS === s.s
+                      return (
+                        <Link key={s.s} to={`/admin?s=${s.s}`} title={s.label}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
                             fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',

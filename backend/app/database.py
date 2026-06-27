@@ -40,6 +40,10 @@ def _lightweight_migrate(conn):
         ("video_jobs", "hd", "BOOLEAN DEFAULT FALSE"),
         ("scenes", "hd", "BOOLEAN DEFAULT FALSE"),
         ("projects", "hd", "BOOLEAN DEFAULT FALSE"),
+        ("users", "referral_code", "VARCHAR(16)"),
+        ("users", "referred_by", "VARCHAR(36)"),
+        ("users", "is_affiliate", "BOOLEAN DEFAULT FALSE"),
+        ("users", "affiliate_rate", "INTEGER DEFAULT 20"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
@@ -47,6 +51,10 @@ def _lightweight_migrate(conn):
     # index cho cột mới (IF NOT EXISTS chạy được trên cả SQLite & Postgres)
     if "characters" in existing:
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_characters_project_id ON characters (project_id)"))
+    # referral_code: model khai unique=True nhưng ALTER ADD COLUMN không tạo ràng buộc đó
+    # -> tự tạo unique index để khớp DB fresh (NULL được phép trùng trên cả SQLite & Postgres)
+    if "users" in existing:
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_referral_code ON users (referral_code)"))
 
 
 async def init_db():
@@ -56,6 +64,6 @@ async def init_db():
         from app.sessions.models import UserSession  # noqa: F401
         from app.projects.models import Project, Scene  # noqa: F401
         from app.characters.models import Character  # noqa: F401
-        from app.billing.models import Payment, AssistantGift  # noqa: F401
+        from app.billing.models import Payment, AssistantGift, Commission  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_lightweight_migrate)

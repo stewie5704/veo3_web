@@ -36,7 +36,7 @@ export async function downloadVideoFile(path: string, filename: string) {
 }
 
 export const authApi = {
-  register: (data: { email: string; username: string; password: string }) =>
+  register: (data: { email: string; username: string; password: string; ref?: string }) =>
     api.post('/auth/register', data).then(r => r.data),
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data).then(r => r.data),
@@ -161,6 +161,10 @@ export const adminApi = {
   payments: (status = '') => api.get(`/admin/payments?status=${status}`).then(r => r.data),
   activatePayment: (id: string) => api.post(`/admin/payments/${id}/activate`).then(r => r.data),
   assistantPool: () => api.get('/admin/assistants').then(r => r.data),
+  affiliates: () => api.get('/admin/affiliates').then(r => r.data),
+  commissions: (status = '') => api.get(`/admin/commissions?status=${status}`).then(r => r.data),
+  payCommission: (id: string) => api.post(`/admin/commissions/${id}/pay`).then(r => r.data),
+  voidCommission: (id: string) => api.delete(`/admin/commissions/${id}`).then(r => r.data),
 }
 
 export const statusApi = {
