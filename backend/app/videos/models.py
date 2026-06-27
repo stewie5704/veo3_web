@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Integer, Float, DateTime, Text, Enum, ForeignKey, func
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Text, Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
 from app.database import Base
@@ -37,6 +37,7 @@ class VideoJob(Base):
     # Output — list of video file paths (JSON array stored as text)
     output_files: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: ["path1","path2"]
     thumbnails: Mapped[str | None] = mapped_column(Text, nullable=True)    # JSON: ["thumb1","thumb2"]
+    hd: Mapped[bool] = mapped_column(Boolean, default=False)               # output upscaled to 1080p
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

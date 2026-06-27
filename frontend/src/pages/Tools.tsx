@@ -51,6 +51,7 @@ function VideoFeed({ jobs }: { jobs: any[] }) {
         return (
           <div key={j.id} className="video-card">
             <div className="video-preview" style={{ position: 'relative' }}>
+              {j.hd && j.status === 'done' && file && <span className="hd-badge">HD</span>}
               {j.status === 'done' && file ? (
                 <video src={`/uploads/${file}`} controls preload="metadata"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

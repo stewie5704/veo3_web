@@ -13,7 +13,8 @@ export default function VideoCard({ job, fileIndex, onDelete }: Props) {
 
   return (
     <div className="video-card">
-      <div className="video-preview">
+      <div className="video-preview" style={{ position: 'relative' }}>
+        {job.hd && <span className="hd-badge">HD</span>}
         <video
           src={videoUrl}
           controls

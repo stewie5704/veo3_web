@@ -43,6 +43,7 @@ class Project(Base):
     seed: Mapped[int] = mapped_column(Integer, default=lambda: random.randint(1, 2 ** 31 - 1))
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    hd: Mapped[bool] = mapped_column(Boolean, default=False)   # all scenes upscaled to 1080p
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -70,4 +71,5 @@ class Scene(Base):
     voice: Mapped[str] = mapped_column(String(40), default="")
     # Chain: wait for previous scene to complete before rendering
     wait_for_prev: Mapped[bool] = mapped_column(Boolean, default=False)
+    hd: Mapped[bool] = mapped_column(Boolean, default=False)   # output upscaled to 1080p
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

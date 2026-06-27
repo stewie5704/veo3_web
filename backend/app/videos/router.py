@@ -61,6 +61,7 @@ class JobResponse(BaseModel):
     error_msg: str | None
     output_files: list[str]
     thumbnails: list[str]
+    hd: bool = False
     created_at: datetime
     completed_at: datetime | None
 
@@ -82,6 +83,7 @@ def _job_to_response(job: VideoJob) -> JobResponse:
         error_msg=job.error_msg,
         output_files=json.loads(job.output_files or "[]"),
         thumbnails=json.loads(job.thumbnails or "[]"),
+        hd=bool(getattr(job, "hd", False)),
         created_at=job.created_at,
         completed_at=job.completed_at,
     )

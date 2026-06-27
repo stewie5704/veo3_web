@@ -207,6 +207,7 @@ class SceneResponse(BaseModel):
     model_key: str
     start_image: str | None
     wait_for_prev: bool
+    hd: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -227,6 +228,7 @@ class ProjectResponse(BaseModel):
     voiceover: bool = False
     voice: str = "Kore"
     stopped: bool = False
+    hd: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -251,6 +253,15 @@ async def _project_chars(db: AsyncSession, project_id: str) -> list[ProjChar]:
     return [ProjChar(id=c.id, name=c.name, image_url=f"/images/chars/{c.image_file}") for c in res.scalars().all()]
 
 
+async def _invalidate_merge(db: AsyncSession, project_id: str) -> None:
+    """A scene is being re-rendered/replaced → the merged file + project HD flag are now
+    stale. Clear them so _try_auto_merge re-runs and recomputes from the new scene set."""
+    proj = await db.get(Project, project_id)
+    if proj and (proj.merged_file or getattr(proj, "hd", False)):
+        proj.merged_file = None
+        proj.hd = False
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def scene_to_resp(s: Scene) -> SceneResponse:
@@ -260,6 +271,7 @@ def scene_to_resp(s: Scene) -> SceneResponse:
         video_file=s.video_file, aspect_ratio=s.aspect_ratio,
         duration_seconds=s.duration_seconds, model_key=s.model_key,
         start_image=s.start_image, wait_for_prev=s.wait_for_prev,
+        hd=bool(getattr(s, "hd", False)),
     )
 
 
@@ -274,6 +286,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
         stopped=bool(getattr(p, "stopped", False)),
+        hd=bool(getattr(p, "hd", False)),
         created_at=p.created_at, updated_at=p.updated_at,
     )
 
@@ -516,6 +529,8 @@ async def resume_project(
         raise HTTPException(404, "Không tìm thấy dự án")
     subscription.ensure_can_generate(user)
     proj.stopped = False
+    proj.merged_file = None   # scene set changing → old concat/hd are stale, force re-merge
+    proj.hd = False
     res = await db.execute(select(Scene).where(
         Scene.project_id == project_id, Scene.video_file.is_(None)).order_by(Scene.index))
     todo = res.scalars().all()
@@ -561,6 +576,7 @@ async def rerender_scene(
     subscription.ensure_can_generate(user)
     scene.status = SceneStatus.pending
     scene.error_msg = None
+    await _invalidate_merge(db, project_id)
     await db.commit()
     dispatch_scene(scene_id, user.id)
     return {"ok": True}
@@ -582,6 +598,7 @@ async def render_scene(
     subscription.ensure_can_generate(user)
     scene.status = SceneStatus.pending
     scene.error_msg = None
+    await _invalidate_merge(db, project_id)
     await db.commit()
     dispatch_scene(scene_id, user.id)
     return {"ok": True}
@@ -608,6 +625,8 @@ async def import_video(
     scene.video_file = fname
     scene.status = SceneStatus.done
     scene.error_msg = None
+    scene.hd = False   # manual upload — unknown resolution, don't claim HD
+    await _invalidate_merge(db, project_id)
     await db.commit()
     return {"ok": True, "video_file": fname}
 

@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     binance_secret_key: str = ""
     usdt_vnd_rate: int = 26000   # approximate; update in .env when rate shifts
 
+    # Video output upscale: hybrid (Flow real-HD then ffmpeg fallback) | flow | ffmpeg | off
+    upscale_mode: str = "hybrid"
+
     class Config:
         env_file = ".env"
 

@@ -433,7 +433,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           }}>
             <div style={{ display: 'flex', gap: 20 }}>
               {/* Video preview */}
-              <div style={{ width: 260, flexShrink: 0 }}>
+              <div style={{ width: 260, flexShrink: 0, position: 'relative' }}>
+                {scene.hd && scene.status === 'done' && scene.video_file && <span className="hd-badge">HD</span>}
                 {scene.status === 'done' && scene.video_file ? (
                   <video src={`/uploads/${scene.video_file}`} controls preload="metadata"
                     style={{ width: '100%', borderRadius: 8, background: '#000', display: 'block' }} />
