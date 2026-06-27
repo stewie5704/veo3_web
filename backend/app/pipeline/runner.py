@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+from PIL import Image
 
 from app.config import UPLOAD_PATH, settings
 from app.database import AsyncSessionLocal
@@ -545,12 +546,43 @@ async def ensure_1080(src: Path, aspect_ratio: str = "16:9") -> Path | None:
     return None
 
 
+_ASPECT_WH = {"9:16": (9, 16), "1:1": (1, 1), "16:9": (16, 9)}
+
+
+def _fit_to_aspect(path: Path, aspect_ratio: str) -> Path:
+    """Pad ảnh tham chiếu vào ĐÚNG khung tỉ lệ (giữ nguyên nội dung, thêm nền trắng) -> Flow r2v ra video
+    đúng tỉ lệ. (Flow chế độ reference BÁM hình dạng ảnh ref, KHÔNG theo param aspectRatio.)"""
+    wh = _ASPECT_WH.get(aspect_ratio)
+    if not wh:
+        return path
+    try:
+        im = Image.open(path).convert("RGB")
+        w, h = im.size
+        target = wh[0] / wh[1]
+        cur = w / h
+        if abs(cur - target) < 0.03:
+            return path   # đã đúng tỉ lệ
+        if cur > target:           # quá rộng -> pad trên/dưới
+            nw, nh = w, round(w / target)
+        else:                      # quá cao -> pad trái/phải
+            nw, nh = round(h * target), h
+        canvas = Image.new("RGB", (nw, nh), (255, 255, 255))
+        canvas.paste(im, ((nw - w) // 2, (nh - h) // 2))
+        out = path.with_name(f"{path.stem}__{aspect_ratio.replace(':', 'x')}{path.suffix or '.jpg'}")
+        canvas.save(out, quality=92)
+        return out
+    except Exception as e:
+        log.warning("fit aspect %s failed for %s: %s", aspect_ratio, path, e)
+        return path
+
+
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
                         out_stem: str, start_image_path: Path | None = None,
                         char_project_id: str | None = None,
                         seed: int | None = None,
                         extra_ref_paths: list[str] | None = None,
+                        fit_ref_aspect: bool = False,
                         dialogue: str = "", character_speak: bool = False) -> str:
     """Generate ONE video on Flow and download it (native 720p — 1080p is an
     opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
@@ -570,7 +602,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     for rp in (extra_ref_paths or []):
         if len(ref_ids) >= 3:
             break
-        mid = await _upload_image(token, project_id, Path(rp))
+        p = await asyncio.to_thread(_fit_to_aspect, Path(rp), aspect_ratio) if fit_ref_aspect else Path(rp)
+        mid = await _upload_image(token, project_id, p)
         if mid and mid not in ref_ids:
             ref_ids.append(mid)
     ref_ids = ref_ids[:3]
@@ -702,7 +735,7 @@ async def run_video_job(job_id: str, user_id: str):
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"{job_id}_{i}", start_image_path=start_path,
-                    extra_ref_paths=extra_ref_paths, seed=sd)
+                    extra_ref_paths=extra_ref_paths, fit_ref_aspect=True, seed=sd)
             try:
                 try:
                     fname = await _gen(seed0)
