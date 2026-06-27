@@ -153,7 +153,11 @@ export const statusApi = {
 export const billingApi = {
   plans: () => api.get('/billing/plans').then(r => r.data),
   me: () => api.get('/billing/me').then(r => r.data),
-  checkout: (plan: string) => api.post('/billing/checkout', { plan }).then(r => r.data),
+  checkout: (plan: string, method: string) =>
+    api.post('/billing/checkout', { plan, method }).then(r => r.data),
+  orderStatus: (orderId: string) =>
+    api.get(`/billing/order/${orderId}/status`).then(r => r.data),
+  myAssistants: () => api.get('/billing/assistants').then(r => r.data),
 }
 
 export const extensionApi = {

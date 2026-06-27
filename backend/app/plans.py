@@ -1,10 +1,33 @@
-"""Subscription plan catalog (time-based). Edit prices/durations here.
-`days` = how long the plan stays active after purchase. Buying again EXTENDS the expiry.
-"""
+"""Subscription plan catalog. Edit prices/durations here — subscription.py reads PLANS directly."""
+
 PLANS = {
-    "basic":    {"label": "Basic · 1 tháng", "days": 30,  "price": 99000,   "currency": "VND"},
-    "pro":      {"label": "Pro · 1 tháng",   "days": 30,  "price": 199000,  "currency": "VND"},
-    "pro_year": {"label": "Pro · 1 năm",     "days": 365, "price": 1990000, "currency": "VND"},
+    "m1": {
+        "label": "1 tháng",
+        "days": 30,
+        "price": 300_000,
+        "original_price": 300_000,
+        "currency": "VND",
+        "assistants": 10,
+        "discount_pct": 0,
+    },
+    "m6": {
+        "label": "6 tháng",
+        "days": 180,
+        "price": 1_710_000,          # 300k × 6 × 0.95
+        "original_price": 1_800_000,
+        "currency": "VND",
+        "assistants": 50,
+        "discount_pct": 5,
+    },
+    "m12": {
+        "label": "12 tháng",
+        "days": 365,
+        "price": 3_132_000,          # 300k × 12 × 0.87
+        "original_price": 3_600_000,
+        "currency": "VND",
+        "assistants": 100,
+        "discount_pct": 13,
+    },
 }
 
 

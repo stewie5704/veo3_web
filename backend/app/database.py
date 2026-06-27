@@ -52,6 +52,6 @@ async def init_db():
         from app.sessions.models import UserSession  # noqa: F401
         from app.projects.models import Project, Scene  # noqa: F401
         from app.characters.models import Character  # noqa: F401
-        from app.billing.models import Payment  # noqa: F401
+        from app.billing.models import Payment, AssistantGift  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_lightweight_migrate)

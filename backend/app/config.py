@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     admin_email: str = "admin@yourdomain.com"
     admin_password: str = "change-me"
 
+    # PayOS (banking VN)
+    payos_client_id: str = ""
+    payos_api_key: str = ""
+    payos_checksum_key: str = ""
+
+    # Binance Pay (USDT)
+    binance_api_key: str = ""
+    binance_secret_key: str = ""
+    usdt_vnd_rate: int = 26000   # approximate; update in .env when rate shifts
+
     class Config:
         env_file = ".env"
 
