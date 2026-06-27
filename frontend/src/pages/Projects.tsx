@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
 import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket } from 'lucide-react'
@@ -66,7 +66,9 @@ type Tab = 'new' | 'batch' | 'copy' | 'sell'
 
 export default function Projects({ user, onCreated }: { user: any; onCreated?: () => void }) {
   const nav = useNavigate()
-  const [tab, setTab] = useState<Tab>('new')
+  const [sp] = useSearchParams()
+  const [tab, setTab] = useState<Tab>((sp.get('tab') as Tab) || 'new')
+  useEffect(() => { const t = sp.get('tab'); if (t) setTab(t as Tab) }, [sp])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
@@ -307,15 +309,13 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           </div>
         )
       })()}
-      {/* Header + tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div className="page-title" style={{ margin: 0 }}>Tạo dự án mới</div>
-        <div className="cmp-tabs" style={{ marginLeft: 'auto' }}>
-          {(['new', 'batch', 'copy', 'sell'] as Tab[]).map(t => (
-            <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setError('') }}>
-              {t === 'new' ? 'Tạo từ ý tưởng' : t === 'batch' ? 'Từ mô tả từng cảnh' : t === 'copy' ? 'Chép ý tưởng' : 'Video bán hàng'}
-            </button>
-          ))}
+      {/* Header — chế độ chọn ở sidebar (mục con của "Tạo video") */}
+      <div className="page-header">
+        <div>
+          <div className="page-title" style={{ margin: 0 }}>Tạo video</div>
+          <div className="page-subtitle">
+            {tab === 'new' ? 'Tạo từ ý tưởng' : tab === 'batch' ? 'Từ mô tả từng cảnh' : tab === 'copy' ? 'Chép ý tưởng' : 'Video bán hàng'}
+          </div>
         </div>
       </div>
 
