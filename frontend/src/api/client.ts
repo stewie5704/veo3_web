@@ -158,6 +158,9 @@ export const adminApi = {
   users: (search = '') => api.get(`/admin/users?search=${search}`).then(r => r.data),
   updateUser: (id: string, data: any) => api.patch(`/admin/users/${id}`, data).then(r => r.data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`).then(r => r.data),
+  payments: (status = '') => api.get(`/admin/payments?status=${status}`).then(r => r.data),
+  activatePayment: (id: string) => api.post(`/admin/payments/${id}/activate`).then(r => r.data),
+  assistantPool: () => api.get('/admin/assistants').then(r => r.data),
 }
 
 export const statusApi = {
