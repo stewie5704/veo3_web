@@ -286,12 +286,17 @@ def _apply_duration(model_key: str, duration: int) -> str:
 
 
 def _resolve_variant(model_key: str, mode: str) -> str:
-    """Swap the t2v key to its i2v/r2v sibling. Correct for the FREE lite/lite_low_priority
-    keys + abra (the SaaS default). Paid non-lite variants use a `_s_` infix that needs the
-    live catalog to resolve — extend here if you sell those tiers."""
+    """Swap the t2v key to its i2v/r2v sibling.
+    - lite / lite_low_priority + abra: thay `_t2v_` thẳng là ĐÚNG (vd veo_3_1_r2v_lite_low_priority).
+    - veo NON-lite (portrait / fast_portrait_ultra): key thật có infix `_s_`
+      (vd veo_3_1_r2v_s_fast_portrait_ultra / veo_3_1_i2v_s_portrait) -> PHẢI chèn `_s_`,
+      nếu không Flow nhận key sai rồi FALLBACK về model NGANG (mất 9:16)."""
     if f"_{mode}_" in model_key:
         return model_key
-    return model_key.replace("_t2v_", f"_{mode}_")
+    key = model_key.replace("_t2v_", f"_{mode}_")
+    if key.startswith("veo_") and "lite" not in key and f"_{mode}_s_" not in key:
+        key = key.replace(f"_{mode}_", f"_{mode}_s_", 1)
+    return key
 
 
 def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: str,
@@ -587,6 +592,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         key = _resolve_variant(key, "i2v")
     else:
         endpoint = "video:batchAsyncGenerateVideoText"
+
+    log.info("gen video: model=%s aspect=%s endpoint=%s refs=%d", key, aspect, endpoint.split(":")[-1], len(ref_ids))
 
     # Bám reference: nhắc Veo giữ đúng mặt/tóc/trang phục theo ảnh tham chiếu (cho giống hơn).
     if ref_ids:
