@@ -39,8 +39,8 @@ class User(Base):
     # Affiliate / referral
     referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)
     referred_by: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)  # affiliate user id
-    is_affiliate: Mapped[bool] = mapped_column(Boolean, default=False)
-    affiliate_rate: Mapped[int] = mapped_column(Integer, default=20)  # commission %
+    is_affiliate: Mapped[bool] = mapped_column(Boolean, default=True)   # mọi user đều là affiliate
+    affiliate_rate: Mapped[int] = mapped_column(Integer, default=10)    # commission %, mặc định 10
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

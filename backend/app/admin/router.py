@@ -151,6 +151,13 @@ async def list_users(
         q = q.where(User.username.ilike(f"%{search}%") | User.email.ilike(f"%{search}%"))
     res = await db.execute(q)
     users = res.scalars().all()
+    dirty = False
+    for u in users:                       # mọi user đều là affiliate → đảm bảo ai cũng có mã
+        if not u.referral_code:
+            await ensure_referral_code(db, u)
+            dirty = True
+    if dirty:
+        await db.commit()
     out = []
     for u in users:
         clips, storage = await _user_media(db, u.id)
@@ -159,7 +166,7 @@ async def list_users(
             "display_name": u.display_name,
             "is_active": u.is_active, "is_admin": u.is_admin, "is_banned": u.is_banned,
             "google_connected": u.google_connected, "has_gemini_key": u.has_gemini_key,
-            "is_affiliate": u.is_affiliate,
+            "referral_code": u.referral_code, "affiliate_rate": u.affiliate_rate,
             "clips": clips, "images": getattr(u, "images_generated", 0) or 0,
             "storage_bytes": storage,
             "plan": u.plan, "plan_active": subscription.is_active(u),
@@ -272,11 +279,26 @@ async def activate_payment(
 
 @router.get("/affiliates")
 async def list_affiliates(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(User).where(User.is_affiliate == True).order_by(desc(User.created_at)))  # noqa: E712
-    affs = res.scalars().all()
-    if not affs:
+    # Mọi user là affiliate; chỉ liệt kê người CÓ HOẠT ĐỘNG: đã giới thiệu ai đó,
+    # có hoa hồng, hoặc được admin đặt % khác mặc định (10).
+    ref_ids = {r for (r,) in (await db.execute(
+        select(User.referred_by).where(User.referred_by.isnot(None)).distinct())).all() if r}
+    com_ids = {r for (r,) in (await db.execute(
+        select(Commission.affiliate_id).distinct())).all() if r}
+    rate_ids = {r for (r,) in (await db.execute(
+        select(User.id).where(User.affiliate_rate != 10))).all() if r}
+    ids = list(ref_ids | com_ids | rate_ids)
+    if not ids:
         return []
-    ids = [a.id for a in affs]
+    res = await db.execute(select(User).where(User.id.in_(ids)).order_by(desc(User.created_at)))
+    affs = res.scalars().all()
+    dirty = False
+    for a in affs:
+        if not a.referral_code:
+            await ensure_referral_code(db, a)
+            dirty = True
+    if dirty:
+        await db.commit()
 
     # referrals per affiliate
     rres = await db.execute(

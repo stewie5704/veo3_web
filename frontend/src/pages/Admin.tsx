@@ -4,7 +4,7 @@ import { adminApi, billingApi } from '../api/client'
 import { useToast } from '../components/Toast'
 import {
   Users, Shield, BarChart3, Trash2, Ban, CheckCircle, Search, RefreshCw,
-  CreditCard, DollarSign, Crown, Bot, Loader2, ShieldCheck, Zap, Wallet, Clock,
+  CreditCard, DollarSign, Crown, Bot, Loader2, Zap, Wallet, Clock,
   Share2, Copy, Gift, Percent,
 } from 'lucide-react'
 
@@ -41,6 +41,8 @@ export default function Admin() {
   const [plans, setPlans] = useState<any[]>([])
   const [affiliates, setAffiliates] = useState<any[]>([])
   const [commissions, setCommissions] = useState<any[]>([])
+  const [affSearch, setAffSearch] = useState('')
+  const [affResults, setAffResults] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [payFilter, setPayFilter] = useState('')
   const [loading, setLoading] = useState(false)
@@ -81,6 +83,16 @@ export default function Admin() {
     if (!confirm('Hủy hoa hồng này? (dùng khi khách hoàn tiền / đơn sai)')) return
     try { await adminApi.voidCommission(id); toast('Đã hủy hoa hồng', 'success'); loadCommissions(); loadAffiliates() }
     catch { toast('Lỗi', 'error') }
+  }
+  async function affSearchRun() {
+    if (!affSearch.trim()) { setAffResults([]); return }
+    try { setAffResults(await adminApi.users(affSearch.trim())) } catch { /* ignore */ }
+  }
+  async function setRate(id: string, rate: number) {
+    try {
+      await adminApi.updateUser(id, { affiliate_rate: Math.max(0, Math.min(100, rate)) })
+      toast('Đã đặt % hoa hồng', 'success'); loadAffiliates(); affSearchRun()
+    } catch { toast('Lỗi', 'error') }
   }
 
   async function patch(id: string, data: any) {
@@ -279,14 +291,6 @@ export default function Admin() {
                     <td style={{ padding: '10px 12px', color: 'var(--text3)', fontSize: 11 }}>{new Date(u.created_at).toLocaleDateString('vi-VN')}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost btn-sm btn-icon" title={u.is_admin ? 'Gỡ quyền admin' : 'Cấp quyền admin'}
-                          onClick={() => patch(u.id, { is_admin: !u.is_admin })}>
-                          <ShieldCheck size={12} color={u.is_admin ? '#fbbf24' : 'var(--text3)'} />
-                        </button>
-                        <button className="btn btn-ghost btn-sm btn-icon" title={u.is_affiliate ? 'Gỡ affiliate' : 'Đặt làm affiliate'}
-                          onClick={() => patch(u.id, { is_affiliate: !u.is_affiliate })}>
-                          <Share2 size={12} color={u.is_affiliate ? '#34d399' : 'var(--text3)'} />
-                        </button>
                         <button className="btn btn-ghost btn-sm btn-icon" title={u.is_banned ? 'Mở khóa' : 'Khóa'}
                           onClick={() => patch(u.id, { is_banned: !u.is_banned })}>
                           <Ban size={12} color={u.is_banned ? 'var(--green)' : 'var(--red)'} />
@@ -371,20 +375,63 @@ export default function Admin() {
       {/* ─── AFFILIATE ─── */}
       {tab === 'affiliate' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Affiliates */}
+          {/* Set % for a chosen user */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div className="card-header" style={{ marginBottom: 0 }}><Share2 size={15} /> Cộng tác viên (Affiliate)</div>
-              <button className="btn btn-ghost btn-sm" onClick={loadAffiliates}><RefreshCw size={13} /> Làm mới</button>
-            </div>
+            <div className="card-header"><Percent size={15} /> Đặt % hoa hồng cho người được chọn</div>
             <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
-              Đặt 1 user làm affiliate ở tab <b>Người dùng</b> (nút <Share2 size={11} style={{ verticalAlign: 'middle' }} />). Người được họ giới thiệu mua gói → affiliate nhận % hoa hồng.
+              Mọi user đều là affiliate, mặc định <b style={{ color: 'var(--text2)' }}>10%</b>. Tìm user để đặt mức riêng (đặt <b>0%</b> = không trả hoa hồng). Mỗi user có sẵn link giới thiệu.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
+                <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Tìm user theo username / email để đặt %..."
+                  value={affSearch} onChange={e => setAffSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && affSearchRun()} />
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={affSearchRun}><Search size={13} /> Tìm</button>
+            </div>
+            {affResults.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <tbody>
+                    {affResults.map(u => (
+                      <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '9px 12px' }}>
+                          <div style={{ fontWeight: 600 }}>{u.username}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{u.email}</div>
+                        </td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => copyRefLink(u.referral_code)} title="Sao chép link giới thiệu">
+                            <Copy size={12} /> {u.referral_code || '—'}
+                          </button>
+                        </td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Percent size={11} color="var(--text3)" />
+                            <input type="number" defaultValue={u.affiliate_rate ?? 10} min={0} max={100}
+                              onBlur={e => { const v = +e.target.value; if (v !== (u.affiliate_rate ?? 10)) setRate(u.id, v) }}
+                              style={{ width: 56, padding: '3px 6px', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--text)', fontSize: 12.5 }} />
+                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>% (Enter/blur để lưu)</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Active affiliates */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="card-header" style={{ marginBottom: 0 }}><Share2 size={15} /> Affiliate đang hoạt động</div>
+              <button className="btn btn-ghost btn-sm" onClick={loadAffiliates}><RefreshCw size={13} /> Làm mới</button>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Affiliate', 'Link giới thiệu', 'Đã giới thiệu', 'Hoa hồng (%)', 'Đã trả', 'Còn nợ', ''].map(h => (
+                    {['Affiliate', 'Link giới thiệu', 'Đã giới thiệu', 'Hoa hồng (%)', 'Đã trả', 'Còn nợ'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                     ))}
                   </tr>
@@ -406,22 +453,17 @@ export default function Admin() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Percent size={11} color="var(--text3)" />
                           <input type="number" defaultValue={a.rate} min={0} max={100}
-                            onBlur={e => { const v = +e.target.value; if (v !== a.rate) patch(a.id, { affiliate_rate: v }) }}
+                            onBlur={e => { const v = +e.target.value; if (v !== a.rate) setRate(a.id, v) }}
                             style={{ width: 52, padding: '2px 6px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }} />
                         </div>
                       </td>
                       <td style={{ padding: '10px 12px', color: 'var(--green)', fontWeight: 600 }}>{fmtVND(a.earned)}</td>
                       <td style={{ padding: '10px 12px', color: a.pending > 0 ? '#fbbf24' : 'var(--text3)', fontWeight: 600 }}>{fmtVND(a.pending)}</td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <button className="btn btn-ghost btn-sm btn-icon" title="Gỡ affiliate" onClick={() => { patch(a.id, { is_affiliate: false }); setTimeout(loadAffiliates, 300) }}>
-                          <Trash2 size={12} />
-                        </button>
-                      </td>
                     </tr>
                   ))}
                   {affiliates.length === 0 && (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 36, color: 'var(--text3)' }}>
-                      <Gift size={22} style={{ opacity: 0.4, marginBottom: 6 }} /><div>Chưa có affiliate nào</div>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 36, color: 'var(--text3)' }}>
+                      <Gift size={22} style={{ opacity: 0.4, marginBottom: 6 }} /><div>Chưa có ai giới thiệu hay được đặt % riêng</div>
                     </td></tr>
                   )}
                 </tbody>

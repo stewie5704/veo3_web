@@ -44,7 +44,7 @@ async def record_commission(db: AsyncSession, payment, paying_user) -> None:
     from app.billing.models import Commission
 
     affiliate = await db.get(User, paying_user.referred_by)
-    if not affiliate or not affiliate.is_affiliate:
+    if not affiliate:
         return
     if affiliate.id == paying_user.id:
         return   # defense-in-depth: never pay a user commission on their own purchase
@@ -52,7 +52,9 @@ async def record_commission(db: AsyncSession, payment, paying_user) -> None:
     dup = await db.execute(select(Commission.id).where(Commission.payment_id == payment.id))
     if dup.scalar_one_or_none():
         return
-    rate = int(affiliate.affiliate_rate or 0)
+    # everyone is an affiliate; default 10% unless an admin set a custom rate. rate 0 = disabled.
+    rate = affiliate.affiliate_rate
+    rate = 10 if rate is None else int(rate)
     if rate <= 0:
         return
     amount = round(int(payment.amount) * rate / 100)
