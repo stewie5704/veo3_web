@@ -296,7 +296,8 @@ async def create_project(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    subscription.ensure_can_generate(user)   # 402 nếu chưa có gói còn hạn
+    subscription.ensure_can_generate(user)   # 402 nếu hết hạn dùng thử & chưa có gói
+    await subscription.ensure_storage(db, user)   # 402 nếu đầy dung lượng
     if not user.google_connected and not user.gemini_api_key:
         raise HTTPException(400, "Cần kết nối Google Ultra hoặc Gemini API key")
 
@@ -524,6 +525,7 @@ async def resume_project(
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
     subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
     proj.stopped = False
     proj.merged_file = None   # scene set changing → old concat is stale, force re-merge
     res = await db.execute(select(Scene).where(
@@ -569,6 +571,7 @@ async def rerender_scene(
     if not scene or scene.project_id != project_id or scene.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy scene")
     subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await _invalidate_merge(db, project_id)
@@ -591,6 +594,7 @@ async def render_scene(
     if scene.status == SceneStatus.processing:
         raise HTTPException(400, "Scene đang được render")
     subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await _invalidate_merge(db, project_id)
@@ -731,6 +735,7 @@ async def add_scenes(
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
     subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
     if not user.google_connected and not user.gemini_api_key:
         raise HTTPException(400, "Cần kết nối Google Ultra hoặc Gemini API key")
     prompts = [p for p in (body.prompts or []) if (p or "").strip()]

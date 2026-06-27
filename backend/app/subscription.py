@@ -12,6 +12,11 @@ from fastapi import HTTPException
 from app.plans import PLANS
 
 
+TRIAL_HOURS = 24                         # free account: 24h tạo video miễn phí
+STORAGE_FREE = 500 * 1024 * 1024         # 500 MB cho free / hết hạn
+STORAGE_PAID = 1536 * 1024 * 1024        # 1.5 GB khi có gói
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -63,7 +68,78 @@ def cancel(user) -> None:
     user.plan_expires_at = None
 
 
+def in_trial(user) -> bool:
+    """Free 24h trial: được tạo video trong 24h kể từ lúc đăng ký."""
+    created = _aware(getattr(user, "created_at", None))
+    return bool(created and _now() - created < timedelta(hours=TRIAL_HOURS))
+
+
+def trial_ends_at(user):
+    created = _aware(getattr(user, "created_at", None))
+    return (created + timedelta(hours=TRIAL_HOURS)) if created else None
+
+
+def can_generate(user) -> bool:
+    return is_active(user) or in_trial(user)
+
+
+def storage_limit(user) -> int:
+    """Hạn mức lưu trữ (bytes): 1.5GB nếu có gói còn hạn, ngược lại 500MB."""
+    return STORAGE_PAID if is_active(user) else STORAGE_FREE
+
+
+async def storage_used(db, user_id: str) -> int:
+    """Tổng dung lượng file video của user trên đĩa (clip + bản 1080p cache + phim ghép)."""
+    import json
+    from pathlib import Path
+    from sqlalchemy import select
+    from app.config import UPLOAD_PATH
+    from app.videos.models import VideoJob
+    from app.projects.models import Scene, Project
+
+    def _sz(rel: str, with_hd: bool = True) -> int:
+        try:
+            total = 0
+            p = UPLOAD_PATH / rel
+            if p.exists():
+                total += p.stat().st_size
+            if with_hd:
+                pp = Path(rel)
+                hd = UPLOAD_PATH / pp.with_name(pp.stem + "__1080" + pp.suffix)
+                if hd.exists():
+                    total += hd.stat().st_size
+            return total
+        except OSError:
+            return 0
+
+    used = 0
+    for (of,) in (await db.execute(select(VideoJob.output_files).where(VideoJob.user_id == user_id))).all():
+        for f in json.loads(of or "[]"):
+            used += _sz(f)
+    for (vf,) in (await db.execute(
+        select(Scene.video_file).where(Scene.user_id == user_id, Scene.video_file.isnot(None))
+    )).all():
+        used += _sz(vf)
+    for (mf,) in (await db.execute(
+        select(Project.merged_file).where(Project.user_id == user_id, Project.merged_file.isnot(None))
+    )).all():
+        used += _sz(mf, with_hd=False)
+    return used
+
+
 def ensure_can_generate(user) -> None:
-    """Raise HTTP 402 if the user has no active subscription."""
-    if not is_active(user):
-        raise HTTPException(status_code=402, detail="Cần nâng gói để tạo nội dung. Vào mục Nâng gói.")
+    """Raise HTTP 402 if the user can't generate (no active plan and trial expired)."""
+    if not can_generate(user):
+        raise HTTPException(status_code=402,
+                            detail="Hết 24h dùng thử miễn phí. Nâng gói để tiếp tục tạo nội dung.")
+
+
+async def ensure_storage(db, user) -> None:
+    """Raise HTTP 402 if the user is at/over their storage quota."""
+    limit = storage_limit(user)
+    used = await storage_used(db, user.id)
+    if used >= limit:
+        mb = limit // (1024 * 1024)
+        nxt = "Nâng gói để có 1.5GB." if not is_active(user) else "Xóa bớt video cũ để giải phóng."
+        raise HTTPException(status_code=402,
+                            detail=f"Đã đầy dung lượng lưu trữ ({mb}MB). {nxt}")

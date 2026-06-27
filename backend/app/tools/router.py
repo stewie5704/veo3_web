@@ -704,6 +704,7 @@ async def gen_image(
     if not user.google_connected:
         raise HTTPException(400, "Cần kết nối Google Ultra để tạo ảnh")
     subscription.ensure_can_generate(user)
+    await subscription.ensure_storage(db, user)
 
     from app.pipeline.runner import generate_images_flow
     cookies = dec(user.google_cookies) or ""

@@ -28,10 +28,13 @@ async def list_plans():
 
 
 @router.get("/me")
-async def my_subscription(user: User = Depends(get_current_user)):
+async def my_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # KHÔNG auto-renew ở đây (GET không được gây side-effect tiền). Việc gia hạn do
     # _auto_renew_loop chạy nền (đơn luồng) đảm nhiệm → tránh race trừ tiền 2 lần.
     bal = int(getattr(user, "wallet_balance", 0) or 0)
+    used = await subscription.storage_used(db, user.id)
+    limit = subscription.storage_limit(user)
+    trial_end = subscription.trial_ends_at(user)
     return {
         "plan": user.plan,
         "active": subscription.is_active(user),
@@ -40,6 +43,11 @@ async def my_subscription(user: User = Depends(get_current_user)):
         "wallet_vnd": bal,
         "wallet_t": round(bal / 10_000, 2),
         "auto_renew": bool(getattr(user, "auto_renew", False)),
+        "storage_used": used,
+        "storage_limit": limit,
+        "in_trial": subscription.in_trial(user),
+        "trial_ends_at": trial_end.isoformat() if trial_end else None,
+        "can_generate": subscription.can_generate(user),
     }
 
 

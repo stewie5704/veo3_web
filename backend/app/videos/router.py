@@ -94,7 +94,8 @@ async def create_job(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    subscription.ensure_can_generate(user)   # 402 nếu chưa có gói còn hạn
+    subscription.ensure_can_generate(user)   # 402 nếu hết hạn dùng thử & chưa có gói
+    await subscription.ensure_storage(db, user)   # 402 nếu đầy dung lượng
     if not user.google_connected and not user.gemini_api_key:
         raise HTTPException(
             status_code=400,
@@ -132,6 +133,7 @@ async def create_i2v(
 ):
     """Frames → Video (I2V): 1 ảnh = khung hình đầu, video chuyển động TỪ nó."""
     _ensure_can_render(user)
+    await subscription.ensure_storage(db, user)
     job = VideoJob(user_id=user.id, prompt=prompt, aspect_ratio=aspect_ratio,
                    duration_seconds=duration_seconds, count=1, model_key=model_key,
                    start_image=_save_job_image(image))
@@ -153,6 +155,7 @@ async def create_r2v(
 ):
     """Ingredients → Video (R2V): 1-3 ảnh tham chiếu (giữ mặt nhân vật/vật thể) -> cảnh mới."""
     _ensure_can_render(user)
+    await subscription.ensure_storage(db, user)
     if not images:
         raise HTTPException(400, "Cần ít nhất 1 ảnh tham chiếu")
     paths = [_save_job_image(f) for f in images[:3]]   # Veo cap 3 ảnh

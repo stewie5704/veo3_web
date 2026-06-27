@@ -117,6 +117,42 @@ export default function Billing() {
         </div>
       )}
 
+      {/* ── Trial + storage ── */}
+      {sub && (sub.storage_limit > 0 || sub.in_trial) && (() => {
+        const used = sub.storage_used || 0
+        const limit = sub.storage_limit || 1
+        const pct = Math.min(100, Math.round((used / limit) * 100))
+        const mb = (b: number) => b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(2) + ' GB' : (b / 1024 / 1024).toFixed(0) + ' MB'
+        const trialHrs = sub.trial_ends_at ? Math.max(0, Math.round((new Date(sub.trial_ends_at).getTime() - Date.now()) / 3600000)) : 0
+        const near = pct >= 85
+        return (
+          <div style={{
+            borderRadius: 14, padding: '14px 18px', marginBottom: 24,
+            background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)',
+          }}>
+            {sub.in_trial && !sub.active && (
+              <div style={{ fontSize: 12.5, color: '#fbbf24', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <Sparkles size={14} /> Dùng thử miễn phí — còn <b>{trialHrs} giờ</b> để tạo video. Hết 24h cần nâng gói.
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
+              <span style={{ color: 'var(--text2)' }}>Dung lượng lưu trữ</span>
+              <span style={{ color: near ? '#f87171' : 'var(--text3)' }}>
+                {mb(used)} / {mb(limit)}{sub.active ? '' : ' (free)'}
+              </span>
+            </div>
+            <div style={{ height: 7, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, transition: 'width .4s', background: near ? 'linear-gradient(90deg,#f87171,#ef4444)' : 'var(--grad)' }} />
+            </div>
+            {near && (
+              <div style={{ fontSize: 11.5, color: '#f87171', marginTop: 6 }}>
+                Sắp đầy! {sub.active ? 'Xóa bớt video cũ.' : 'Nâng gói để có 1.5GB.'}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Payment method selector ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text3)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10 }}>
