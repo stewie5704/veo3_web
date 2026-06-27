@@ -1,91 +1,51 @@
-import { useState, useEffect, useRef } from 'react'
-import { videosApi, toolsApi } from '../api/client'
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toolsApi, charactersApi, projectsApi } from '../api/client'
 import { pushLog } from '../pages/Dashboard'
-import VideoFeed from './VideoFeed'
-import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle } from 'lucide-react'
+import { Plus, Loader2, ShoppingBag, AlertCircle } from 'lucide-react'
 
 const GEN_MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE' },
-  { key: 'veo_3_1_t2v_lite', label: 'Veo 3.1 · Lite — 5💎' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Veo 3.1 · Fast — 10💎' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Veo 3.1 · Quality — 100💎' },
-]
-const ASPECTS = [
-  { v: '9:16', label: '9:16 · Dọc' },
-  { v: '1:1', label: '1:1 · Vuông' },
-  { v: '16:9', label: '16:9 · Ngang' },
+  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Lite (Lower Priority) — FREE' },
+  { key: 'veo_3_1_t2v_lite', label: 'Lite — 5💎/cảnh' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Fast — 10💎/cảnh' },
+  { key: 'veo_3_1_t2v_portrait', label: 'Quality — 100💎/cảnh' },
 ]
 const SELL_SCENES = [
-  { v: 'street', label: '🏙️ Đường phố' }, { v: 'studio', label: '🎬 Studio' },
-  { v: 'cafe', label: '☕ Quán cafe' }, { v: 'home', label: '🏠 Tại nhà' },
+  { v: 'street', label: '🏙️ Đường phố', vi: 'trên phố ban ngày' },
+  { v: 'studio', label: '🎬 Studio', vi: 'trong studio sáng' },
+  { v: 'cafe', label: '☕ Quán cafe', vi: 'ở quán cafe' },
+  { v: 'home', label: '🏠 Tại nhà', vi: 'tại nhà' },
 ]
 const SELL_TONES = [
-  { v: 'ugc', label: '📱 UGC quay tay' }, { v: 'young', label: '✨ Trẻ trung' },
-  { v: 'lux', label: '💎 Sang xịn' }, { v: 'fun', label: '😄 Hài hước' },
+  { v: 'ugc', label: '📱 UGC quay tay', vi: 'quay tay tự nhiên, đời thường' },
+  { v: 'young', label: '✨ Trẻ trung', vi: 'trẻ trung, năng lượng' },
+  { v: 'lux', label: '💎 Sang xịn', vi: 'sang xịn, tinh tế' },
+  { v: 'fun', label: '😄 Hài hước', vi: 'vui nhộn, hài hước' },
 ]
+const secLbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }
 
-/** Video bán hàng: KOL + ảnh sản phẩm → video mặc/cầm sản phẩm tự nhiên (dùng r2v). Feed video ở trên. */
+/** Video bán hàng: ảnh sản phẩm (+ KOL) -> dự án NHIỀU CẢNH nối khung (chain), giữ nhân vật/giọng/sản phẩm. */
 export default function SellVideo() {
+  const nav = useNavigate()
   const [error, setError] = useState('')
-  const [vidJobs, setVidJobs] = useState<any[]>([])
-  const loadJobs = async () => { try { setVidJobs(await videosApi.list(60)) } catch { /* ignore */ } }
-  useEffect(() => { loadJobs() }, [])
-  useEffect(() => {
-    if (!vidJobs.some(j => j.status === 'pending' || j.status === 'processing')) return
-    const id = setInterval(loadJobs, 6000)
-    return () => clearInterval(id)
-  }, [vidJobs])
-
   const [product, setProduct] = useState<File | null>(null)
   const [productPrev, setProductPrev] = useState<string | null>(null)
   const [kol, setKol] = useState<File | null>(null)
   const [kolPrev, setKolPrev] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [idea, setIdea] = useState('')
   const [scene, setScene] = useState('street')
   const [tone, setTone] = useState('ugc')
-  const [prompt, setPrompt] = useState('')
-  const [model, setModel] = useState(GEN_MODELS[0].key)   // FREE (lite) — lite vẫn ra dọc 9:16 được
-  const [aspect, setAspect] = useState('9:16')            // dọc cho TikTok
-  const [dur, setDur] = useState(6)
-  const [loading, setLoading] = useState(false)
+  const [sceneCount, setSceneCount] = useState(5)
+  const [dur, setDur] = useState(8)
+  const [lang, setLang] = useState('vi')
+  const [model, setModel] = useState(GEN_MODELS[0].key)
   const [showAdv, setShowAdv] = useState(false)
   const [link, setLink] = useState('')
   const [linkLoading, setLinkLoading] = useState(false)
-  const [aiLoading, setAiLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
-
-  function localPrompt(): string {
-    const sceneTxt: Record<string, string> = {
-      street: 'on a busy city street, natural daylight',
-      studio: 'in a clean bright studio with soft lighting',
-      cafe: 'in a cozy cafe by the window',
-      home: 'at home in soft natural window light',
-    }
-    const toneTxt: Record<string, string> = {
-      ugc: 'authentic handheld UGC vibe, casual and real, not a studio ad',
-      young: 'youthful energetic vibe, upbeat',
-      lux: 'premium elegant vibe, refined',
-      fun: 'playful and funny vibe',
-    }
-    const subj = kol ? 'the person in the reference (keep their face identical)' : 'a friendly young Vietnamese model'
-    const prod = name.trim() || 'the product'
-    return `Candid iPhone footage, ${sceneTxt[scene]}. ${subj} naturally shows and tries on the EXACT ${prod} from the product reference — keep the SAME color, pattern, print, logo and cut, do NOT alter it. They turn to show the fit, soft genuine smile, slight handheld camera shake, realistic skin texture. ${toneTxt[tone]}.
-[negative] warping, morphing, altered logo or print, extra fingers, plastic skin, text artifacts`
-  }
-
-  // Trợ lý: gọi LLM (Gemini) viết prompt sát sản phẩm; không có key / lỗi -> fallback mẫu nội bộ.
-  async function aiPrompt() {
-    setAiLoading(true)
-    try {
-      const res = await toolsApi.sellPrompt({ product: name.trim(), scene, tone, has_kol: !!kol })
-      setPrompt(res.prompt || localPrompt())
-    } catch {
-      setPrompt(localPrompt())
-    } finally {
-      setAiLoading(false)
-    }
-  }
 
   async function importFromLink() {
     const u = link.trim()
@@ -107,128 +67,164 @@ export default function SellVideo() {
     } finally { setLinkLoading(false) }
   }
 
+  function buildIdea(prodTag: string, kolTag: string): string {
+    const sc = SELL_SCENES.find(s => s.v === scene)?.vi || ''
+    const to = SELL_TONES.find(t => t.v === tone)?.vi || ''
+    const who = kolTag ? `@${kolTag}` : 'một người mẫu thân thiện'
+    const base =
+      `Video bán hàng tiếp thị liên kết cho sản phẩm @${prodTag}${name.trim() ? ` (${name.trim()})` : ''}. ` +
+      `${who} cầm/mặc/dùng và khoe @${prodTag} một cách tự nhiên ${sc}, tông ${to}. ` +
+      `Mỗi cảnh NỐI TIẾP mạch lạc, GIỮ NGUYÊN cùng một người, cùng giọng nói và đúng sản phẩm xuyên suốt. ` +
+      `Kết bằng lời kêu gọi mua hàng (CTA).`
+    return idea.trim() ? `${base} Ý tưởng thêm: ${idea.trim()}` : base
+  }
+
   async function doSell() {
     if (!product) { setError('Cần ảnh sản phẩm'); return }
-    if (!prompt.trim()) { setError('Nhập mô tả hoặc bấm “Trợ lý viết”'); return }
+    const MODEL_COST: Record<string, number> = {
+      veo_3_1_t2v_lite_low_priority: 0, veo_3_1_t2v_lite: 5,
+      veo_3_1_t2v_fast_portrait_ultra: 10, veo_3_1_t2v_portrait: 100,
+    }
+    const cost = (MODEL_COST[model] || 0) * sceneCount
+    if (cost > 0 && !window.confirm(`Tạo ${sceneCount} cảnh bằng model trả phí — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
     setError(''); setLoading(true)
     try {
-      const imgs = [product, kol].filter(Boolean) as File[]
-      await videosApi.createR2V(imgs, { prompt, model_key: model, aspect_ratio: aspect, duration_seconds: dur })
-      setProduct(null); setProductPrev(null); setKol(null); setKolPrev(null); setPrompt('')
-      if (prodRef.current) prodRef.current.value = ''
-      if (kolRef.current) kolRef.current.value = ''
-      await loadJobs()
-      pushLog('Đã gửi video bán hàng — đang tạo')
-    } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
-    finally { setLoading(false) }
+      pushLog('Đang dựng video bán hàng nhiều cảnh...')
+      // 1) Lưu sản phẩm (+ KOL) thành nhân vật -> đính ref MỌI cảnh = đồng nhất sản phẩm/mặt
+      const prodTag = ((name.trim() || 'SanPham').replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 20)) || 'SanPham'
+      const prodChar = await charactersApi.add(prodTag, product)
+      const ids: string[] = [prodChar.id]
+      let kolTag = ''
+      if (kol) { const k = await charactersApi.add('KOL', kol); ids.push(k.id); kolTag = k.name }
+      // 2) AI viết kịch bản NHIỀU CẢNH (sản phẩm + KOL + bối cảnh + tông), đúng ngôn ngữ
+      const ideaText = buildIdea(prodChar.name, kolTag)
+      const res = await toolsApi.autoprompt({ idea: ideaText, scene_count: sceneCount, language: lang, aspect_ratio: '9:16' })
+      const scns: any[] = res.scenes || []
+      const prompts = scns.length ? scns.map(s => s.prompt || s.image || '') : (res.prompts || [])
+      const narrations = scns.length
+        ? scns.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
+        : (res.narrations || [])
+      if (!prompts.length) throw new Error('AI chưa viết được kịch bản, thử lại.')
+      // 3) Tạo dự án: chain (nối khung mượt) + ref ảnh giữ mặt/sản phẩm + voiceover (giọng nhất quán)
+      const proj = await projectsApi.create({
+        name: `Bán hàng: ${name.trim() || 'sản phẩm'}`,
+        idea: ideaText, model_key: model, aspect_ratio: '9:16',
+        duration_seconds: dur, language: lang,
+        prompts, narrations, auto_render: true, chain_mode: true,
+        character_ids: ids, character_bible: res.characters || [],
+        audio_mode: 'voiceover',
+      })
+      pushLog(`Đã tạo video bán hàng: ${proj.name}`)
+      nav(`/projects/${proj.id}`)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || 'Tạo video bán hàng thất bại')
+      setLoading(false)
+    }
   }
 
   return (
-    <div>
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}><AlertCircle size={15} /> {error}</div>}
-      <div className="tool-flow">
-        <div className="tool-feed">
-          <VideoFeed jobs={vidJobs.filter(j => j.kind === 'r2v')} />
+    <div className="card" style={{ maxWidth: 760, margin: '0 auto' }}>
+      <div className="card-header"><ShoppingBag size={15} /> Video bán hàng
+        <small>Ảnh sản phẩm (+ KOL) → video NHIỀU CẢNH nối mượt cho TikTok Shop (dọc 9:16)</small></div>
+
+      {error && <div className="alert alert-error" style={{ marginBottom: 14 }}><AlertCircle size={15} /> {error}</div>}
+
+      {/* Link sản phẩm */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <input className="form-input" style={{ flex: 1, minWidth: 200 }}
+          placeholder="Dán link sản phẩm (Shopee / TikTok Shop / Lazada) — tự lấy ảnh"
+          value={link} onChange={e => setLink(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); importFromLink() } }} />
+        <button className="btn btn-ghost btn-sm" onClick={importFromLink} disabled={linkLoading || !link.trim()}>
+          {linkLoading ? <><Loader2 size={13} className="spin" /> Đang lấy...</> : <>🔗 Lấy ảnh</>}
+        </button>
+      </div>
+
+      {/* Ảnh + tên */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
+          <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
+            {productPrev ? <img src={productPrev} alt="" /> : <Plus size={22} />}
+            <input ref={prodRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0] || null; setProduct(f); setProductPrev(f ? URL.createObjectURL(f) : null) }} />
+          </label>
         </div>
-        <div className="tool-composer">
-          <div className="card" style={{ margin: 0 }}>
-            <div className="card-header"><ShoppingBag size={15} /> Video bán hàng <small>Ảnh sản phẩm (+ KOL) → video mặc/cầm sản phẩm tự nhiên cho TikTok Shop</small></div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
+          <label className="img-add" title="Ảnh KOL / người mẫu (tùy chọn)">
+            {kolPrev ? <img src={kolPrev} alt="" /> : <Plus size={22} />}
+            <input ref={kolRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0] || null; setKol(f); setKolPrev(f ? URL.createObjectURL(f) : null) }} />
+          </label>
+        </div>
+        <input className="form-input" style={{ flex: 1, minWidth: 180 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize)"
+          value={name} onChange={e => setName(e.target.value)} />
+      </div>
 
-            {/* Dán link sản phẩm — tự lấy ảnh (best-effort) */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-              <input className="form-input" style={{ flex: 1, minWidth: 200 }}
-                placeholder="Dán link sản phẩm (Shopee / TikTok Shop / Lazada) — tự lấy ảnh"
-                value={link} onChange={e => setLink(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); importFromLink() } }} />
-              <button className="btn btn-ghost btn-sm" onClick={importFromLink} disabled={linkLoading || !link.trim()}>
-                {linkLoading ? <><Loader2 size={13} className="spin" /> Đang lấy...</> : <>🔗 Lấy ảnh</>}
-              </button>
-            </div>
+      {/* Ý tưởng (tùy chọn) */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={secLbl}>Ý tưởng / điểm nhấn <span style={{ textTransform: 'none', fontWeight: 400 }}>(tùy chọn — AI tự viết kịch bản nhiều cảnh)</span></div>
+        <textarea className="form-textarea" rows={2} style={{ minHeight: 'auto' }}
+          value={idea} onChange={e => setIdea(e.target.value)}
+          placeholder="VD: nhấn mạnh chất vải dày dặn, giá sốc 199k, freeship… (để trống cũng được)" />
+      </div>
 
-            {/* Ảnh + mô tả — bố cục giống tool "Ảnh → Video": ảnh trái, mô tả phải */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
-                <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
-                  {productPrev ? <img src={productPrev} alt="" /> : <Plus size={22} />}
-                  <input ref={prodRef} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0] || null; setProduct(f); setProductPrev(f ? URL.createObjectURL(f) : null) }} />
-                </label>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
-                <label className="img-add" title="Ảnh KOL / người mẫu (tùy chọn)">
-                  {kolPrev ? <img src={kolPrev} alt="" /> : <Plus size={22} />}
-                  <input ref={kolRef} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0] || null; setKol(f); setKolPrev(f ? URL.createObjectURL(f) : null) }} />
-                </label>
-              </div>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Mô tả cảnh</div>
-                <div style={{ position: 'relative' }}>
-                  <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
-                    value={prompt} onChange={e => setPrompt(e.target.value)}
-                    placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
-                  <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt} disabled={aiLoading}>
-                    {aiLoading ? <><Loader2 size={13} className="spin" /> Đang viết...</> : <><Sparkles size={13} /> Trợ lý viết</>}
-                  </button>
-                </div>
-              </div>
-            </div>
+      {/* Bối cảnh / Tông / Ngôn ngữ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bối cảnh</label>
+          <select className="form-select" value={scene} onChange={e => setScene(e.target.value)}>
+            {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+          </select></div>
+        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tông video</label>
+          <select className="form-select" value={tone} onChange={e => setTone(e.target.value)}>
+            {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+          </select></div>
+        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Ngôn ngữ</label>
+          <select className="form-select" value={lang} onChange={e => setLang(e.target.value)}>
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="en">🇺🇸 English</option>
+          </select></div>
+      </div>
 
-            {/* Tên sản phẩm — giúp trợ lý viết sát hơn */}
-            <input className="form-input" style={{ width: '100%', marginBottom: 12 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp trợ lý viết sát hơn"
-              value={name} onChange={e => setName(e.target.value)} />
-
-            {/* Bối cảnh + Tông — combobox cho gọn, cùng 1 hàng */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Bối cảnh</label>
-                <select className="form-select" value={scene} onChange={e => setScene(e.target.value)}>
-                  {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Tông video</label>
-                <select className="form-select" value={tone} onChange={e => setTone(e.target.value)}>
-                  {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Tùy chọn nâng cao (giấu cho đỡ ngộp — đã có mặc định FREE / 9:16 / 6s) */}
-            <button onClick={() => setShowAdv(v => !v)}
-              style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: showAdv ? 12 : 18 }}>
-              ⚙ Tùy chọn (chất lượng · tỉ lệ · thời lượng) {showAdv ? '▴' : '▾'}
-            </button>
-            {showAdv && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Chất lượng</label>
-                    <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
-                      {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                    </select></div>
-                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tỉ lệ</label>
-                    <select className="form-select" value={aspect} onChange={e => setAspect(e.target.value)}>
-                      {ASPECTS.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
-                    </select></div>
-                  <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng</label>
-                    <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
-                      {[4, 6, 8].map(d => <option key={d} value={d}>{d}s</option>)}
-                    </select></div>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 18, lineHeight: 1.5 }}>
-                  💡 Sản phẩm trơn/ít chi tiết giữ tốt; họa tiết·chữ·logo phức tạp có thể lệch nhẹ (model free). Cần nét hơn thì chọn Quality.
-                </div>
-              </>
-            )}
-
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product || !prompt.trim()}>
-              {loading ? <><Loader2 size={14} className="spin" /> Đang gửi...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
-            </button>
+      {/* Số cảnh / Thời lượng */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Số cảnh</label>
+          <div className="stepper">
+            <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
+            <input type="number" min={1} max={20} value={sceneCount}
+              onChange={e => setSceneCount(Math.min(20, Math.max(1, +e.target.value || 1)))} />
+            <button type="button" onClick={() => setSceneCount(c => Math.min(20, c + 1))}>+</button>
           </div>
         </div>
+        <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng / cảnh</label>
+          <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
+            {[4, 6, 8, 10].map(d => <option key={d} value={d}>{d}s</option>)}
+          </select>
+        </div>
       </div>
+
+      {/* Tùy chọn nâng cao (model) */}
+      <button onClick={() => setShowAdv(v => !v)}
+        style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: showAdv ? 10 : 14 }}>
+        ⚙ Tùy chọn (chất lượng) {showAdv ? '▴' : '▾'}
+      </button>
+      {showAdv && (
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label className="form-label">Chất lượng (FREE = không tốn Gem)</label>
+          <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
+            {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 14, lineHeight: 1.55 }}>
+        💡 Các cảnh <b>nối khung</b> (frame cuối cảnh trước = đầu cảnh sau) cho mượt; <b>giữ nguyên</b> người, giọng nói &amp; sản phẩm xuyên suốt. Tạo xong sẽ mở trang dự án để xem từng cảnh + ghép thành 1 video.
+      </div>
+
+      <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
+        {loading ? <><Loader2 size={14} className="spin" /> Đang viết kịch bản &amp; tạo...</> : <><ShoppingBag size={14} /> Tạo video bán hàng ({sceneCount} cảnh)</>}
+      </button>
     </div>
   )
 }
