@@ -5,13 +5,13 @@ import { pushLog } from './Dashboard'
 import {
   Pencil, RefreshCw, Play, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
   FileText, Film, Trash2, Pause, FolderOpen, ArrowLeft, Check, Cpu, RectangleHorizontal, Clock,
-  Languages, Calendar, ScrollText, Clapperboard, Loader2, AlertCircle,
+  Languages, Calendar, ScrollText, Clapperboard, Loader2, AlertCircle, MoreHorizontal,
 } from 'lucide-react'
 import AddPartPanel from '../components/AddPartPanel'
 import DownloadMenu from '../components/DownloadMenu'
 
-// Thu gọn prompt còn 3 dòng (bấm "Xem thêm" để bung)
-const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+// Thu gọn mô tả còn 2 dòng (bấm "Xem thêm" để bung)
+const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 
 export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?: () => void }) {
   const { id } = useParams<{ id: string }>()
@@ -23,7 +23,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [addPartOpen, setAddPartOpen] = useState(false)   // mở panel thêm kịch bản/phần mới
   const [editPart, setEditPart] = useState<number | null>(null)   // đang sửa kịch bản phần nào
   const [partDraft, setPartDraft] = useState('')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())   // scene id -> đang bung prompt
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())   // scene id -> đang bung mô tả
   const toggleExpand = (sid: string) => setExpanded(s => {
     const n = new Set(s); n.has(sid) ? n.delete(sid) : n.add(sid); return n
   })
@@ -42,9 +42,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [pcFile, setPcFile] = useState<File | null>(null)
   const [pcBusy, setPcBusy] = useState(false)
   const pcFileRef = useRef<HTMLInputElement>(null)
-  // Bố cục 2 cột khi truyện nhiều phần: phần đang xem + ô tìm phần
+  // Bố cục 2 cột khi truyện nhiều phần: phần đang xem + ô tìm phần + lọc + menu "⋯" của cảnh
   const [selectedPart, setSelectedPart] = useState<number | null>(null)
   const [partSearch, setPartSearch] = useState('')
+  const [partFilter, setPartFilter] = useState<'all' | 'active' | 'failed' | 'unrendered'>('all')
+  const [menuScene, setMenuScene] = useState<string | null>(null)   // scene đang mở menu "⋯"
 
   async function load(silent = false) {
     if (!id) return
@@ -264,6 +266,14 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   }
   const dotColor = (st: string) =>
     st === 'done' ? 'var(--green)' : st === 'failed' ? 'var(--red)' : st === 'processing' ? 'var(--accent)' : 'var(--border2)'
+  // Phần có khớp bộ lọc chip không
+  const partMatchesFilter = (p: number) => {
+    const ps = scenesOfPart(p)
+    if (partFilter === 'active') return ps.some(s => s.status === 'pending' || s.status === 'processing')
+    if (partFilter === 'failed') return ps.some(s => s.status === 'failed')
+    if (partFilter === 'unrendered') return ps.some(s => !s.video_file)
+    return true
+  }
 
   // Khối kịch bản của 1 phần (sửa / hiển thị / nút thêm) — dùng chung cho 1 & nhiều phần
   const renderPartScript = (partNum: number) => {
@@ -271,7 +281,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (editPart === partNum) {
       return (
         <div style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
             <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
           </div>
           <textarea className="form-textarea" rows={6} value={partDraft} onChange={e => setPartDraft(e.target.value)}
@@ -286,14 +296,14 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (script) {
       return (
         <details open style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
-          <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 7, listStyle: 'none' }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 7, listStyle: 'none' }}>
             <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
             <button onClick={e => { e.preventDefault(); setEditPart(partNum); setPartDraft(script) }}
               title="Sửa kịch bản" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Pencil size={13} />
             </button>
           </summary>
-          <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text2)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto' }}>{script}</div>
+          <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text3)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto' }}>{script}</div>
         </details>
       )
     }
@@ -304,99 +314,76 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     )
   }
 
-  // Một card cảnh (preview + thông tin + các nút) — dùng chung 1 & nhiều phần
-  const renderSceneCard = (scene: any) => (
-    <div key={scene.id} className="card" style={{
-      borderLeft: `3px solid ${
-        scene.status === 'done' ? 'var(--green)' :
-        scene.status === 'failed' ? 'var(--red)' :
-        scene.status === 'processing' ? 'var(--accent)' : 'var(--border)'
-      }`,
-    }}>
-      <div style={{ display: 'flex', gap: 20 }}>
-        {/* Video preview */}
-        <div style={{ width: 260, flexShrink: 0, position: 'relative' }}>
-          {scene.status === 'done' && scene.video_file ? (
+  // Một card cảnh — lưới gọn: thumbnail trên (badge đè) + mô tả 2 dòng + nút.
+  // Nút phụ (sao chép / tải video lên / ảnh khung đầu) gom vào menu "⋯". Khi sửa thì card bung rộng.
+  const renderSceneCard = (scene: any) => {
+    const st = scene.status
+    const editing = editingScene === scene.id
+    const open = menuScene === scene.id
+    const vertical = scene.aspect_ratio === '9:16'
+    const stColor = st === 'done' ? 'var(--green)' : st === 'failed' ? 'var(--red)' : st === 'processing' ? 'var(--accent)' : 'var(--border)'
+    return (
+      <div key={scene.id} className="card" style={{
+        padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        borderTop: `3px solid ${stColor}`,
+        ...(editing ? { gridColumn: '1 / -1' } : {}),
+      }}>
+        {/* Thumbnail / preview */}
+        <div style={{ position: 'relative', aspectRatio: vertical ? '9 / 16' : '16 / 9', background: 'var(--bg3)' }}>
+          {st === 'done' && scene.video_file ? (
             <video src={`/uploads/${scene.video_file}`} controls preload="metadata"
-              style={{ width: '100%', borderRadius: 8, background: '#000', display: 'block' }} />
+              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', display: 'block' }} />
           ) : (
-            <div className={`scene-ph${scene.status === 'processing' ? ' shimmer' : ''}`}
-              style={{ width: '100%', aspectRatio: scene.aspect_ratio === '9:16' ? '9/16' : '16/9', maxHeight: 160 }}>
-              {scene.status === 'pending' && (
-                <><div className="scene-ph-orb wait"><Clapperboard size={22} /></div><span>Chờ tạo</span></>
-              )}
-              {scene.status === 'processing' && (
-                <><div className="scene-ph-orb run"><Loader2 size={22} className="spin" /></div><span>Đang tạo...</span></>
-              )}
-              {scene.status === 'failed' && (
-                <><div className="scene-ph-orb fail"><AlertCircle size={22} /></div>
-                  <span style={{ color: '#fca5a5', textAlign: 'center', padding: '0 10px', fontSize: 11 }}>{scene.error_msg?.slice(0, 80)}</span></>
-              )}
+            <div className={`scene-ph${st === 'processing' ? ' shimmer' : ''}`} style={{ width: '100%', height: '100%', borderRadius: 0 }}>
+              {st === 'pending' && (<><div className="scene-ph-orb wait"><Clapperboard size={20} /></div><span>Chờ tạo</span></>)}
+              {st === 'processing' && (<><div className="scene-ph-orb run"><Loader2 size={20} className="spin" /></div><span>Đang tạo...</span></>)}
+              {st === 'failed' && (<><div className="scene-ph-orb fail"><AlertCircle size={20} /></div>
+                <span style={{ color: '#fca5a5', textAlign: 'center', padding: '0 12px', fontSize: 11, lineHeight: 1.4 }}>{scene.error_msg?.slice(0, 90)}</span></>)}
             </div>
           )}
+          <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 6, color: '#fff', background: 'var(--grad)' }}>
+            Cảnh {scene.index + 1}
+          </span>
+          <span className={`badge badge-${st}`} style={{ position: 'absolute', top: 8, right: 8 }}>
+            {st === 'pending' && '⏳ Chờ'}
+            {st === 'processing' && '🔄 Đang tạo'}
+            {st === 'done' && '✅ Xong'}
+            {st === 'failed' && '❌ Lỗi'}
+          </span>
         </div>
 
-        {/* Scene info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent2)' }}>
-              Cảnh {scene.index + 1}
-            </span>
-            <span className={`badge badge-${scene.status}`}>
-              {scene.status === 'pending' && '⏳ Chờ'}
-              {scene.status === 'processing' && '🔄 Đang tạo'}
-              {scene.status === 'done' && '✅ Xong'}
-              {scene.status === 'failed' && '❌ Lỗi'}
-            </span>
-          </div>
-
-          {editingScene === scene.id ? (
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Mô tả cảnh:</div>
-              <textarea className="form-textarea" rows={3}
-                value={editPrompt}
-                onChange={e => setEditPrompt(e.target.value)}
-                style={{ marginBottom: 8, fontSize: 13 }}
-              />
+        {/* Body */}
+        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+          {editing ? (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Mô tả cảnh:</div>
+              <textarea className="form-textarea" rows={4} value={editPrompt} onChange={e => setEditPrompt(e.target.value)} style={{ fontSize: 13 }} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}><Save size={13} /> Lưu</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditingScene(null)}>Hủy</button>
               </div>
-            </div>
+            </>
           ) : (
-            <div>
-              <div style={{ fontSize: 13, lineHeight: 1.7, marginBottom: 6, color: 'var(--text)',
-                ...(expanded.has(scene.id) ? {} : CLAMP) }}>
+            <>
+              <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text)', ...(expanded.has(scene.id) ? {} : CLAMP) }}>
                 {scene.prompt}
               </div>
-              {scene.prompt && scene.prompt.length > 160 && (
+              {scene.prompt && scene.prompt.length > 110 && (
                 <button onClick={() => toggleExpand(scene.id)}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent2)', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, padding: 0, marginBottom: 10,
-                    display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  {expanded.has(scene.id)
-                    ? <><ChevronUp size={13} /> Thu gọn</>
-                    : <><ChevronDown size={13} /> Xem thêm</>}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent2)', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 3, alignSelf: 'flex-start' }}>
+                  {expanded.has(scene.id) ? <><ChevronUp size={12} /> Thu gọn</> : <><ChevronDown size={12} /> Xem thêm</>}
                 </button>
               )}
               {scene.narration && (
-                <div style={{
-                  fontSize: 12, color: 'var(--text2)', fontStyle: 'italic',
-                  marginBottom: 10, borderLeft: '2px solid var(--border2)',
-                  paddingLeft: 8,
-                }}>
+                <div style={{ fontSize: 11.5, color: 'var(--text2)', fontStyle: 'italic', borderLeft: '2px solid var(--border2)', paddingLeft: 8,
+                  ...(expanded.has(scene.id) ? {} : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
                   🎙️ {scene.narration}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <button className="btn btn-ghost btn-sm"
-                  onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
-                  <Pencil size={13} /> Sửa
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => rerenderScene(scene.id)}>
-                  <RefreshCw size={13} /> Tạo lại
-                </button>
-                {scene.status === 'pending' && (
+
+              {/* Hàng nút chính */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 'auto', alignItems: 'center' }}>
+                {st === 'pending' && (
                   <button className="btn btn-primary btn-sm" onClick={async () => {
                     if (!id) return
                     try {
@@ -408,69 +395,78 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     }
                   }}><Play size={13} /> Tạo video</button>
                 )}
-                {scene.status === 'done' && scene.video_file && (
-                  <>
-                    <DownloadMenu
-                      base={`/projects/${id}/scenes/${scene.id}/download`}
-                      filename={`canh_${scene.index + 1}.mp4`}
-                    />
-                    <button className="btn btn-ghost btn-sm"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(scene.prompt)
-                          notify('Đã sao chép mô tả cảnh')
-                        } catch {
-                          notify('Sao chép thất bại. Thử lại nhé.', 'error')
-                        }
-                      }}><Copy size={13} /> Sao chép mô tả</button>
-                  </>
+                {st === 'done' && scene.video_file && (
+                  <DownloadMenu base={`/projects/${id}/scenes/${scene.id}/download`} filename={`canh_${scene.index + 1}.mp4`} />
                 )}
-                {/* Tải video lên thay thế (thủ công) */}
-                <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
-                  <Upload size={13} /> Tải video lên thay thế
-                  <input type="file" accept="video/*" style={{ display: 'none' }}
-                    onChange={async e => {
-                      const f = e.target.files?.[0]; if (!f || !id) return
-                      try {
-                        notify(`Đang tải video lên cảnh ${scene.index + 1}...`)
-                        await projectsApi.importVideo(id, scene.id, f)
-                        notify(`Đã tải video lên cảnh ${scene.index + 1}`)
-                        load(true)
-                      } catch {
-                        notify('Tải video thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
-                      }
-                    }} />
-                </label>
-                {/* Đặt ảnh khung đầu (i2v) */}
-                <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }} title="Dùng ảnh này làm khung đầu">
-                  <ImagePlus size={13} /> Dùng ảnh này làm khung đầu
-                  <input type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={async e => {
-                      const f = e.target.files?.[0]; if (!f || !id) return
-                      try {
-                        await projectsApi.setStartImage(id, scene.id, f)
-                        notify(`Đã đặt ảnh khung đầu cho cảnh ${scene.index + 1}`)
-                        load(true)
-                      } catch {
-                        notify('Đặt ảnh khung đầu thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
-                      }
-                    }} />
-                </label>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
+                  <Pencil size={13} /> Sửa
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => rerenderScene(scene.id)}>
+                  <RefreshCw size={13} /> Tạo lại
+                </button>
+                <button className="btn btn-ghost btn-sm" title="Thêm thao tác"
+                  onClick={() => setMenuScene(m => m === scene.id ? null : scene.id)}
+                  style={{ marginLeft: 'auto', color: open ? 'var(--accent2)' : undefined }}>
+                  <MoreHorizontal size={15} />
+                </button>
               </div>
-            </div>
+
+              {/* Menu "⋯" — thao tác phụ */}
+              {open && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                  {st === 'done' && scene.video_file && (
+                    <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}
+                      onClick={async () => {
+                        try { await navigator.clipboard.writeText(scene.prompt); notify('Đã sao chép mô tả cảnh') }
+                        catch { notify('Sao chép thất bại. Thử lại nhé.', 'error') }
+                      }}><Copy size={13} /> Sao chép mô tả</button>
+                  )}
+                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', justifyContent: 'flex-start' }}>
+                    <Upload size={13} /> Tải video lên thay thế
+                    <input type="file" accept="video/*" style={{ display: 'none' }}
+                      onChange={async e => {
+                        const f = e.target.files?.[0]; if (!f || !id) return
+                        try {
+                          notify(`Đang tải video lên cảnh ${scene.index + 1}...`)
+                          await projectsApi.importVideo(id, scene.id, f)
+                          notify(`Đã tải video lên cảnh ${scene.index + 1}`)
+                          load(true)
+                        } catch {
+                          notify('Tải video thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                        }
+                      }} />
+                  </label>
+                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', justifyContent: 'flex-start' }} title="Dùng ảnh này làm khung đầu (i2v)">
+                    <ImagePlus size={13} /> Dùng ảnh làm khung đầu
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={async e => {
+                        const f = e.target.files?.[0]; if (!f || !id) return
+                        try {
+                          await projectsApi.setStartImage(id, scene.id, f)
+                          notify(`Đã đặt ảnh khung đầu cho cảnh ${scene.index + 1}`)
+                          load(true)
+                        } catch {
+                          notify('Đặt ảnh khung đầu thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                        }
+                      }} />
+                  </label>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div>
-      {/* CSS bố cục 2 cột + responsive */}
+      {/* CSS bố cục 2 cột + lưới cảnh + responsive */}
       <style>{`
         .tp-grid{display:grid;grid-template-columns:286px 1fr;gap:16px;align-items:start}
         .tp-left{position:sticky;top:16px}
-        .tp-row:hover{background:rgba(255,255,255,0.04)!important}
+        .tp-row:hover{background:rgba(255,255,255,0.04)}
+        .scene-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px;align-items:start}
         @media(max-width:860px){
           .tp-grid{grid-template-columns:1fr}
           .tp-left{position:static}
@@ -613,78 +609,122 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         )}
       </div>
 
-      {/* Cảnh — 2 cột khi truyện nhiều phần, 1 cột khi 1 phần */}
+      {/* Cảnh — 2 cột khi truyện nhiều phần, lưới cảnh 1 cột khi 1 phần */}
       {multiPart ? (
-        <div className="tp-grid">
-          {/* Cột trái: danh sách Phần */}
-          <div className="card tp-left" style={{ padding: 0, maxHeight: 'calc(100dvh - 96px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>Các phần</span>
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{partNums.length}</span>
-            </div>
-            <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-              <input className="form-input" placeholder="Tìm phần…" value={partSearch}
-                onChange={e => setPartSearch(e.target.value)} style={{ fontSize: 12, padding: '6px 10px', width: '100%' }} />
-            </div>
-            <div className="tp-list" style={{ overflowY: 'auto', padding: 6, flex: 1 }}>
-              {partNums.filter(p => {
-                const q = partSearch.trim().toLowerCase()
-                if (!q) return true
-                return String(p).includes(q) || `phần ${p}`.includes(q) || partScript(p).toLowerCase().includes(q)
-              }).map(p => {
+        <>
+          {/* Chip lọc phần */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            {([
+              ['all', 'Tất cả phần', ''],
+              ['active', 'Đang tạo', 'var(--accent)'],
+              ['failed', 'Có lỗi', 'var(--red)'],
+              ['unrendered', 'Chưa render', 'var(--border2)'],
+            ] as const).map(([key, label, dot]) => {
+              const count = key === 'all' ? partNums.length : partNums.filter(p => {
                 const ps = scenesOfPart(p)
-                const done = ps.filter(s => s.status === 'done').length
-                const st = partStatusOf(ps)
-                const title = partScript(p)
-                const sel = p === selectedPart
-                return (
-                  <button key={p} className="tp-row" onClick={() => setSelectedPart(p)} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                    padding: '9px 10px', borderRadius: 10, cursor: 'pointer', marginBottom: 2,
-                    border: `1px solid ${sel ? 'rgba(249,115,22,0.3)' : 'transparent'}`,
-                    background: sel ? 'rgba(249,115,22,0.1)' : 'transparent', color: 'inherit',
-                  }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dotColor(st) }} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: sel ? 'var(--accent2)' : 'var(--text)' }}>Phần {p}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{done}/{ps.length}</span>
-                      </span>
-                      {title && <span style={{ display: 'block', fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{title}</span>}
-                      <span style={{ display: 'block', height: 3, borderRadius: 99, background: 'var(--border)', overflow: 'hidden', marginTop: 5 }}>
-                        <span style={{ display: 'block', height: '100%', borderRadius: 99, width: `${ps.length ? (done / ps.length) * 100 : 0}%`, background: st === 'failed' ? 'var(--red)' : 'var(--accent)' }} />
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+                if (key === 'active') return ps.some(s => s.status === 'pending' || s.status === 'processing')
+                if (key === 'failed') return ps.some(s => s.status === 'failed')
+                return ps.some(s => !s.video_file)
+              }).length
+              const on = partFilter === key
+              return (
+                <button key={key} onClick={() => {
+                  setPartFilter(key)
+                  const first = partNums.find(p => {
+                    const ps = scenesOfPart(p)
+                    if (key === 'active') return ps.some(s => s.status === 'pending' || s.status === 'processing')
+                    if (key === 'failed') return ps.some(s => s.status === 'failed')
+                    if (key === 'unrendered') return ps.some(s => !s.video_file)
+                    return true
+                  })
+                  if (first != null) setSelectedPart(first)
+                }} style={{
+                  fontSize: 12.5, fontWeight: 600, padding: '6px 13px', borderRadius: 99, cursor: 'pointer',
+                  border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border)'}`,
+                  background: on ? 'rgba(249,115,22,0.13)' : 'transparent',
+                  color: on ? 'var(--accent2)' : 'var(--text3)', display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                  {dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot }} />}
+                  {label}{key !== 'all' ? ` · ${count}` : ''}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Cột phải: cảnh của phần đang chọn */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-            {selectedPart != null && (() => {
-              const ps = scenesOfPart(selectedPart)
-              const done = ps.filter(s => s.status === 'done').length
-              return (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 Phần {selectedPart}</span>
-                    <span className="badge badge-done">{done}/{ps.length} cảnh</span>
-                  </div>
-                  {renderPartScript(selectedPart)}
-                  <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {ps.map(scene => renderSceneCard(scene))}
-                  </div>
-                </>
-              )
-            })()}
+          <div className="tp-grid">
+            {/* Cột trái: danh sách Phần */}
+            <div className="card tp-left" style={{ padding: 0, maxHeight: 'calc(100dvh - 96px)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Các phần</span>
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{partNums.length}</span>
+              </div>
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                <input className="form-input" placeholder="Tìm phần…" value={partSearch}
+                  onChange={e => setPartSearch(e.target.value)} style={{ fontSize: 12, padding: '6px 10px', width: '100%' }} />
+              </div>
+              <div className="tp-list" style={{ overflowY: 'auto', padding: 6, flex: 1 }}>
+                {partNums.filter(p => {
+                  if (!partMatchesFilter(p)) return false
+                  const q = partSearch.trim().toLowerCase()
+                  if (!q) return true
+                  return String(p).includes(q) || `phần ${p}`.includes(q) || partScript(p).toLowerCase().includes(q)
+                }).map(p => {
+                  const ps = scenesOfPart(p)
+                  const done = ps.filter(s => s.status === 'done').length
+                  const st = partStatusOf(ps)
+                  const title = partScript(p)
+                  const sel = p === selectedPart
+                  return (
+                    <button key={p} className="tp-row" onClick={() => setSelectedPart(p)} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                      padding: '9px 10px', borderRadius: 10, cursor: 'pointer', marginBottom: 2,
+                      border: `1px solid ${sel ? 'rgba(249,115,22,0.3)' : 'transparent'}`,
+                      background: sel ? 'rgba(249,115,22,0.1)' : 'transparent', color: 'inherit',
+                    }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dotColor(st) }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: sel ? 'var(--accent2)' : 'var(--text)' }}>Phần {p}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{done}/{ps.length}</span>
+                        </span>
+                        {title && <span style={{ display: 'block', fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{title}</span>}
+                        <span style={{ display: 'block', height: 3, borderRadius: 99, background: 'var(--border)', overflow: 'hidden', marginTop: 5 }}>
+                          <span style={{ display: 'block', height: '100%', borderRadius: 99, width: `${ps.length ? (done / ps.length) * 100 : 0}%`, background: st === 'failed' ? 'var(--red)' : 'var(--accent)' }} />
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Cột phải: cảnh của phần đang chọn */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+              {selectedPart != null && (() => {
+                const ps = scenesOfPart(selectedPart)
+                const done = ps.filter(s => s.status === 'done').length
+                return (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 Phần {selectedPart}</span>
+                      <span className="badge badge-done">{done}/{ps.length} cảnh</span>
+                    </div>
+                    {renderPartScript(selectedPart)}
+                    <div className="scene-grid">
+                      {ps.map(scene => renderSceneCard(scene))}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
           </div>
-        </div>
+        </>
       ) : (
-        <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {(partScript(1) || editPart === 1) ? renderPartScript(1) : null}
-          {scenes.map(scene => renderSceneCard(scene))}
+          <div className="scene-grid">
+            {scenes.map(scene => renderSceneCard(scene))}
+          </div>
         </div>
       )}
 
