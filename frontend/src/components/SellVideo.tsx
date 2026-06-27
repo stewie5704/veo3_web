@@ -100,7 +100,7 @@ export default function SellVideo() {
             <div className="card-header"><ShoppingBag size={15} /> Video bán hàng <small>Ảnh sản phẩm (+ KOL) → video mặc/cầm sản phẩm tự nhiên cho TikTok Shop</small></div>
 
             {/* Ảnh + mô tả — bố cục giống tool "Ảnh → Video": ảnh trái, mô tả phải */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
                 <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
@@ -120,7 +120,7 @@ export default function SellVideo() {
               <div style={{ flex: 1, minWidth: 240 }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Mô tả cảnh</div>
                 <div style={{ position: 'relative' }}>
-                  <textarea className="form-textarea" rows={4} style={{ minHeight: 'auto' }}
+                  <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
                     value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="Mô tả cảnh… hoặc bấm “Trợ lý viết” để tự khóa sản phẩm + kiểu quay tay tự nhiên." />
                   <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={aiPrompt}>
@@ -131,13 +131,13 @@ export default function SellVideo() {
             </div>
 
             {/* Tên sản phẩm — giúp trợ lý viết sát hơn */}
-            <input className="form-input" style={{ width: '100%', marginBottom: 20 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp trợ lý viết sát hơn"
+            <input className="form-input" style={{ width: '100%', marginBottom: 12 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp trợ lý viết sát hơn"
               value={name} onChange={e => setName(e.target.value)} />
 
-            {/* Bối cảnh */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Bối cảnh</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Bối cảnh — nhãn cùng hàng với chip cho gọn */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', width: 64, flexShrink: 0 }}>Bối cảnh</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
                 {SELL_SCENES.map(s => (
                   <button key={s.v} className={scene === s.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setScene(s.v)}>{s.label}</button>
                 ))}
@@ -145,9 +145,9 @@ export default function SellVideo() {
             </div>
 
             {/* Tông */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>Tông video</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', width: 64, flexShrink: 0 }}>Tông</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
                 {SELL_TONES.map(t => (
                   <button key={t.v} className={tone === t.v ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} onClick={() => setTone(t.v)}>{t.label}</button>
                 ))}
