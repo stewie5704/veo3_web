@@ -278,6 +278,7 @@ LỜI THOẠI: ...
 
   return (
     <div className="tool-flow">
+      {optOpen && <div className="sell-scrim" onMouseDown={() => setOptOpen(false)} />}
       <div className="tool-feed">
         {sellIds.length === 0 ? (
           <div className="empty-state" style={{ padding: '44px 20px' }}>
@@ -292,7 +293,7 @@ LỜI THOẠI: ...
         )}
       </div>
 
-      <div className="tool-composer">
+      <div className="tool-composer" style={optOpen ? { zIndex: 50 } : undefined}>
         <div className="card" style={{ margin: 0 }}>
           <div className="card-header"><ShoppingBag size={15} /> Video bán hàng
             <small>Ảnh sản phẩm (+ KOL) → video NHIỀU CẢNH nối mượt, tự ghép (dọc 9:16)</small></div>
@@ -414,7 +415,7 @@ LỜI THOẠI: ...
             )}
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
+          <button className="cmp-cta" style={{ width: '100%', justifyContent: 'center' }} onClick={doSell} disabled={loading || !product}>
             {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
           </button>
         </div>
