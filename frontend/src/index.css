@@ -471,6 +471,21 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .tool-feed{flex:1 1 auto}
 .tool-composer{position:sticky;bottom:14px;width:100%;max-width:680px;margin:0 auto;z-index:6}
 .tool-composer .card{margin:0;border-color:var(--border2);box-shadow:0 -12px 34px -14px rgba(0,0,0,.7),0 10px 30px -10px rgba(0,0,0,.55)}
+/* Tùy chọn video kiểu Flow: thanh tóm tắt thu gọn + popover bung lên khi bấm */
+.sell-optbar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  background:var(--inset);border:1px solid var(--border);border-radius:11px;padding:10px 13px;
+  color:var(--text2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.4);transition:border-color .15s}
+.sell-optbar:hover{border-color:var(--border2)}
+.sell-optbar .sum{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sell-optbar .sum svg{flex:none;color:var(--accent2)}
+.sell-optbar .sum b{color:var(--text);font-weight:750}
+.sell-optpop{position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:20;
+  background:linear-gradient(180deg,#1A1526,#141020);border:1px solid var(--border2);border-radius:14px;
+  padding:16px;box-shadow:0 -10px 40px -12px rgba(0,0,0,.7),0 22px 54px -12px rgba(0,0,0,.6);
+  max-height:62vh;overflow:auto;animation:optPop .14s ease-out}
+@keyframes optPop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.sell-optpop{animation:none}}
 /* Ô chọn ảnh kiểu "+" (Flow): vuông, dash, hiện thumbnail khi chọn */
 .img-add{flex:none;width:56px;height:56px;border-radius:12px;border:1px dashed var(--border2);background:var(--inset);display:grid;place-items:center;color:var(--accent2);cursor:pointer;overflow:hidden;transition:all .15s}
 .img-add:hover{border-color:var(--accent);background:var(--accent-dim)}

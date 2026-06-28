@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toolsApi, charactersApi, projectsApi } from '../api/client'
 import { pushLog } from '../pages/Dashboard'
 import DownloadMenu from './DownloadMenu'
-import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check } from 'lucide-react'
+import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check, SlidersHorizontal, ChevronUp } from 'lucide-react'
 
 const GEN_MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', short: '⚡ Lite · FREE' },
@@ -84,8 +84,20 @@ export default function SellVideo() {
   const [voice, setVoice] = useState('Kore')
   const [model, setModel] = useState(GEN_MODELS[0].key)
   const [loading, setLoading] = useState(false)
+  const [optOpen, setOptOpen] = useState(false)   // tùy chọn kiểu Flow: mặc định thu gọn, bấm mới bung
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
+  const optRef = useRef<HTMLDivElement>(null)
+
+  // Đóng popover tùy chọn khi bấm ra ngoài / nhấn Esc
+  useEffect(() => {
+    if (!optOpen) return
+    const onDown = (e: MouseEvent) => { if (optRef.current && !optRef.current.contains(e.target as Node)) setOptOpen(false) }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOptOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onEsc)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onEsc) }
+  }, [optOpen])
 
   function suggestIdea() {
     setBox(`Khoe ${name.trim() || 'sản phẩm'} ${SCENE_VI[scene]}, tông ${TONE_VI[tone]}: mở bằng hook bắt mắt, nêu 2-3 điểm nổi bật (chất liệu / giá / ưu đãi), kết bằng lời kêu gọi mua ở giỏ hàng.`)
@@ -258,6 +270,12 @@ LỜI THOẠI: ...
     )
   }
 
+  const modelShort = GEN_MODELS.find(m => m.key === model)?.short || ''
+  const voiceLabel = VOICES.find(v => v.v === voice)?.label || ''
+  const sceneLabel = SELL_SCENES.find(s => s.v === scene)?.label || ''
+  const toneLabel = SELL_TONES.find(t => t.v === tone)?.label || ''
+  const langLabel = lang === 'vi' ? '🇻🇳 Việt' : '🇺🇸 English'
+
   return (
     <div className="tool-flow">
       <div className="tool-feed">
@@ -320,8 +338,15 @@ LỜI THOẠI: ...
             </div>
           </div>
 
-          {/* Tùy chọn kiểu Flow — segmented + stepper + dropdown (đồng bộ trang Tạo) */}
-          <div className="cmp-settings" style={{ marginBottom: 10 }}>
+          {/* Tùy chọn kiểu Flow: thu gọn 1 thanh tóm tắt; bấm để bung bảng đầy đủ (popover lên trên) */}
+          <div ref={optRef} style={{ position: 'relative', marginBottom: 12 }}>
+            <button type="button" className="sell-optbar" onClick={() => setOptOpen(o => !o)} aria-expanded={optOpen} title="Tùy chọn video">
+              <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · {langLabel} · {voiceLabel} · {sceneLabel} · {toneLabel}</span>
+              <ChevronUp size={16} style={{ flex: 'none', color: 'var(--text3)', transition: 'transform .15s', transform: optOpen ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {optOpen && (
+            <div className="sell-optpop">
+            <div className="cmp-settings" style={{ marginBottom: 0 }}>
             <div className="cmp-ctrl">
               <div className="cmp-label">Bối cảnh</div>
               <div className="selwrap">
@@ -383,8 +408,11 @@ LỜI THOẠI: ...
                 <Chev />
               </div>
             </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 14 }}>nối khung · giữ người·giọng·sản phẩm · tự ghép</div>
+            </div>
+            )}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12 }}>nối khung · giữ người·giọng·sản phẩm · tự ghép</div>
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
             {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
