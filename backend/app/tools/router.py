@@ -901,6 +901,56 @@ Trả về JSON DUY NHẤT: {{"prompt":"<đoạn prompt tiếng Anh>"}} — KHÔ
     return {"prompt": p}
 
 
+class SellScriptRequest(BaseModel):
+    product: str = ""
+    scene: str = "street"
+    tone: str = "ugc"
+    scene_count: int = 5
+    language: str = "vi"
+    has_kol: bool = False
+
+
+@router.post("/sell-script")
+async def sell_script(body: SellScriptRequest, user: User = Depends(get_current_user)):
+    """Kịch bản NHIỀU CẢNH cho video bán hàng — NGƯỜI lấy từ ảnh ref (KHÔNG tả giới tính/ngoại hình -> hết bug
+    'nam ra nữ'), sản phẩm khoá, cảnh nối tiếp, UGC tự nhiên. Trả {scenes:[{prompt,narration}]}. Cần Gemini key."""
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key để dùng trợ lý (vào Cài đặt thêm key).")
+    n = max(1, min(12, int(body.scene_count or 5)))
+    product = _sanitize(body.product)[:120].strip() or "sản phẩm trong ảnh"
+    sc = _SCENE_VI.get(body.scene, _SCENE_VI["street"])
+    to = _TONE_VI.get(body.tone, _TONE_VI["ugc"])
+    lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    system = f"""Bạn là biên kịch + prompt-engineer cho Google Veo 3.1 làm video BÁN HÀNG affiliate TikTok Shop: dọc 9:16, kiểu UGC quay tay, {n} cảnh NỐI TIẾP (cảnh sau nối liền mạch cảnh trước).
+
+Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.
+
+QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI: dùng ĐÚNG người trong ẢNH THAM CHIẾU. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100% diện mạo + giới tính). Trong prompt CHỈ gọi "the person" / "they". KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man"/"a girl"/"young".
+
+Trả về JSON DUY NHẤT:
+{{"scenes":[
+  {{"prompt":"<MỘT đoạn TIẾNG ANH cho Veo: [cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [the person cầm/mặc/dùng & khoe sản phẩm, hành động cụ thể nối tiếp cảnh trước] -> [bối cảnh + ánh sáng tự nhiên CÓ NGUỒN] -> [UGC quay tay: handheld nhẹ, da thật, KHÔNG bóng bẩy]. BẮT BUỘC chèn: 'keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it'. KHÔNG tả ngoại hình/giới tính người. KHÔNG lời thoại/ngoặc kép/says/voiceover.>",
+   "narration":"<lời thoại bán hàng {lang_label} ~1 câu cho cảnh, tự nhiên, nối mạch>"}}
+  ... ĐÚNG {n} cảnh ...
+]}}
+KHÔNG markdown, KHÔNG chữ ngoài JSON."""
+    try:
+        res = await asyncio.to_thread(_gemini_json, dec(user.gemini_api_key), system, 4096)
+    except Exception as e:
+        log.warning("sell-script lỗi: %s", e)
+        raise HTTPException(500, "Trợ lý viết kịch bản đang lỗi, thử lại.")
+    scenes = res.get("scenes") if isinstance(res, dict) else None
+    if not isinstance(scenes, list) or not scenes:
+        raise HTTPException(500, "Trợ lý chưa viết được kịch bản, thử lại.")
+    out = []
+    for s in scenes:
+        if isinstance(s, dict) and str(s.get("prompt", "")).strip():
+            out.append({"prompt": str(s["prompt"]).strip(), "narration": str(s.get("narration", "")).strip()})
+    if not out:
+        raise HTTPException(500, "Kịch bản rỗng, thử lại.")
+    return {"scenes": out[:n]}
+
+
 # ── TTS ───────────────────────────────────────────────────────────────────────
 
 class TTSRequest(BaseModel):

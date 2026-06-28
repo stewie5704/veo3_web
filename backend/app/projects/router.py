@@ -231,6 +231,7 @@ class ProjectResponse(BaseModel):
     voiceover: bool = False
     voice: str = "Kore"
     stopped: bool = False
+    merged_file: str | None = None   # video đã ghép (final.mp4) khi mọi cảnh xong -> hiện ở feed
     character_bible: list = []   # dàn nhân vật đã khóa -> gửi lại làm cast khi thêm phần
     created_at: datetime
     updated_at: datetime
@@ -295,6 +296,7 @@ def proj_to_resp(p: Project) -> ProjectResponse:
         voiceover=bool(getattr(p, "voiceover", False)),
         voice=getattr(p, "voice", "Kore") or "Kore",
         stopped=bool(getattr(p, "stopped", False)),
+        merged_file=getattr(p, "merged_file", None),
         character_bible=_safe_bible(getattr(p, "character_bible", None)),
         created_at=p.created_at, updated_at=p.updated_at,
     )
