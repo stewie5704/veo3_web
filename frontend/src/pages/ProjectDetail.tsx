@@ -155,6 +155,19 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
+  async function deleteScene(sceneId: string, sceneIdx: number) {
+    if (!id) return
+    if (!window.confirm(`Xoá cảnh ${sceneIdx + 1}? Không thể hoàn tác — các cảnh sau sẽ dồn số lại.`)) return
+    setMenuScene(null)
+    try {
+      await projectsApi.deleteScene(id, sceneId)
+      notify(`Đã xoá cảnh ${sceneIdx + 1}`)
+      load(true)
+    } catch (e: any) {
+      notify(e?.response?.data?.detail || 'Xoá cảnh thất bại', 'error')
+    }
+  }
+
   async function doMerge() {
     if (!id) return
     setMerging(true); setMergeUrl(null)
@@ -497,6 +510,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                         }
                       }} />
                   </label>
+                  <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start', color: 'var(--red)' }}
+                    onClick={() => deleteScene(scene.id, scene.index)} title="Xoá hẳn cảnh này khỏi dự án">
+                    <Trash2 size={13} /> Xoá cảnh
+                  </button>
                 </div>
               )}
             </>

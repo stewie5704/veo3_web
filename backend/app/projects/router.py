@@ -21,7 +21,7 @@ from app.auth.router import get_current_user
 from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
 from app.characters.models import Character
-from app.pipeline.runner import dispatch_scene, generate_images_flow
+from app.pipeline.runner import dispatch_scene, generate_images_flow, _try_auto_merge
 from app.config import UPLOAD_PATH
 from app.crypto import dec
 from app import subscription
@@ -606,6 +606,38 @@ async def update_scene(
         scene.start_image = body.start_image
     await db.commit()
     return scene_to_resp(scene)
+
+
+@router.delete("/{project_id}/scenes/{scene_id}")
+async def delete_scene(
+    project_id: str, scene_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Xoá hẳn 1 cảnh khỏi dự án. index là GLOBAL toàn dự án nên re-index 0..n-1 cho liền mạch
+    (nhãn "Cảnh N" gọn + ghép đúng thứ tự). Mọi cảnh còn lại đã xong -> ghép lại final.mp4 ngay."""
+    scene = await db.get(Scene, scene_id)
+    if not scene or scene.project_id != project_id or scene.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy scene")
+    if scene.status == SceneStatus.processing:
+        raise HTTPException(400, "Cảnh đang render — dừng hoặc đợi xong rồi mới xoá được")
+    res0 = await db.execute(select(Scene).where(Scene.project_id == project_id).order_by(Scene.index))
+    all_scenes = res0.scalars().all()
+    if len(all_scenes) <= 1:
+        raise HTTPException(400, "Không thể xoá cảnh cuối cùng — hãy xoá cả dự án nếu muốn")
+    await db.delete(scene)
+    await db.flush()
+    remaining = [s for s in all_scenes if s.id != scene_id]
+    for i, s in enumerate(remaining):
+        if s.index != i:
+            s.index = i
+    await _invalidate_merge(db, project_id)
+    all_done = bool(remaining) and all(s.status == SceneStatus.done for s in remaining)
+    await db.commit()
+    if all_done:
+        background_tasks.add_task(_try_auto_merge, project_id)
+    return {"ok": True}
 
 
 @router.post("/{project_id}/scenes/{scene_id}/rerender")
