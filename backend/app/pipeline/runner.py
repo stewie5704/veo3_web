@@ -1029,7 +1029,12 @@ async def _try_auto_merge(project_id: str):
                 list_path = f.name
             proc = await asyncio.create_subprocess_exec(
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path,
-                "-c", "copy", str(tmp_path),
+                # Video: copy (mọi cảnh cùng 720×1280 / 24fps / h264 → ghép lossless, nhanh).
+                # Audio: PHẢI re-encode về 1 luồng AAC liền mạch. Concat "-c copy" nhiều file AAC
+                # tạo frame hỏng ở mối nối (channel element not allocated / Invalid data) → pop /
+                # mất tiếng trên web/mobile. -ar/-ac ép đồng nhất; +faststart cho phát web mượt.
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+                "-movflags", "+faststart", str(tmp_path),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )
             await asyncio.wait_for(proc.communicate(), timeout=600)

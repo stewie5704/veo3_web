@@ -143,7 +143,11 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
                 f.write(f"file '{vf.as_posix()}'\n")
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-            "-i", str(concat_file), "-c", "copy", str(out_path),
+            "-i", str(concat_file),
+            # Audio re-encode → 1 luồng AAC sạch (concat "-c copy" nhiều AAC = frame hỏng ở mối
+            # nối → pop/mất tiếng). Video copy vì mọi cảnh cùng thông số. +faststart cho web.
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+            "-movflags", "+faststart", str(out_path),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
