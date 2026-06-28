@@ -44,7 +44,7 @@ const HTML = `
   <div class="inner">
     <section class="hero">
       <div class="reveal">
-        <div class="pill"><span class="d"></span>Tạo phim AI bằng Veo 3.1</div>
+        <div class="pill"><span class="d"></span>🎁 Dùng thử miễn phí 24h · Veo 3.1</div>
         <h1>Một dòng ý tưởng,<br/>thành <span class="g">bộ phim AI</span> hoàn chỉnh.</h1>
         <p class="lead">AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật qua từng cảnh, render bằng Veo 3.1 rồi ghép thành video. Bạn chỉ cần ý tưởng — phần còn lại để AI lo.</p>
         <div class="cta-row">
@@ -156,47 +156,52 @@ const HTML = `
 
   <section class="blk" id="pricing"><div class="inner">
     <div class="eyebrow reveal">Bảng giá</div>
-    <h2 class="h2 reveal">Bắt đầu miễn phí, nâng gói khi cần</h2>
-    <p class="sub reveal">Hủy bất cứ lúc nào. Mọi gói đều dùng được toàn bộ tính năng làm phim.</p>
+    <h2 class="h2 reveal">Dùng thử miễn phí, nâng Pro khi cần</h2>
+    <p class="sub reveal">Mở tài khoản là có ngay <b>24 giờ tạo video miễn phí</b> — không cần thẻ. Thích thì nâng Pro chỉ từ <b>249k/tháng</b>.</p>
     <div class="price">
       <div class="pcard reveal">
-        <div class="name">Basic</div>
-        <div class="amt">99k<small>/tháng</small></div>
+        <span class="tag" style="background:rgba(249,115,22,.14);color:var(--accent);border:1px solid var(--line2)">DÙNG THỬ</span>
+        <div class="name">Miễn phí</div>
+        <div class="amt">0đ<small>/24 giờ đầu</small></div>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Tạo dự án không giới hạn</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Model Veo 3.1 Lite</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Giữ mặt &amp; tự ghép</li>
+          <li>${CHECK_SVG} <b>24 giờ</b> tạo video thả ga</li>
+          <li>${CHECK_SVG} Model Veo 3.1 Lite — <b>FREE</b></li>
+          <li>${CHECK_SVG} Giữ mặt &amp; tự ghép phim</li>
+          <li>${CHECK_SVG} 150MB lưu trữ</li>
         </ul>
-        <a class="btn btn-ghost" href="/register">Chọn Basic</a>
+        <a class="btn btn-ghost" href="/register">Dùng thử miễn phí</a>
       </div>
       <div class="pcard hot reveal">
-        <span class="tag">Phổ biến</span>
+        <span class="tag">Phổ biến nhất</span>
         <div class="name">Pro</div>
-        <div class="amt">199k<small>/tháng</small></div>
+        <div class="amt">249k<small>/tháng</small></div>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Mọi thứ ở Basic</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Model Fast &amp; Quality</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Render hàng loạt</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Ưu tiên hàng đợi</li>
+          <li>${CHECK_SVG} Tạo video <b>không giới hạn</b></li>
+          <li>${CHECK_SVG} <b>Tất cả</b> model: Lite · Fast · Quality</li>
+          <li>${CHECK_SVG} Render hàng loạt + ưu tiên hàng đợi</li>
+          <li>${CHECK_SVG} <b>1GB</b> lưu trữ</li>
+          <li>${CHECK_SVG} Hỗ trợ ưu tiên (Telegram/Zalo)</li>
         </ul>
-        <a class="btn btn-grad" href="/register">Chọn Pro</a>
+        <a class="btn btn-grad" href="/register">Nâng Pro ngay</a>
       </div>
       <div class="pcard reveal">
-        <div class="name">Pro năm</div>
-        <div class="amt">1.990k<small>/năm</small></div>
+        <span class="tag" style="background:rgba(16,185,129,.14);color:var(--green);border:1px solid var(--line2)">TIẾT KIỆM 13%</span>
+        <div class="name">Pro · 12 tháng</div>
+        <div class="amt">2.599k<small>/năm</small></div>
         <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Mọi thứ ở Pro</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Tiết kiệm ~17%</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Thanh toán 1 lần/năm</li>
+          <li>${CHECK_SVG} Mọi thứ ở gói Pro</li>
+          <li>${CHECK_SVG} Chỉ <b>~217k/tháng</b> — rẻ hơn 13%</li>
+          <li>${CHECK_SVG} Thanh toán 1 lần, dùng cả năm</li>
         </ul>
-        <a class="btn btn-ghost" href="/register">Chọn Pro năm</a>
+        <a class="btn btn-ghost" href="/register">Chọn gói năm</a>
       </div>
     </div>
+    <p class="sub reveal" style="margin-top:16px;font-size:13px">Còn gói <b>6 tháng — 1.419k</b> (tiết kiệm 5%). Mọi gói Pro đều <b>1GB</b> lưu trữ &amp; full tính năng. Hủy bất cứ lúc nào.</p>
 
     <div class="band reveal">
       <div class="band-left">
         <h2>Bắt đầu tạo video của bạn<br/>ngay hôm nay</h2>
-        <p>Dùng thử miễn phí. Không cần thẻ tín dụng.</p>
+        <p>Mở tài khoản nhận ngay <b>24h tạo video miễn phí</b> — không cần thẻ tín dụng.</p>
         <div class="band-form">
           <input class="band-input" type="text" placeholder="Nhập ý tưởng của bạn..." onclick="window.location='/register'" readonly />
           <a class="btn btn-grad" href="/register">Tạo video ngay</a>
@@ -215,7 +220,7 @@ const HTML = `
         <p class="foot-desc">Nền tảng AI tạo video giúp bạn biến ý tưởng thành những video chuyên nghiệp trong vài phút.</p>
       </div>
       <div class="fcol"><b>Sản phẩm</b><a href="#features">Tính năng</a><a href="#pricing">Bảng giá</a><a href="#">API</a><a href="#">Blog</a></div>
-      <div class="fcol"><b>Hỗ trợ</b><a href="/guide">Hướng dẫn</a><a href="#">Trung tâm trợ giúp</a><a href="#">Liên hệ</a></div>
+      <div class="fcol"><b>Hỗ trợ</b><a href="/guide">Hướng dẫn</a><a href="https://t.me/thaidem57" target="_blank" rel="noreferrer">Telegram</a><a href="https://zalo.me/0366566303" target="_blank" rel="noreferrer">Zalo: 0366566303</a></div>
       <div class="fcol"><b>Công ty</b><a href="#">Về chúng tôi</a><a href="#">Blog</a><a href="#">Tuyển dụng</a></div>
       <div class="fcol"><b>Chính sách</b><a href="#">Điều khoản sử dụng</a><a href="#">Chính sách bảo mật</a><a href="#">Tiếng Việt</a></div>
     </div>
