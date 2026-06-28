@@ -6,11 +6,13 @@ import DownloadMenu from './DownloadMenu'
 import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check } from 'lucide-react'
 
 const GEN_MODELS = [
-  { key: 'veo_3_1_t2v_lite_low_priority', label: 'Lite (Lower Priority) — FREE' },
-  { key: 'veo_3_1_t2v_lite', label: 'Lite — 5💎/cảnh' },
-  { key: 'veo_3_1_t2v_fast_portrait_ultra', label: 'Fast — 10💎/cảnh' },
-  { key: 'veo_3_1_t2v_portrait', label: 'Quality — 100💎/cảnh' },
+  { key: 'veo_3_1_t2v_lite_low_priority', short: '⚡ Lite · FREE' },
+  { key: 'veo_3_1_t2v_lite', short: '⚡ Lite · 5💎' },
+  { key: 'veo_3_1_t2v_fast_portrait_ultra', short: '🚀 Fast · 10💎' },
+  { key: 'veo_3_1_t2v_portrait', short: '💎 Quality · 100💎' },
 ]
+// select gọn kiểu Flow: tự co theo nội dung, xếp 1 hàng cuộn
+const OPT = { width: 'auto', minWidth: 0, flex: '0 0 auto', fontSize: 12.5, paddingTop: 7, paddingBottom: 7, paddingLeft: 10, paddingRight: 26 }
 const SELL_SCENES = [
   { v: 'street', label: '🏙️ Đường phố' }, { v: 'studio', label: '🎬 Studio' },
   { v: 'cafe', label: '☕ Quán cafe' }, { v: 'home', label: '🏠 Tại nhà' },
@@ -81,7 +83,6 @@ export default function SellVideo() {
   const [lang, setLang] = useState('vi')
   const [voice, setVoice] = useState('Kore')
   const [model, setModel] = useState(GEN_MODELS[0].key)
-  const [showAdv, setShowAdv] = useState(false)
   const [loading, setLoading] = useState(false)
   const prodRef = useRef<HTMLInputElement>(null)
   const kolRef = useRef<HTMLInputElement>(null)
@@ -319,55 +320,32 @@ LỜI THOẠI: ...
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bối cảnh</label>
-              <select className="form-select" value={scene} onChange={e => setScene(e.target.value)}>
-                {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
-              </select></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Tông video</label>
-              <select className="form-select" value={tone} onChange={e => setTone(e.target.value)}>
-                {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
-              </select></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Ngôn ngữ</label>
-              <select className="form-select" value={lang} onChange={e => setLang(e.target.value)}>
-                <option value="vi">🇻🇳 Tiếng Việt</option>
-                <option value="en">🇺🇸 English</option>
-              </select></div>
+          {/* Tùy chọn gọn kiểu Flow — 1 hàng chip cuộn */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+            <select className="form-select" style={OPT} value={scene} onChange={e => setScene(e.target.value)} title="Bối cảnh">
+              {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+            </select>
+            <select className="form-select" style={OPT} value={tone} onChange={e => setTone(e.target.value)} title="Tông video">
+              {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+            </select>
+            <select className="form-select" style={OPT} value={lang} onChange={e => setLang(e.target.value)} title="Ngôn ngữ">
+              <option value="vi">🇻🇳 Tiếng Việt</option>
+              <option value="en">🇺🇸 English</option>
+            </select>
+            <select className="form-select" style={OPT} value={sceneCount} onChange={e => setSceneCount(+e.target.value)} title="Số cảnh (khi AI viết kịch bản)">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>🎬 {n} cảnh</option>)}
+            </select>
+            <select className="form-select" style={OPT} value={dur} onChange={e => setDur(+e.target.value)} title="Thời lượng mỗi cảnh">
+              {[4, 6, 8, 10].map(d => <option key={d} value={d}>⏱ {d}s</option>)}
+            </select>
+            <select className="form-select" style={OPT} value={voice} onChange={e => setVoice(e.target.value)} title="Giọng đọc">
+              {VOICES.map(v => <option key={v.v} value={v.v}>🔊 {v.label}</option>)}
+            </select>
+            <select className="form-select" style={{ ...OPT, minWidth: 128 }} value={model} onChange={e => setModel(e.target.value)} title="Chất lượng video">
+              {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.short}</option>)}
+            </select>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 10, marginBottom: 10 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Số cảnh <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(khi AI viết)</span></label>
-              <div className="stepper">
-                <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
-                <input type="number" min={1} max={12} value={sceneCount}
-                  onChange={e => setSceneCount(Math.min(12, Math.max(1, +e.target.value || 1)))} />
-                <button type="button" onClick={() => setSceneCount(c => Math.min(12, c + 1))}>+</button>
-              </div>
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng / cảnh</label>
-              <div className="seg2">
-                {[4, 6, 8, 10].map(d => <button key={d} type="button" className={dur === d ? 'on' : ''} onClick={() => setDur(d)}>{d}s</button>)}
-              </div>
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Giọng đọc</label>
-              <select className="form-select" value={voice} onChange={e => setVoice(e.target.value)}>
-                {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}
-              </select></div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-            <button onClick={() => setShowAdv(v => !v)}
-              style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              ⚙ {GEN_MODELS.find(m => m.key === model)?.label || 'Chất lượng'} {showAdv ? '▴' : '▾'}
-            </button>
-            <span style={{ fontSize: 11, color: 'var(--text3)' }}>· nối khung · giữ người·giọng·sản phẩm · tự ghép</span>
-            {showAdv && (
-              <select className="form-select" style={{ flex: 1, minWidth: 180 }} value={model} onChange={e => setModel(e.target.value)}>
-                {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-              </select>
-            )}
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12 }}>nối khung · giữ người·giọng·sản phẩm · tự ghép</div>
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
             {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
