@@ -48,6 +48,9 @@ def _lightweight_migrate(conn):
         ("users", "affiliate_rate_locked", "BOOLEAN DEFAULT FALSE"),
         ("users", "wallet_balance", "INTEGER DEFAULT 0"),
         ("users", "auto_renew", "BOOLEAN DEFAULT FALSE"),
+        ("users", "email_verified", "BOOLEAN DEFAULT FALSE"),
+        ("users", "email_verify_code", "VARCHAR(8)"),
+        ("users", "email_verify_sent_at", "TIMESTAMP"),
         ("projects", "character_bible", "TEXT"),
     ]
     for table, col, ddl in adds:
@@ -60,6 +63,9 @@ def _lightweight_migrate(conn):
     # -> tự tạo unique index để khớp DB fresh (NULL được phép trùng trên cả SQLite & Postgres)
     if "users" in existing:
         conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_referral_code ON users (referral_code)"))
+    # Grandfather: user tồn tại TRƯỚC khi có xác minh email -> coi như đã xác minh (chỉ chạy 1 lần, lúc cột vừa thêm).
+    if "users" in existing and "email_verified" not in existing["users"]:
+        conn.execute(text("UPDATE users SET email_verified = TRUE"))
 
 
 async def init_db():

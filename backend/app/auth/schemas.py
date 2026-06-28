@@ -29,6 +29,8 @@ class UserResponse(BaseModel):
     plan: str = "free"
     plan_active: bool = False
     referred_by: str | None = None   # id người giới thiệu (đã có -> không cho đổi)
+    email_verified: bool = True      # default True để user cũ/thiếu cột không bị chặn nhầm
+    email_verify_required: bool = False   # cờ hệ thống (settings) — frontend dựa vào để bắt xác minh
 
     model_config = {"from_attributes": True}
 
@@ -39,3 +41,7 @@ class UpdateGeminiKey(BaseModel):
 
 class ApplyRefRequest(BaseModel):
     ref: str   # mã giới thiệu nhập sau khi đăng ký (trang Hồ sơ)
+
+
+class VerifyEmailRequest(BaseModel):
+    code: str   # mã 6 số xác minh email

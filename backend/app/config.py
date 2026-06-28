@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # Video output upscale: hybrid (Flow real-HD then ffmpeg fallback) | flow | ffmpeg | off
     upscale_mode: str = "hybrid"
 
+    # Email (Resend) — xác minh email khi đăng ký. Key/from đặt trong .env.
+    resend_api_key: str = ""
+    email_from: str = "AI AutoCut <no-reply@aiautocut.com>"
+    email_verify_required: bool = False   # True = bắt buộc xác minh email mới tạo được video
+
     class Config:
         env_file = ".env"
 

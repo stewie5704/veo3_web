@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
+from app.config import settings
 from app.plans import PLANS
 
 
@@ -128,7 +129,9 @@ async def storage_used(db, user_id: str) -> int:
 
 
 def ensure_can_generate(user) -> None:
-    """Raise HTTP 402 if the user can't generate (no active plan and trial expired)."""
+    """Raise HTTP 403/402 nếu không được tạo: chưa xác minh email, hoặc hết trial & chưa có gói."""
+    if settings.email_verify_required and not getattr(user, "email_verified", True):
+        raise HTTPException(status_code=403, detail="Vui lòng xác minh email trước khi tạo nội dung.")
     if not can_generate(user):
         raise HTTPException(status_code=402,
                             detail="Hết 24h dùng thử miễn phí. Nâng gói để tiếp tục tạo nội dung.")
@@ -140,6 +143,6 @@ async def ensure_storage(db, user) -> None:
     used = await storage_used(db, user.id)
     if used >= limit:
         mb = limit // (1024 * 1024)
-        nxt = "Nâng gói để có 1.5GB." if not is_active(user) else "Xóa bớt video cũ để giải phóng."
+        nxt = "Nâng gói để có 1GB." if not is_active(user) else "Xóa bớt video cũ để giải phóng."
         raise HTTPException(status_code=402,
                             detail=f"Đã đầy dung lượng lưu trữ ({mb}MB). {nxt}")

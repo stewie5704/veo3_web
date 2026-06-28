@@ -43,6 +43,8 @@ export const authApi = {
   me: () => api.get('/auth/me').then(r => r.data),
   saveGeminiKey: (api_key: string) => api.post('/auth/gemini-key', { api_key }).then(r => r.data),
   applyRef: (ref: string) => api.post('/auth/apply-ref', { ref }).then(r => r.data),
+  verifyEmail: (code: string) => api.post('/auth/verify-email', { code }).then(r => r.data),
+  resendVerification: () => api.post('/auth/resend-verification').then(r => r.data),
 }
 
 type GenFields = { prompt: string; model_key?: string; aspect_ratio?: string; duration_seconds?: number }

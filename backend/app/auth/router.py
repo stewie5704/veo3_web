@@ -3,17 +3,28 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+import secrets
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
 from app.auth.models import User
-from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateGeminiKey, ApplyRefRequest
+from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateGeminiKey, ApplyRefRequest, VerifyEmailRequest
 from app.auth.utils import hash_password, verify_password, create_access_token, decode_token
 from app.crypto import enc
+from app.config import settings
+from app.email import send_verification_email
 from app import subscription
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer()
+
+
+def _gen_code() -> str:
+    return f"{secrets.randbelow(900000) + 100000}"   # mã 6 chữ số (100000–999999)
+
+
+def _naive_utc() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 async def get_current_user(
@@ -43,10 +54,14 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if existing_u.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username đã tồn tại")
 
+    code = _gen_code()
     user = User(
         email=body.email,
         username=body.username,
         hashed_password=hash_password(body.password),
+        email_verified=False,
+        email_verify_code=code,
+        email_verify_sent_at=_naive_utc(),
     )
     db.add(user)
     await db.flush()   # assign user.id before generating code / linking referrer
@@ -63,6 +78,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email hoặc username đã tồn tại")
     await db.refresh(user)
 
+    # Gửi mã xác minh (best-effort — KHÔNG để lỗi gửi mail làm hỏng đăng ký)
+    await send_verification_email(user.email, code)
     token = create_access_token({"sub": user.id})
     return TokenResponse(access_token=token)
 
@@ -102,6 +119,8 @@ async def me(user: User = Depends(get_current_user)):
         plan=user.plan,
         plan_active=subscription.is_active(user),
         referred_by=user.referred_by,
+        email_verified=bool(user.email_verified),
+        email_verify_required=settings.email_verify_required,
     )
 
 
@@ -123,6 +142,49 @@ async def apply_ref(
         raise HTTPException(status_code=404, detail="Mã giới thiệu không tồn tại hoặc không hợp lệ.")
     await db.commit()
     return {"ok": True, "referred_by": user.referred_by}
+
+
+def _sent_aware(user) -> datetime | None:
+    s = user.email_verify_sent_at
+    return s.replace(tzinfo=timezone.utc) if (s and s.tzinfo is None) else s
+
+
+@router.post("/verify-email")
+async def verify_email(
+    body: VerifyEmailRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.email_verified:
+        return {"ok": True, "already": True}
+    sent = _sent_aware(user)
+    if not sent or datetime.now(timezone.utc) - sent > timedelta(minutes=15):
+        raise HTTPException(status_code=400, detail="Mã đã hết hạn. Bấm gửi lại mã.")
+    if not user.email_verify_code or (body.code or "").strip() != user.email_verify_code:
+        raise HTTPException(status_code=400, detail="Mã không đúng.")
+    user.email_verified = True
+    user.email_verify_code = None
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.email_verified:
+        return {"ok": True, "already": True}
+    sent = _sent_aware(user)
+    if sent and datetime.now(timezone.utc) - sent < timedelta(seconds=60):
+        raise HTTPException(status_code=429, detail="Vui lòng đợi 60 giây rồi gửi lại.")
+    code = _gen_code()
+    user.email_verify_code = code
+    user.email_verify_sent_at = _naive_utc()
+    await db.commit()
+    if not await send_verification_email(user.email, code):
+        raise HTTPException(status_code=502, detail="Gửi email thất bại, thử lại sau.")
+    return {"ok": True}
 
 
 @router.post("/gemini-key")

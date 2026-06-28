@@ -45,5 +45,10 @@ class User(Base):
     wallet_balance: Mapped[int] = mapped_column(Integer, default=0)     # số dư ví (VND); hiển thị T coin = /10000
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=False)    # tự gia hạn gói từ ví
 
+    # Xác minh email (Resend): user cũ được grandfather = True trong _lightweight_migrate
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_verify_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    email_verify_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

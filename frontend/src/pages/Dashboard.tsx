@@ -19,6 +19,7 @@ import Billing from './Billing'
 import Affiliate from './Affiliate'
 import Guide from './Guide'
 import Support from './Support'
+import VerifyEmail from './VerifyEmail'
 
 export const logStore: { msg: string; level: string; ts: string }[] = []
 export let logListeners: (() => void)[] = []
@@ -163,6 +164,11 @@ export default function Dashboard() {
 
   // Panel danh sách dự án chỉ hiện khi XEM chi tiết 1 dự án; màn "Tạo dự án" (/projects) để trống cho composer rộng.
   const isProjectDetail = /^\/projects\/[^/]+/.test(loc.pathname)
+
+  // Chặn vào app khi hệ thống bật xác minh email và user CHƯA xác minh.
+  if (user && user.email_verify_required && !user.email_verified) {
+    return <VerifyEmail email={user.email} onVerified={() => authApi.me().then(setUser)} />
+  }
 
   return (
     <div className="app-layout">
