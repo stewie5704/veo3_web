@@ -197,11 +197,14 @@ LỜI THOẠI: ...
     setError(''); setLoading(true)
     try {
       pushLog(`🛍️ Video bán hàng: đang upload ảnh${direct ? ` + đọc ${nScenes} cảnh có sẵn` : ` + viết kịch bản ${sceneCount} cảnh`}...`)
-      // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt (ảnh quyết định diện mạo + giới tính)
-      const prodTag = ((name.trim() || 'SanPham').replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 20)) || 'SanPham'
-      const prodChar = await charactersApi.add(prodTag, product)
+      // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt (ảnh quyết định diện mạo + giới tính).
+      // Hậu tố thời gian để KHÔNG đụng lỗi "đã tồn tại" khi tạo nhiều video (kho chung chặn trùng tên); dọn lại sau khi tạo.
+      const stamp = Date.now().toString(36).slice(-5)
+      const prodTag = ((name.trim() || 'SanPham').replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 16)) || 'SanPham'
+      const prodChar = await charactersApi.add(`${prodTag}_${stamp}`, product)
       const ids: string[] = [prodChar.id]
-      if (kol) { const k = await charactersApi.add('KOL', kol); ids.push(k.id) }
+      let kolChar: any = null
+      if (kol) { kolChar = await charactersApi.add(`KOL_${stamp}`, kol); ids.push(kolChar.id) }
 
       if (!direct) {
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
@@ -224,6 +227,8 @@ LỜI THOẠI: ...
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
       setSellIds(next); saveIds(next)
+      // Dự án đã CLONE ảnh sản phẩm/KOL thành bản riêng -> xoá nhân vật tạm khỏi kho chung cho gọn (lỗi cũng kệ)
+      Promise.allSettled([prodChar.id, ...(kolChar ? [kolChar.id] : [])].map(cid => charactersApi.delete(cid)))
       setProduct(null); setProductPrev(null); setKol(null); setKolPrev(null); setBox('')
       if (prodRef.current) prodRef.current.value = ''
       if (kolRef.current) kolRef.current.value = ''
