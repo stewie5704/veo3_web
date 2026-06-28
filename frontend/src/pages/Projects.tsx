@@ -129,6 +129,24 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     toolsApi.styles().then(setStyleList).catch(() => {})
   }, [])
 
+  // Spotlight viền theo chuột: cập nhật toạ độ con trỏ vào CSS var của surface đang rê (rAF throttle)
+  useEffect(() => {
+    let raf = 0
+    const onMove = (e: MouseEvent) => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        const el = (e.target as HTMLElement)?.closest?.('.fx-card') as HTMLElement | null
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        el.style.setProperty('--spot-x', `${e.clientX - r.left}px`)
+        el.style.setProperty('--spot-y', `${e.clientY - r.top}px`)
+      })
+    }
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => { window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
+  }, [])
+
   // Overlay "đang tạo" (manual): cuộn qua các bước ~1.8s để cảm giác đang chạy
   const overlayOn = mode === 'manual' && (loadingPrompts || creating)
   useEffect(() => {
@@ -293,6 +311,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   return (
     <div style={{ maxWidth: tab === 'sell' ? '100%' : 760, margin: '0 auto' }}>
+      <div className="fx-grain" aria-hidden="true" />
       {/* Overlay tiến trình khi phân tích + tạo (manual) — đỡ cảm giác chờ lâu */}
       {overlayOn && (() => {
         const StepIcon = CREATE_STEPS[loadStep].icon
@@ -323,7 +342,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
       {/* NEW — Composer 2 bước */}
       {tab === 'new' && (
-        <div className="composer">
+        <div className="composer fx-card">
           <div className="cmp-steps">
             <span className={step === 'setup' ? 'on' : ''}><i>01</i> Ý tưởng &amp; thiết lập</span>
             <span className="arr">→</span>
@@ -584,7 +603,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
       {/* TỪ PROMPT — mỗi ô = 1 cảnh của CÙNG 1 video -> ghép */}
       {tab === 'batch' && (
-        <div className="composer">
+        <div className="composer fx-card">
           <div className="cmp-body">
             <div className="cmp-titlerow">
               <span className="cmp-tlabel">Tên dự án</span>
@@ -676,7 +695,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
       {/* COPY */}
       {tab === 'copy' && (
-        <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card fx-card" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20, padding: '14px', background: 'rgba(249,115,22,0.05)', borderRadius: 10, border: '1px solid rgba(249,115,22,0.15)' }}>
             <span style={{ fontSize: 28 }}>🔍</span>
             <div>
@@ -704,7 +723,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           <div style={{ marginTop: 16 }}>
             <AudioPicker value={audioMode} onChange={setAudioMode} />
           </div>
-          <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
+          <button className="cmp-cta" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
             {copyLoading ? <><Loader2 size={13} className="spin" /> Đang phân tích video...</> : '🔍 Phân tích & Clone'}
           </button>
         </div>

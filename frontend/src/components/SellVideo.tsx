@@ -294,7 +294,7 @@ LỜI THOẠI: ...
       </div>
 
       <div className="tool-composer" style={optOpen ? { zIndex: 50 } : undefined}>
-        <div className="card" style={{ margin: 0 }}>
+        <div className="card fx-card" style={{ margin: 0 }}>
           <div className="card-header"><ShoppingBag size={15} /> Video bán hàng
             <small>Ảnh sản phẩm (+ KOL) → video NHIỀU CẢNH nối mượt, tự ghép (dọc 9:16)</small></div>
 
