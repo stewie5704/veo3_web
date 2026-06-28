@@ -295,9 +295,6 @@ LỜI THOẠI: ...
 
       <div className="tool-composer" style={optOpen ? { zIndex: 50 } : undefined}>
         <div className="card fx-card" style={{ margin: 0 }}>
-          <div className="card-header"><ShoppingBag size={15} /> Video bán hàng
-            <small>Ảnh sản phẩm (+ KOL) → video NHIỀU CẢNH nối mượt, tự ghép (dọc 9:16)</small></div>
-
           {error && <div className="alert alert-error" style={{ marginBottom: 12 }}><AlertCircle size={15} /> {error}</div>}
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap' }}>
@@ -334,13 +331,11 @@ LỜI THOẠI: ...
             </div>
             <textarea className="form-textarea" rows={5} style={{ width: '100%' }} value={box} onChange={e => setBox(e.target.value)}
               placeholder={'Gõ ý tưởng tiếng Việt → AI tự viết kịch bản & tạo prompt.\nHoặc dán prompt / kịch bản có sẵn (từ trợ lý GPT) → dùng luôn.\n\nVD ý tưởng: áo sweater oversize, chất dày, giá 199k, freeship.\nVD dán sẵn:\nCảnh 1\nHÌNH ẢNH: the person holds the product, close-up...\nLỜI THOẠI: Mọi người ơi, em này xịn lắm nha!'} />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5, lineHeight: 1.5 }}>
-              💡 Gõ tiếng Việt = AI tự tạo prompt (cần Gemini key). Dán sẵn prompt/kịch bản = dùng luôn, không cần Gemini.
-            </div>
           </div>
 
-          {/* Tùy chọn kiểu Flow: thu gọn 1 thanh tóm tắt; bấm để bung bảng đầy đủ (popover lên trên) */}
-          <div ref={optRef} style={{ position: 'relative', marginBottom: 12 }}>
+          {/* Hàng đáy gọn kiểu Flow: thanh tùy chọn thu gọn + nút Tạo cùng 1 hàng */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div ref={optRef} style={{ position: 'relative', flex: 1, minWidth: 0 }}>
             <button type="button" className="sell-optbar" onClick={() => setOptOpen(o => !o)} aria-expanded={optOpen} title="Tùy chọn video">
               <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · {langLabel} · {voiceLabel} · {sceneLabel} · {toneLabel}</span>
               <ChevronUp size={16} style={{ flex: 'none', color: 'var(--text3)', transition: 'transform .15s', transform: optOpen ? 'rotate(180deg)' : 'none' }} />
@@ -414,10 +409,10 @@ LỜI THOẠI: ...
             </div>
             )}
           </div>
-
-          <button className="cmp-cta" style={{ width: '100%', justifyContent: 'center' }} onClick={doSell} disabled={loading || !product}>
-            {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
+          <button className="cmp-cta" style={{ flex: 'none', justifyContent: 'center', padding: '0 20px', height: 44, whiteSpace: 'nowrap' }} onClick={doSell} disabled={loading || !product}>
+            {loading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><ShoppingBag size={14} /> Tạo video</>}
           </button>
+          </div>
         </div>
       </div>
     </div>
