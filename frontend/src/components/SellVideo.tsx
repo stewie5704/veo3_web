@@ -159,7 +159,7 @@ export default function SellVideo() {
           </div>
 
           {/* Ảnh trái + ý tưởng phải (bố cục cũ) */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
               <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
@@ -179,7 +179,7 @@ export default function SellVideo() {
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Ý tưởng / điểm nhấn <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
               <div style={{ position: 'relative' }}>
-                <textarea className="form-textarea" rows={3} style={{ minHeight: 'auto' }}
+                <textarea className="form-textarea" rows={2} style={{ minHeight: 'auto' }}
                   value={idea} onChange={e => setIdea(e.target.value)}
                   placeholder="VD: nhấn mạnh chất vải dày dặn, giá sốc 199k, freeship… hoặc bấm “Trợ lý viết”." />
                 <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={suggestIdea}>
@@ -190,11 +190,11 @@ export default function SellVideo() {
           </div>
 
           {/* Tên sản phẩm */}
-          <input className="form-input" style={{ width: '100%', marginBottom: 12 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp AI viết sát hơn"
+          <input className="form-input" style={{ width: '100%', marginBottom: 10 }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp AI viết sát hơn"
             value={name} onChange={e => setName(e.target.value)} />
 
           {/* Bối cảnh / Tông / Ngôn ngữ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bối cảnh</label>
               <select className="form-select" value={scene} onChange={e => setScene(e.target.value)}>
                 {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
@@ -210,8 +210,8 @@ export default function SellVideo() {
               </select></div>
           </div>
 
-          {/* Số cảnh / Thời lượng */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          {/* Số cảnh / Thời lượng — gọn kiểu Flow */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 10, marginBottom: 10 }}>
             <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Số cảnh</label>
               <div className="stepper">
                 <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
@@ -221,28 +221,24 @@ export default function SellVideo() {
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Thời lượng / cảnh</label>
-              <select className="form-select" value={dur} onChange={e => setDur(+e.target.value)}>
-                {[4, 6, 8, 10].map(d => <option key={d} value={d}>{d}s</option>)}
-              </select>
+              <div className="seg2">
+                {[4, 6, 8, 10].map(d => <button key={d} type="button" className={dur === d ? 'on' : ''} onClick={() => setDur(d)}>{d}s</button>)}
+              </div>
             </div>
           </div>
 
           {/* Tùy chọn (model) */}
-          <button onClick={() => setShowAdv(v => !v)}
-            style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: showAdv ? 10 : 12 }}>
-            ⚙ Tùy chọn (chất lượng) {showAdv ? '▴' : '▾'}
-          </button>
-          {showAdv && (
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">Chất lượng (FREE = không tốn Gem)</label>
-              <select className="form-select" value={model} onChange={e => setModel(e.target.value)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => setShowAdv(v => !v)}
+              style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '2px 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              ⚙ {GEN_MODELS.find(m => m.key === model)?.label || 'Chất lượng'} {showAdv ? '▴' : '▾'}
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>· nối khung · giữ người·giọng·sản phẩm</span>
+            {showAdv && (
+              <select className="form-select" style={{ flex: 1, minWidth: 180 }} value={model} onChange={e => setModel(e.target.value)}>
                 {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
               </select>
-            </div>
-          )}
-
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.5 }}>
-            💡 Các cảnh <b>nối khung</b> (cuối cảnh trước = đầu cảnh sau), giữ nguyên người · giọng · sản phẩm. Tạo xong mở trang dự án xem từng cảnh + ghép.
+            )}
           </div>
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
