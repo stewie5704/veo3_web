@@ -280,10 +280,17 @@ export default function Admin() {
                           : <span style={{ color: 'var(--text3)', fontSize: 11 }}>{u.plan || 'free'}</span>}
                         <select defaultValue="" title="Nâng / hạ / hủy gói (đặt trực tiếp)"
                           onChange={e => { const v = e.target.value; if (v) { patch(u.id, { set_plan: v }); e.currentTarget.value = '' } }}
-                          style={{ fontSize: 11, padding: '2px 4px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text2)' }}>
+                          style={{
+                            fontSize: 11, padding: '3px 20px 3px 6px', minWidth: 72, maxWidth: 120,
+                            background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6,
+                            color: 'var(--text2)', cursor: 'pointer',
+                            appearance: 'none', WebkitAppearance: 'none',
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239b93ad' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 5px center',
+                          }}>
                           <option value="">Đổi gói</option>
-                          {plans.map((p: any) => <option key={p.id} value={p.id}>→ {p.label} ({p.days}d)</option>)}
-                          <option value="free">✕ Hủy gói (free)</option>
+                          {plans.map((p: any) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                          <option value="free">Hủy gói</option>
                         </select>
                       </div>
                     </td>

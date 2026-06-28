@@ -217,6 +217,9 @@ body::after{
 .form-textarea{resize:vertical;min-height:90px;line-height:1.6}
 .form-select{cursor:pointer}
 .form-select option{background:#1a1208;color:var(--text)}
+/* Đảm bảo MỌI select/option (kể cả inline style) đều phù hợp dark theme */
+select{font-family:inherit}
+select option{background:#16120e;color:var(--text);padding:4px 8px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 input[type=range]{accent-color:var(--accent)}
 
