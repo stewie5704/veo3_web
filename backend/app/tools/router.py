@@ -908,6 +908,7 @@ class SellScriptRequest(BaseModel):
     scene_count: int = 5
     language: str = "vi"
     has_kol: bool = False
+    brief: str = ""   # ý tưởng/kịch bản người dùng dán vào -> AI bám theo, tự tạo prompt
 
 
 @router.post("/sell-script")
@@ -921,9 +922,11 @@ async def sell_script(body: SellScriptRequest, user: User = Depends(get_current_
     sc = _SCENE_VI.get(body.scene, _SCENE_VI["street"])
     to = _TONE_VI.get(body.tone, _TONE_VI["ugc"])
     lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    brief = _sanitize(body.brief)[:2000].strip()
+    brief_block = (f'\n\nBÁM SÁT ý tưởng/kịch bản người dùng cung cấp dưới đây (chia thành {n} cảnh hợp lý, giữ đúng thông điệp & mạch bán hàng; LỜI THOẠI bám sát ý này, không bịa thêm sản phẩm khác):\n"""{brief}"""') if brief else ""
     system = f"""Bạn là biên kịch + prompt-engineer cho Google Veo 3.1 làm video BÁN HÀNG affiliate TikTok Shop: dọc 9:16, kiểu UGC quay tay, {n} cảnh NỐI TIẾP (cảnh sau nối liền mạch cảnh trước).
 
-Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.
+Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.{brief_block}
 
 QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI: dùng ĐÚNG người trong ẢNH THAM CHIẾU. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100% diện mạo + giới tính). Trong prompt CHỈ gọi "the person" / "they". KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man"/"a girl"/"young".
 

@@ -123,7 +123,7 @@ export const toolsApi = {
   productFromLink: (url: string) => api.post('/tools/product-from-link', { url }).then(r => r.data),  // {image_url, title}
   sellPrompt: (data: { product?: string; scene?: string; tone?: string; has_kol?: boolean }) =>
     api.post('/tools/sell-prompt', data).then(r => r.data),  // {prompt} — LLM viết prompt video bán hàng
-  sellScript: (data: { product?: string; scene?: string; tone?: string; scene_count?: number; language?: string; has_kol?: boolean }) =>
+  sellScript: (data: { product?: string; scene?: string; tone?: string; scene_count?: number; language?: string; has_kol?: boolean; brief?: string }) =>
     api.post('/tools/sell-script', data).then(r => r.data),  // {scenes:[{prompt,narration}]} — kịch bản nhiều cảnh, trung tính
 }
 

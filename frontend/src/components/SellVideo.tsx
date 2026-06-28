@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toolsApi, charactersApi, projectsApi } from '../api/client'
 import { pushLog } from '../pages/Dashboard'
 import DownloadMenu from './DownloadMenu'
-import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check, Wand2, ClipboardPaste } from 'lucide-react'
+import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check } from 'lucide-react'
 
 const GEN_MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Lite (Lower Priority) — FREE' },
@@ -34,8 +34,16 @@ const TONE_EN: Record<string, string> = { ugc: 'casual handheld UGC style', youn
 // Cụm khoá sản phẩm tự chèn vào mỗi prompt -> Veo giữ đúng sản phẩm trong ảnh ref
 const PRODUCT_LOCK = 'keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it; UGC handheld, real skin, natural light, vertical 9:16'
 
+// --- Tự nhận dạng nội dung dán vào ---
+const VN_RE = /[ăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/gi
+const looksVietnamese = (t: string) => { const m = t.match(VN_RE); return !!m && m.length >= 2 }
+const STRUCT_RE = /(?:^|\n)\s*(?:c[ảa]nh|scene)\s*\d+|h[ìi]nh ảnh\s*[:\-]|lời thoại\s*[:\-]|prompt\s*[:\-]|narration\s*[:\-]/i
+const hasStructure = (t: string) => STRUCT_RE.test(t)
+const PROMPT_HINTS = /\b(shot|camera|close[- ]?up|wide|angle|the person|they|product|background|lighting|handheld|cinematic|vertical|9:?16|frame|lens|footage|scene|holds?|wearing|showcase|reference image)\b/i
+const isPromptish = (t: string) => !looksVietnamese(t) && (PROMPT_HINTS.test(t) || t.split(/\n{2,}/).filter(s => s.trim()).length > 1)
+
 /** Video bán hàng: ảnh sản phẩm (+ KOL) -> dự án NHIỀU CẢNH nối khung, tự ghép; QUEUE + kết quả ngay trên tab này.
- *  2 cách viết kịch bản: (a) Trợ lý AI (Gemini) hoặc (b) Dán kịch bản từ trợ lý GPT (không cần Gemini). */
+ *  1 ô đa năng: gõ ý tưởng/kịch bản tiếng Việt -> AI tự tạo prompt; dán sẵn prompt/kịch bản -> dùng luôn. */
 export default function SellVideo() {
   const nav = useNavigate()
   const [error, setError] = useState('')
@@ -64,9 +72,7 @@ export default function SellVideo() {
   const [kol, setKol] = useState<File | null>(null)
   const [kolPrev, setKolPrev] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [mode, setMode] = useState<'ai' | 'paste'>('ai')
-  const [idea, setIdea] = useState('')
-  const [pasteText, setPasteText] = useState('')
+  const [box, setBox] = useState('')
   const [copied, setCopied] = useState(false)
   const [scene, setScene] = useState('street')
   const [tone, setTone] = useState('ugc')
@@ -81,7 +87,7 @@ export default function SellVideo() {
   const kolRef = useRef<HTMLInputElement>(null)
 
   function suggestIdea() {
-    setIdea(`Khoe ${name.trim() || 'sản phẩm'} ${SCENE_VI[scene]}, tông ${TONE_VI[tone]}: mở bằng hook bắt mắt, nêu 2-3 điểm nổi bật (chất liệu / giá / ưu đãi), kết bằng lời kêu gọi mua ở giỏ hàng.`)
+    setBox(`Khoe ${name.trim() || 'sản phẩm'} ${SCENE_VI[scene]}, tông ${TONE_VI[tone]}: mở bằng hook bắt mắt, nêu 2-3 điểm nổi bật (chất liệu / giá / ưu đãi), kết bằng lời kêu gọi mua ở giỏ hàng.`)
   }
 
   // Câu lệnh dán vào trợ lý GPT (trong gói tặng) để nó viết đúng định dạng app đọc được
@@ -114,7 +120,7 @@ LỜI THOẠI: ...
     } catch { setError('Trình duyệt chặn copy — hãy bôi đen câu lệnh và copy thủ công.') }
   }
 
-  // Tách văn bản dán vào -> [{prompt, narration}] (thuần frontend, KHÔNG cần Gemini)
+  // Tách văn bản có cấu trúc -> [{prompt, narration}] (thuần frontend, KHÔNG cần Gemini)
   function parsePastedScript(raw: string): { prompt: string; narration: string }[] {
     const text = (raw || '').replace(/\r/g, '').trim()
     if (!text) return []
@@ -139,51 +145,54 @@ LỜI THOẠI: ...
       if (narLabel.test(line)) { add('narration', line.replace(narLabel, '')); continue }
       add(last, line)
     }
-
-    let out = scenes.map(s => ({ prompt: s.prompt.trim(), narration: s.narration.trim() })).filter(s => s.prompt || s.narration)
-    // Không có cấu trúc nào -> tách theo đoạn (mỗi đoạn 1 cảnh, coi là lời thoại)
-    if (out.length <= 1 && !sceneHdr.test(text) && !/h[ìi]nh ảnh|prompt|lời thoại|narration/i.test(text)) {
-      const paras = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
-      if (paras.length > 1) out = paras.map(p => ({ prompt: '', narration: p }))
-    }
-    return out.map(s => {
-      let prompt = s.prompt
-      if (!prompt && s.narration) prompt = `The person presents and shows the product to camera, ${SCENE_EN[scene] || 'on a street'}, ${TONE_EN[tone] || 'casual UGC'}`
-      if (prompt && !/reference image/i.test(prompt)) prompt = `${prompt} — ${PRODUCT_LOCK}`
-      return { prompt, narration: s.narration }
-    })
+    return scenes.map(s => ({ prompt: s.prompt.trim(), narration: s.narration.trim() }))
+      .filter(s => s.prompt || s.narration)
+      .map(s => {
+        let prompt = s.prompt
+        if (!prompt && s.narration) prompt = `The person presents and shows the product to camera, ${SCENE_EN[scene] || 'on a street'}, ${TONE_EN[tone] || 'casual UGC'}`
+        if (prompt && !/reference image/i.test(prompt)) prompt = `${prompt} — ${PRODUCT_LOCK}`
+        return { prompt, narration: s.narration }
+      })
   }
 
   async function doSell() {
     if (!product) { setError('Cần ảnh sản phẩm'); return }
+    const text = box.trim()
 
-    // 1) Lấy prompts + narrations theo chế độ
+    // Tự quyết: dán sẵn prompt/kịch bản -> dùng luôn (không Gemini); ý tưởng/kịch bản tiếng Việt -> AI tạo prompt
     let prompts: string[] = []
     let narrations: string[] = []
-    if (mode === 'paste') {
-      const parsed = parsePastedScript(pasteText)
-      if (!parsed.length) { setError('Chưa đọc được kịch bản. Bấm "Sao chép câu lệnh", dán vào trợ lý GPT, rồi dán kết quả vào ô bên dưới.'); return }
-      prompts = parsed.map(s => s.prompt)
-      narrations = parsed.map(s => s.narration)
+    const direct = !!text && (hasStructure(text) || isPromptish(text))
+    if (direct) {
+      if (hasStructure(text)) {
+        const parsed = parsePastedScript(text)
+        prompts = parsed.map(s => s.prompt); narrations = parsed.map(s => s.narration)
+      } else {
+        const blocks = text.split(/\n{2,}/).map(s => s.trim()).filter(Boolean)
+        const list = blocks.length ? blocks : [text]
+        prompts = list.map(p => /reference image/i.test(p) ? p : `${p} — ${PRODUCT_LOCK}`)
+        narrations = []
+      }
+      if (!prompts.length) { setError('Chưa đọc được nội dung — thử lại hoặc dùng định dạng "Cảnh / HÌNH ẢNH / LỜI THOẠI".'); return }
     }
-    const nScenes = mode === 'paste' ? prompts.length : sceneCount
+    const nScenes = direct ? prompts.length : sceneCount
     const cost = (MODEL_COST[model] || 0) * nScenes
     if (cost > 0 && !window.confirm(`Tạo ${nScenes} cảnh bằng model trả phí — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
 
     setError(''); setLoading(true)
     try {
-      pushLog(`🛍️ Video bán hàng: đang upload ảnh${mode === 'ai' ? ` + viết kịch bản ${sceneCount} cảnh` : ` + đọc kịch bản ${nScenes} cảnh`}...`)
+      pushLog(`🛍️ Video bán hàng: đang upload ảnh${direct ? ` + đọc ${nScenes} cảnh có sẵn` : ` + viết kịch bản ${sceneCount} cảnh`}...`)
       // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt (ảnh quyết định diện mạo + giới tính)
       const prodTag = ((name.trim() || 'SanPham').replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 20)) || 'SanPham'
       const prodChar = await charactersApi.add(prodTag, product)
       const ids: string[] = [prodChar.id]
       if (kol) { const k = await charactersApi.add('KOL', kol); ids.push(k.id) }
 
-      if (mode === 'ai') {
-        const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, has_kol: !!kol })
+      if (!direct) {
+        // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
+        const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, has_kol: !!kol, brief: text })
         const scns: any[] = sres.scenes || []
-        const extra = idea.trim() ? ` ${idea.trim()}` : ''
-        prompts = scns.map(s => (s.prompt || '') + extra)
+        prompts = scns.map(s => s.prompt || '')
         narrations = scns.map(s => s.narration || '')
         if (!prompts.length) throw new Error('AI chưa viết được kịch bản, thử lại.')
       }
@@ -191,7 +200,7 @@ LỜI THOẠI: ...
 
       const proj = await projectsApi.create({
         name: `Bán hàng: ${name.trim() || 'sản phẩm'}`,
-        idea: idea.trim() || `Video bán hàng ${name.trim() || 'sản phẩm'}`,
+        idea: text || `Video bán hàng ${name.trim() || 'sản phẩm'}`,
         model_key: model, aspect_ratio: '9:16', duration_seconds: dur, language: lang,
         prompts, narrations, auto_render: true, chain_mode: true,
         character_ids: ids, character_bible: [],
@@ -200,7 +209,7 @@ LỜI THOẠI: ...
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
       setSellIds(next); saveIds(next)
-      setProduct(null); setProductPrev(null); setKol(null); setKolPrev(null); setPasteText('')
+      setProduct(null); setProductPrev(null); setKol(null); setKolPrev(null); setBox('')
       if (prodRef.current) prodRef.current.value = ''
       if (kolRef.current) kolRef.current.value = ''
     } catch (e: any) {
@@ -292,34 +301,23 @@ LỜI THOẠI: ...
               value={name} onChange={e => setName(e.target.value)} />
           </div>
 
-          {/* Chọn cách viết kịch bản */}
-          <div className="seg2" style={{ marginBottom: 10 }}>
-            <button type="button" className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Wand2 size={13} /> Trợ lý AI viết</button>
-            <button type="button" className={mode === 'paste' ? 'on' : ''} onClick={() => setMode('paste')}><ClipboardPaste size={13} /> Dán kịch bản (GPT)</button>
-          </div>
-
-          {mode === 'ai' ? (
-            <div style={{ position: 'relative', marginBottom: 10 }}>
-              <textarea className="form-textarea" rows={2} style={{ minHeight: 'auto', width: '100%' }}
-                value={idea} onChange={e => setIdea(e.target.value)}
-                placeholder="Ý tưởng / điểm nhấn (tùy chọn). VD: chất vải dày dặn, giá sốc 199k, freeship… hoặc bấm “Trợ lý viết”." />
-              <button className="btn btn-primary btn-sm" style={{ position: 'absolute', right: 8, bottom: 8 }} onClick={suggestIdea}>
-                <Sparkles size={13} /> Trợ lý viết
-              </button>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 10 }}>
-              <div className="alert" style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.25)', marginBottom: 8, fontSize: 12.5, lineHeight: 1.5 }}>
-                Dùng <b>trợ lý GPT viết kịch bản</b> (trong gói của bạn): bấm <b>Sao chép câu lệnh</b> → dán vào trợ lý GPT → copy kết quả → dán lại vào ô dưới. Không cần Gemini key.
+          {/* 1 ô đa năng: ý tưởng / kịch bản / prompt */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
+              <label className="form-label" style={{ margin: 0 }}>Ý tưởng · kịch bản · hoặc prompt</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-ghost btn-sm" onClick={suggestIdea} title="Điền nhanh một ý tưởng mẫu"><Sparkles size={12} /> Gợi ý</button>
+                <button className="btn btn-ghost btn-sm" onClick={copyCommand} title="Copy câu lệnh để dán vào trợ lý GPT trong gói của bạn">
+                  {copied ? <><Check size={12} /> Đã chép</> : <><Copy size={12} /> Lệnh cho GPT</>}
+                </button>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={copyCommand} style={{ marginBottom: 8 }}>
-                {copied ? <><Check size={13} /> Đã chép — dán vào GPT</> : <><Copy size={13} /> Sao chép câu lệnh cho GPT ({sceneCount} cảnh)</>}
-              </button>
-              <textarea className="form-textarea" rows={5} style={{ width: '100%', fontFamily: 'inherit' }}
-                value={pasteText} onChange={e => setPasteText(e.target.value)}
-                placeholder={'Dán kết quả từ trợ lý GPT vào đây. VD:\nCảnh 1\nHÌNH ẢNH: the person holds the product, close-up...\nLỜI THOẠI: Mọi người ơi, em này xịn lắm nha!'} />
             </div>
-          )}
+            <textarea className="form-textarea" rows={5} style={{ width: '100%' }} value={box} onChange={e => setBox(e.target.value)}
+              placeholder={'Gõ ý tưởng tiếng Việt → AI tự viết kịch bản & tạo prompt.\nHoặc dán prompt / kịch bản có sẵn (từ trợ lý GPT) → dùng luôn.\n\nVD ý tưởng: áo sweater oversize, chất dày, giá 199k, freeship.\nVD dán sẵn:\nCảnh 1\nHÌNH ẢNH: the person holds the product, close-up...\nLỜI THOẠI: Mọi người ơi, em này xịn lắm nha!'} />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5, lineHeight: 1.5 }}>
+              💡 Gõ tiếng Việt = AI tự tạo prompt (cần Gemini key). Dán sẵn prompt/kịch bản = dùng luôn, không cần Gemini.
+            </div>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label">Bối cảnh</label>
@@ -339,7 +337,7 @@ LỜI THOẠI: ...
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gap: 10, marginBottom: 10 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Số cảnh {mode === 'paste' && <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(để soạn lệnh)</span>}</label>
+              <label className="form-label">Số cảnh <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(khi AI viết)</span></label>
               <div className="stepper">
                 <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
                 <input type="number" min={1} max={12} value={sceneCount}
@@ -372,7 +370,7 @@ LỜI THOẠI: ...
           </div>
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={doSell} disabled={loading || !product}>
-            {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng{mode === 'ai' ? ` (${sceneCount} cảnh)` : ''}</>}
+            {loading ? <><Loader2 size={14} className="spin" /> Đang đưa vào hàng chờ...</> : <><ShoppingBag size={14} /> Tạo video bán hàng</>}
           </button>
         </div>
       </div>
