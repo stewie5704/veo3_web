@@ -31,7 +31,7 @@
   "@graph": [
     { "@type": "Organization", "@id": "https://aiautocut.com/#org", "name": "AI AutoCut", "url": "https://aiautocut.com/", "logo": "https://aiautocut.com/og.svg" },
     { "@type": "WebSite", "@id": "https://aiautocut.com/#website", "url": "https://aiautocut.com/", "name": "AI AutoCut", "inLanguage": "vi-VN", "publisher": { "@id": "https://aiautocut.com/#org" } },
-    { "@type": "SoftwareApplication", "name": "AI AutoCut", "applicationCategory": "MultimediaApplication", "operatingSystem": "Web", "inLanguage": "vi-VN", "url": "https://app.aiautocut.com/", "description": "Công cụ tạo video AI tiếng Việt: tự viết kịch bản, giữ gương mặt nhân vật, render từng cảnh bằng Veo 3.1 và tự ghép thành phim hoàn chỉnh.", "offers": { "@type": "AggregateOffer", "priceCurrency": "VND", "lowPrice": "99000", "highPrice": "1990000", "offerCount": "3" } },
+    { "@type": "SoftwareApplication", "name": "AI AutoCut", "applicationCategory": "MultimediaApplication", "operatingSystem": "Web", "inLanguage": "vi-VN", "url": "https://app.aiautocut.com/", "description": "Công cụ tạo video AI tiếng Việt: tự viết kịch bản, giữ gương mặt nhân vật, render từng cảnh bằng Veo 3.1 và tự ghép thành phim hoàn chỉnh.", "offers": { "@type": "AggregateOffer", "priceCurrency": "VND", "lowPrice": "0", "highPrice": "2599000", "offerCount": "4" } },
     { "@type": "FAQPage", "mainEntity": [
       { "@type": "Question", "name": "AI AutoCut là gì?", "acceptedAnswer": { "@type": "Answer", "text": "AI AutoCut là công cụ tạo video bằng AI: bạn nhập một dòng ý tưởng, hệ thống tự viết kịch bản nhiều cảnh, render từng cảnh bằng Veo 3.1 rồi tự ghép thành một video hoàn chỉnh để tải về." } },
       { "@type": "Question", "name": "AI AutoCut có hỗ trợ tiếng Việt không?", "acceptedAnswer": { "@type": "Answer", "text": "Có. AI AutoCut viết kịch bản tiếng Việt và có thể tự lồng tiếng Việt hoặc cho nhân vật nói nhép miệng, phù hợp làm video TikTok, Reels, YouTube cho người Việt." } },
@@ -201,6 +201,33 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
 .reveal.in{opacity:1;transform:none}
 .reveal[data-d="1"]{transition-delay:.08s}.reveal[data-d="2"]{transition-delay:.16s}.reveal[data-d="3"]{transition-delay:.24s}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+/* ═══ premium polish: gradient động · spotlight thẻ · hover nhấc · CTA thở · nav gạch chân ═══ */
+.g{background-size:220% 220%;animation:gradShift 7s ease-in-out infinite}
+@keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.cell,.pcard,.step{transition:transform .28s cubic-bezier(.2,.7,.2,1),border-color .28s,box-shadow .28s}
+.cell:hover,.step:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 26px 56px -26px rgba(0,0,0,.85),0 0 34px -16px rgba(236,72,153,.45)}
+.pcard:hover{transform:translateY(-5px)}
+.pcard.hot:hover{transform:translateY(-13px)}
+.cell::after,.pcard::after,.step::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:3;
+  background:radial-gradient(220px circle at var(--mx,-300px) var(--my,-300px),var(--accent),rgba(236,72,153,.55) 36%,transparent 62%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s}
+.cell:hover::after,.pcard:hover::after,.step:hover::after{opacity:.85}
+.hero .btn-grad,.band .btn-grad{animation:ctaBreath 3.6s ease-in-out infinite}
+@keyframes ctaBreath{0%,100%{box-shadow:0 10px 30px -8px rgba(236,72,153,.55),inset 0 1px 0 rgba(255,255,255,.22)}
+  50%{box-shadow:0 16px 44px -6px rgba(236,72,153,.85),0 0 28px -8px rgba(249,115,22,.55),inset 0 1px 0 rgba(255,255,255,.22)}}
+.navlinks a{position:relative}
+.navlinks a::after{content:"";position:absolute;left:14px;right:14px;bottom:5px;height:1.5px;border-radius:2px;background:var(--grad);transform:scaleX(0);transform-origin:left;transition:transform .25s ease}
+.navlinks a:hover::after{transform:scaleX(1)}
+.pill b{animation:pillPing 2.2s ease-out infinite}
+@keyframes pillPing{0%{box-shadow:0 0 0 0 rgba(249,115,22,.55)}70%,100%{box-shadow:0 0 0 8px transparent}}
+.frame.big{transition:transform .3s ease,box-shadow .3s ease}
+.frame.big:hover{transform:translateY(-3px);box-shadow:0 40px 82px -28px rgba(0,0,0,.9),0 0 62px -16px rgba(236,72,153,.4)}
+@media(prefers-reduced-motion:reduce){
+  .g,.hero .btn-grad,.band .btn-grad,.pill b{animation:none}
+  .cell,.pcard,.step,.frame.big{transition:none}
+  .cell::after,.pcard::after,.step::after{display:none}
+}
 </style>
 </head>
 <body>
@@ -225,7 +252,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
 <main class="inner">
   <section class="hero" style="padding-top:78px">
     <div class="reveal in">
-      <div class="pill"><b></b>Dựng phim AI bằng Veo 3.1</div>
+      <div class="pill"><b></b>🎁 Dùng thử miễn phí 24h · Veo 3.1</div>
       <h1>Một dòng ý tưởng,<br>thành <span class="g">phim AI nhiều cảnh</span>.</h1>
       <p class="lead">Bạn viết ý tưởng. AI viết kịch bản, giữ nguyên gương mặt nhân vật, render từng cảnh rồi tự ghép thành video hoàn chỉnh.</p>
       <div class="cta-row">
@@ -302,48 +329,53 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
 
 <section id="pricing"><div class="inner">
   <div class="reveal"><div class="eyebrow">Bảng giá</div>
-  <h2 class="h2">Bắt đầu miễn phí, nâng gói khi cần</h2>
-  <p class="sub">Hủy bất cứ lúc nào. Mọi gói đều dùng được toàn bộ tính năng làm phim.</p></div>
+  <h2 class="h2">Dùng thử miễn phí, nâng Pro khi cần</h2>
+  <p class="sub">Mở tài khoản là có ngay <b>24 giờ tạo video miễn phí</b> — không cần thẻ. Nâng Pro chỉ từ 249k/tháng. Hủy bất cứ lúc nào.</p></div>
   <div class="price">
     <div class="pcard reveal">
-      <div class="name">Basic</div>
-      <div class="amt">99k<small>/tháng</small></div>
+      <span class="tag" style="background:rgba(249,115,22,.16);color:var(--accent2);border:1px solid var(--line2)">DÙNG THỬ</span>
+      <div class="name">Miễn phí</div>
+      <div class="amt">0đ<small>/24 giờ đầu</small></div>
       <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Tạo dự án không giới hạn</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Model Veo 3.1 Lite</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg><b>24 giờ</b> tạo video thả ga</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Model Veo 3.1 Lite — <b>FREE</b></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Giữ mặt &amp; tự ghép phim</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>150MB lưu trữ</li>
       </ul>
-      <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn Basic</a>
+      <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Dùng thử miễn phí</a>
     </div>
     <div class="pcard hot reveal" data-d="1">
-      <span class="tag">Phổ biến</span>
+      <span class="tag">Phổ biến nhất</span>
       <div class="name">Pro</div>
-      <div class="amt">199k<small>/tháng</small></div>
+      <div class="amt">249k<small>/tháng</small></div>
       <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Mọi thứ ở Basic</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Model Fast &amp; Quality</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Render hàng loạt</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Ưu tiên hàng đợi render</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Tạo video <b>không giới hạn</b></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg><b>Tất cả</b> model: Lite · Fast · Quality</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Render hàng loạt + ưu tiên hàng đợi</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg><b>1GB</b> lưu trữ</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Hỗ trợ ưu tiên (Telegram/Zalo)</li>
       </ul>
-      <a class="btn btn-grad" href="https://app.aiautocut.com/register">Chọn Pro</a>
+      <a class="btn btn-grad" href="https://app.aiautocut.com/register">Nâng Pro ngay</a>
     </div>
     <div class="pcard reveal" data-d="2">
-      <div class="name">Pro năm</div>
-      <div class="amt">1.990k<small>/năm</small></div>
+      <span class="tag" style="background:rgba(52,211,153,.16);color:var(--green);border:1px solid var(--line2)">TIẾT KIỆM 13%</span>
+      <div class="name">Pro · 12 tháng</div>
+      <div class="amt">2.599k<small>/năm</small></div>
       <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Mọi thứ ở Pro</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Tiết kiệm khoảng 17%</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Thanh toán một lần mỗi năm</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Mọi thứ ở gói Pro</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Chỉ <b>~217k/tháng</b> — rẻ hơn 13%</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Thanh toán 1 lần, dùng cả năm</li>
       </ul>
-      <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn Pro năm</a>
+      <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn gói năm</a>
     </div>
   </div>
+  <p class="sub reveal" style="margin-top:18px;margin-bottom:0;font-size:13.5px">Còn gói <b>6 tháng — 1.419k</b> (tiết kiệm 5%). Mọi gói Pro đều <b>1GB</b> lưu trữ &amp; full tính năng.</p>
 </div></section>
 
 <section><div class="inner">
   <div class="band reveal">
     <h2>Sẵn sàng làm bộ phim AI đầu tiên?</h2>
-    <p>Đăng ký miễn phí, có ngay video nhiều cảnh trong vài phút.</p>
+    <p>Mở tài khoản nhận ngay <b>24h tạo video miễn phí</b> — không cần thẻ tín dụng.</p>
     <a class="btn btn-grad" href="https://app.aiautocut.com/register">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
       Bắt đầu miễn phí
@@ -370,6 +402,19 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
     entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
   }, {threshold:0.14, rootMargin:'0px 0px -8% 0px'});
   els.forEach(function(e){ io.observe(e); });
+  // Spotlight viền theo con trỏ trên các thẻ (rAF throttle)
+  var raf = 0;
+  window.addEventListener('mousemove', function(e){
+    if (raf) return;
+    raf = requestAnimationFrame(function(){
+      raf = 0;
+      var el = e.target.closest && e.target.closest('.cell,.pcard,.step');
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  }, {passive:true});
 })();
 </script>
 </body>
