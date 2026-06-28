@@ -233,14 +233,31 @@ export default function Landing() {
   // Scroll-reveal: phần tử .reveal mờ -> hiện dần khi cuộn tới
   useEffect(() => {
     const els = Array.from(document.querySelectorAll('#lp .reveal'))
-    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      els.forEach(e => e.classList.add('is-in')); return
+    const reduce = !('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let io: IntersectionObserver | null = null
+    if (reduce) {
+      els.forEach(e => e.classList.add('is-in'))
+    } else {
+      io = new IntersectionObserver((ents) => {
+        ents.forEach(en => { if (en.isIntersecting) { en.target.classList.add('is-in'); io!.unobserve(en.target) } })
+      }, { threshold: 0.12 })
+      els.forEach(e => io!.observe(e))
     }
-    const io = new IntersectionObserver((ents) => {
-      ents.forEach(en => { if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target) } })
-    }, { threshold: 0.12 })
-    els.forEach(e => io.observe(e))
-    return () => io.disconnect()
+    // Spotlight viền theo con trỏ trên các thẻ (rAF throttle)
+    let raf = 0
+    const onMove = (e: MouseEvent) => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        const el = (e.target as HTMLElement)?.closest?.('.fcard,.pcard,.gcard,.step') as HTMLElement | null
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+        el.style.setProperty('--my', `${e.clientY - r.top}px`)
+      })
+    }
+    if (!reduce) window.addEventListener('mousemove', onMove, { passive: true })
+    return () => { io?.disconnect(); window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
   }, [])
   return <div id="lp" dangerouslySetInnerHTML={{ __html: HTML }} />
 }

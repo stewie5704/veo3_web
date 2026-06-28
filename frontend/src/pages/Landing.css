@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 /* Landing page — scoped under #lp to avoid clashing with app's global .btn/.card/etc. */
 #lp{
   --bg:#0B0911; --bg2:#0E0B16; --surface:#16121F; --surface2:#1E1830; --inset:#100D19;
@@ -6,6 +7,7 @@
   --accent:#F97316; --accent2:#FDBA74; --pink:#EC4899; --violet:#A855F7; --green:#34D399;
   --grad:linear-gradient(115deg,#F97316,#EC4899 56%,#A855F7);
   --sans:-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
+  --display:"Space Grotesk",-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
   --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,monospace;
   position:relative;min-height:100vh;background:var(--bg);color:var(--text);
   font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
@@ -195,3 +197,50 @@
 @media(max-width:900px){#lp .foot-top{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){#lp .foot-top{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:400px){#lp .foot-top{grid-template-columns:1fr}}
+
+/* ═══════════════ REDESIGN — premium polish (font · motion · glow · spotlight) ═══════════════ */
+/* Display font cho tiêu đề + số (Space Grotesk có tiếng Việt) */
+#lp h1,#lp .h2,#lp .brand,#lp .band h2,#lp .amt,#lp .stat b,#lp .wfoot .big,
+#lp .fcard h3,#lp .step h3,#lp .gcard h3,#lp .tc-meta b,#lp .pcard .name{font-family:var(--display)}
+#lp h1{letter-spacing:-.032em}
+
+/* Headline gradient chuyển màu chậm — chữ "sống" */
+#lp h1 .g{background:var(--grad);background-size:220% 220%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:lp-grad 7s ease-in-out infinite}
+@keyframes lp-grad{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* Nút: nhấc + nhấn + glow mạnh; CTA hero thở nhẹ */
+#lp .btn{transition:transform .16s ease,filter .16s,box-shadow .25s}
+#lp .btn-grad:hover{filter:brightness(1.08);transform:translateY(-2px);box-shadow:0 16px 38px -8px rgba(236,72,153,.7),inset 0 1px 0 rgba(255,255,255,.22)}
+#lp .btn-grad:active,#lp .btn-ghost:active{transform:translateY(0) scale(.98)}
+#lp .btn-ghost:hover{transform:translateY(-2px)}
+#lp .hero .btn-lg.btn-grad{animation:lp-cta 3.6s ease-in-out infinite}
+@keyframes lp-cta{0%,100%{box-shadow:0 8px 22px -6px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.22)}
+  50%{box-shadow:0 16px 42px -6px rgba(236,72,153,.85),0 0 28px -8px rgba(249,115,22,.55),inset 0 1px 0 rgba(255,255,255,.22)}}
+
+/* Thẻ: nhấc + bóng ám hồng + viền spotlight chạy theo con trỏ */
+#lp .fcard,#lp .gcard,#lp .step,#lp .pcard{transition:transform .28s cubic-bezier(.2,.7,.2,1),border-color .28s,box-shadow .28s}
+#lp .fcard:hover,#lp .gcard:hover,#lp .step:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 26px 56px -26px rgba(0,0,0,.85),0 0 34px -16px rgba(236,72,153,.45)}
+#lp .pcard:hover{transform:translateY(-5px)}
+#lp .pcard.hot{transform:scale(1.035)}
+#lp .pcard.hot:hover{transform:scale(1.035) translateY(-5px)}
+#lp .fcard::after,#lp .pcard::after,#lp .gcard::after,#lp .step::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
+  background:radial-gradient(220px circle at var(--mx,-300px) var(--my,-300px),var(--accent),rgba(236,72,153,.55) 36%,transparent 62%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s}
+#lp .fcard:hover::after,#lp .pcard:hover::after,#lp .gcard:hover::after,#lp .step:hover::after{opacity:.85}
+
+/* Nav: gạch chân gradient trượt; pill: chấm nhịp */
+#lp nav.links a{position:relative}
+#lp nav.links a::after{content:"";position:absolute;left:13px;right:13px;bottom:4px;height:1.5px;border-radius:2px;background:var(--grad);transform:scaleX(0);transform-origin:left;transition:transform .25s ease}
+#lp nav.links a:hover::after{transform:scaleX(1)}
+#lp .pill .d{animation:lp-ping 2.2s ease-out infinite}
+@keyframes lp-ping{0%{box-shadow:0 0 0 0 rgba(249,115,22,.55)}70%,100%{box-shadow:0 0 0 8px transparent}}
+
+/* Window hero: hover nhấc + glow đậm hơn */
+#lp .window{transition:transform .3s ease,box-shadow .3s ease}
+#lp .window:hover{transform:translateY(-3px);box-shadow:0 52px 116px -30px rgba(0,0,0,.9),0 0 82px -18px rgba(236,72,153,.42)}
+
+@media(prefers-reduced-motion:reduce){
+  #lp h1 .g,#lp .hero .btn-lg.btn-grad,#lp .pill .d{animation:none}
+  #lp .fcard,#lp .gcard,#lp .step,#lp .pcard,#lp .window,#lp .btn{transition:none}
+  #lp .fcard::after,#lp .pcard::after,#lp .gcard::after,#lp .step::after{display:none}
+}
