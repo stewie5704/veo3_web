@@ -11,8 +11,8 @@ const GEN_MODELS = [
   { key: 'veo_3_1_t2v_fast_portrait_ultra', short: '🚀 Fast · 10💎' },
   { key: 'veo_3_1_t2v_portrait', short: '💎 Quality · 100💎' },
 ]
-// select gọn kiểu Flow: tự co theo nội dung, xếp 1 hàng cuộn
-const OPT = { width: 'auto', minWidth: 0, flex: '0 0 auto', fontSize: 12.5, paddingTop: 7, paddingBottom: 7, paddingLeft: 10, paddingRight: 26 }
+// Mũi tên xuống cho dropdown kiểu Flow (.cmp-sel) — đồng bộ trang Tạo
+const Chev = () => <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
 const SELL_SCENES = [
   { v: 'street', label: '🏙️ Đường phố' }, { v: 'studio', label: '🎬 Studio' },
   { v: 'cafe', label: '☕ Quán cafe' }, { v: 'home', label: '🏠 Tại nhà' },
@@ -320,30 +320,69 @@ LỜI THOẠI: ...
             </div>
           </div>
 
-          {/* Tùy chọn gọn kiểu Flow — 1 hàng chip cuộn */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-            <select className="form-select" style={OPT} value={scene} onChange={e => setScene(e.target.value)} title="Bối cảnh">
-              {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
-            </select>
-            <select className="form-select" style={OPT} value={tone} onChange={e => setTone(e.target.value)} title="Tông video">
-              {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
-            </select>
-            <select className="form-select" style={OPT} value={lang} onChange={e => setLang(e.target.value)} title="Ngôn ngữ">
-              <option value="vi">🇻🇳 Tiếng Việt</option>
-              <option value="en">🇺🇸 English</option>
-            </select>
-            <select className="form-select" style={OPT} value={sceneCount} onChange={e => setSceneCount(+e.target.value)} title="Số cảnh (khi AI viết kịch bản)">
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>🎬 {n} cảnh</option>)}
-            </select>
-            <select className="form-select" style={OPT} value={dur} onChange={e => setDur(+e.target.value)} title="Thời lượng mỗi cảnh">
-              {[4, 6, 8, 10].map(d => <option key={d} value={d}>⏱ {d}s</option>)}
-            </select>
-            <select className="form-select" style={OPT} value={voice} onChange={e => setVoice(e.target.value)} title="Giọng đọc">
-              {VOICES.map(v => <option key={v.v} value={v.v}>🔊 {v.label}</option>)}
-            </select>
-            <select className="form-select" style={{ ...OPT, minWidth: 128 }} value={model} onChange={e => setModel(e.target.value)} title="Chất lượng video">
-              {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.short}</option>)}
-            </select>
+          {/* Tùy chọn kiểu Flow — segmented + stepper + dropdown (đồng bộ trang Tạo) */}
+          <div className="cmp-settings" style={{ marginBottom: 10 }}>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Bối cảnh</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={scene} onChange={e => setScene(e.target.value)}>
+                  {SELL_SCENES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+                </select>
+                <Chev />
+              </div>
+            </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Tông video</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={tone} onChange={e => setTone(e.target.value)}>
+                  {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+                </select>
+                <Chev />
+              </div>
+            </div>
+
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Thời lượng mỗi cảnh <span className="rv">{dur}s</span></div>
+              <div className="seg2">
+                {[4, 6, 8, 10].map(d => <button key={d} type="button" className={dur === d ? 'on' : ''} onClick={() => setDur(d)}>{d}s</button>)}
+              </div>
+            </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Số cảnh <span className="rv">{sceneCount}</span></div>
+              <div className="stepper">
+                <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
+                <input type="number" min={1} max={12} value={sceneCount}
+                  onChange={e => setSceneCount(Math.min(12, Math.max(1, +e.target.value || 1)))} />
+                <button type="button" onClick={() => setSceneCount(c => Math.min(12, c + 1))}>+</button>
+              </div>
+            </div>
+
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Ngôn ngữ lời thoại</div>
+              <div className="seg2">
+                <button type="button" className={lang === 'vi' ? 'on' : ''} onClick={() => setLang('vi')}>🇻🇳 Tiếng Việt</button>
+                <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>🇺🇸 English</button>
+              </div>
+            </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Giọng đọc</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
+                  {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}
+                </select>
+                <Chev />
+              </div>
+            </div>
+
+            <div className="cmp-ctrl" style={{ gridColumn: '1 / -1' }}>
+              <div className="cmp-label">Chất lượng video</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={model} onChange={e => setModel(e.target.value)}>
+                  {GEN_MODELS.map(m => <option key={m.key} value={m.key}>{m.short}</option>)}
+                </select>
+                <Chev />
+              </div>
+            </div>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12 }}>nối khung · giữ người·giọng·sản phẩm · tự ghép</div>
 
