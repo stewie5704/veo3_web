@@ -17,9 +17,10 @@ const SELL_SCENES = [
   { v: 'street', label: '🏙️ Đường phố' }, { v: 'studio', label: '🎬 Studio' },
   { v: 'cafe', label: '☕ Quán cafe' }, { v: 'home', label: '🏠 Tại nhà' },
 ]
-const SELL_TONES = [
-  { v: 'ugc', label: '📱 UGC quay tay' }, { v: 'young', label: '✨ Trẻ trung' },
-  { v: 'lux', label: '💎 Sang xịn' }, { v: 'fun', label: '😄 Hài hước' },
+const AUDIO_MODES = [
+  { v: 'voiceover', label: '🎙️ Lồng tiếng (AI đọc)' },
+  { v: 'character_speak', label: '💬 Nhân vật tự nói' },
+  { v: 'off', label: '🔇 Không tiếng' },
 ]
 const VOICES = [
   { v: 'Kore', label: 'Nữ · Kore' }, { v: 'Aoede', label: 'Nữ · Aoede' },
@@ -77,11 +78,12 @@ export default function SellVideo() {
   const [box, setBox] = useState('')
   const [copied, setCopied] = useState(false)
   const [scene, setScene] = useState('street')
-  const [tone, setTone] = useState('ugc')
+  const [tone] = useState('ugc')   // tông cố định UGC (đã bỏ ô chọn) — vẫn dùng khi AI viết kịch bản
   const [sceneCount, setSceneCount] = useState(5)
   const [dur, setDur] = useState(8)
   const [lang, setLang] = useState('vi')
   const [voice, setVoice] = useState('Kore')
+  const [audioMode, setAudioMode] = useState<'voiceover' | 'character_speak' | 'off'>('voiceover')
   const [model, setModel] = useState(GEN_MODELS[0].key)
   const [loading, setLoading] = useState(false)
   const [optOpen, setOptOpen] = useState(false)   // tùy chọn kiểu Flow: mặc định thu gọn, bấm mới bung
@@ -217,7 +219,7 @@ LỜI THOẠI: ...
         model_key: model, aspect_ratio: '9:16', duration_seconds: dur, language: lang,
         prompts, narrations, auto_render: true, chain_mode: true,
         character_ids: ids, character_bible: [],
-        audio_mode: 'voiceover', voice,
+        audio_mode: audioMode, voiceover: audioMode === 'voiceover', voice,
       })
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
@@ -273,7 +275,7 @@ LỜI THOẠI: ...
   const modelShort = GEN_MODELS.find(m => m.key === model)?.short || ''
   const voiceLabel = VOICES.find(v => v.v === voice)?.label || ''
   const sceneLabel = SELL_SCENES.find(s => s.v === scene)?.label || ''
-  const toneLabel = SELL_TONES.find(t => t.v === tone)?.label || ''
+  const audioLabel = audioMode === 'voiceover' ? voiceLabel : audioMode === 'character_speak' ? 'NV tự nói' : 'Không tiếng'
   const langLabel = lang === 'vi' ? '🇻🇳 Việt' : '🇺🇸 English'
 
   return (
@@ -337,7 +339,7 @@ LỜI THOẠI: ...
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div ref={optRef} style={{ position: 'relative', flex: 1, minWidth: 0 }}>
             <button type="button" className="sell-optbar" onClick={() => setOptOpen(o => !o)} aria-expanded={optOpen} title="Tùy chọn video">
-              <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · {langLabel} · {voiceLabel} · {sceneLabel} · {toneLabel}</span>
+              <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · {audioLabel} · {langLabel} · {sceneLabel}</span>
               <ChevronUp size={16} style={{ flex: 'none', color: 'var(--text3)', transition: 'transform .15s', transform: optOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {optOpen && (
@@ -353,23 +355,17 @@ LỜI THOẠI: ...
               </div>
             </div>
             <div className="cmp-ctrl">
-              <div className="cmp-label">Tông video</div>
+              <div className="cmp-label">Thời lượng / cảnh</div>
               <div className="selwrap">
-                <select className="cmp-sel" value={tone} onChange={e => setTone(e.target.value)}>
-                  {SELL_TONES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+                <select className="cmp-sel" value={dur} onChange={e => setDur(+e.target.value)}>
+                  {[4, 6, 8, 10].map(d => <option key={d} value={d}>{d}s</option>)}
                 </select>
                 <Chev />
               </div>
             </div>
 
             <div className="cmp-ctrl">
-              <div className="cmp-label">Thời lượng mỗi cảnh <span className="rv">{dur}s</span></div>
-              <div className="seg2">
-                {[4, 6, 8, 10].map(d => <button key={d} type="button" className={dur === d ? 'on' : ''} onClick={() => setDur(d)}>{d}s</button>)}
-              </div>
-            </div>
-            <div className="cmp-ctrl">
-              <div className="cmp-label">Số cảnh <span className="rv">{sceneCount}</span></div>
+              <div className="cmp-label">Số cảnh</div>
               <div className="stepper">
                 <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
                 <input type="number" min={1} max={12} value={sceneCount}
@@ -377,18 +373,30 @@ LỜI THOẠI: ...
                 <button type="button" onClick={() => setSceneCount(c => Math.min(12, c + 1))}>+</button>
               </div>
             </div>
-
             <div className="cmp-ctrl">
               <div className="cmp-label">Ngôn ngữ lời thoại</div>
-              <div className="seg2">
-                <button type="button" className={lang === 'vi' ? 'on' : ''} onClick={() => setLang('vi')}>🇻🇳 Tiếng Việt</button>
-                <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>🇺🇸 English</button>
+              <div className="selwrap">
+                <select className="cmp-sel" value={lang} onChange={e => setLang(e.target.value)}>
+                  <option value="vi">🇻🇳 Tiếng Việt</option>
+                  <option value="en">🇺🇸 English</option>
+                </select>
+                <Chev />
+              </div>
+            </div>
+
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Âm thanh</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={audioMode} onChange={e => setAudioMode(e.target.value as 'voiceover' | 'character_speak' | 'off')}>
+                  {AUDIO_MODES.map(a => <option key={a.v} value={a.v}>{a.label}</option>)}
+                </select>
+                <Chev />
               </div>
             </div>
             <div className="cmp-ctrl">
               <div className="cmp-label">Giọng đọc</div>
               <div className="selwrap">
-                <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
+                <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)} disabled={audioMode !== 'voiceover'}>
                   {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}
                 </select>
                 <Chev />

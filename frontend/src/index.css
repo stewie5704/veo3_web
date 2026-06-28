@@ -526,6 +526,12 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .sell-optpop .cmp-settings>.cmp-ctrl:nth-child(6){animation-delay:.18s}
 .sell-optpop .cmp-settings>.cmp-ctrl:nth-child(7){animation-delay:.21s}
 @keyframes ctrlIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+/* Popover gọn: control thấp hơn, khoảng cách hẹp, stepper Số cảnh không chiếm hết ô */
+.sell-optpop .cmp-settings{gap:12px 14px}
+.sell-optpop .cmp-settings .cmp-sel,.sell-optpop .cmp-settings .stepper{height:38px}
+.sell-optpop .cmp-label{margin-bottom:6px}
+.sell-optpop .stepper{max-width:148px}
+.sell-optpop .cmp-sel:disabled{opacity:.45;cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){.sell-scrim,.sell-optpop,.sell-optpop .cmp-settings>.cmp-ctrl{animation:none}}
 /* Ô chọn ảnh kiểu "+" (Flow): vuông, dash, hiện thumbnail khi chọn */
 .img-add{flex:none;width:56px;height:56px;border-radius:12px;border:1px dashed var(--border2);background:var(--inset);display:grid;place-items:center;color:var(--accent2);cursor:pointer;overflow:hidden;transition:all .15s}
