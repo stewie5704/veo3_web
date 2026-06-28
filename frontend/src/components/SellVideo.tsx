@@ -40,7 +40,7 @@ const PRODUCT_LOCK = 'keep the exact product from the reference image — same c
 // --- Tự nhận dạng nội dung dán vào ---
 const VN_RE = /[ăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/gi
 const looksVietnamese = (t: string) => { const m = t.match(VN_RE); return !!m && m.length >= 2 }
-const STRUCT_RE = /(?:^|\n)\s*(?:c[ảa]nh|scene)\s*\d+|h[ìi]nh ảnh\s*[:\-]|lời thoại\s*[:\-]|prompt\s*[:\-]|narration\s*[:\-]/i
+const STRUCT_RE = /(?:^|\n)[^\p{L}\n]{0,4}(?:c[ảa]nh|scene|đoạn|phân đoạn)\s*\d+|h[ìi]nh ảnh\s*[:\-]|lời thoại\s*(?:\([^)]*\))?\s*[:\-]|prompt\s*[:\-]|narration\s*[:\-]/iu
 const hasStructure = (t: string) => STRUCT_RE.test(t)
 const PROMPT_HINTS = /\b(shot|camera|close[- ]?up|wide|angle|the person|they|product|background|lighting|handheld|cinematic|vertical|9:?16|frame|lens|footage|scene|holds?|wearing|showcase|reference image)\b/i
 const isPromptish = (t: string) => !looksVietnamese(t) && (PROMPT_HINTS.test(t) || t.split(/\n{2,}/).filter(s => s.trim()).length > 1)
@@ -139,25 +139,39 @@ LỜI THOẠI: ...
   function parsePastedScript(raw: string): { prompt: string; narration: string }[] {
     const text = (raw || '').replace(/\r/g, '').trim()
     if (!text) return []
-    const sceneHdr = /^\s*(?:c[ảa]nh|scene|đoạn|phân đoạn)\s*\d+\s*[:.)\-–]*\s*$/i
-    const sceneHdrInline = /^\s*(?:c[ảa]nh|scene)\s*\d+\s*[:.)\-–]+\s*/i
-    const visLabel = /^\s*(?:h[ìi]nh ảnh|h[ìi]nh anh|prompt|visual|image|video|mô tả|mo ta|cảnh quay)\s*[:\-–]\s*/i
-    const narLabel = /^\s*(?:lời thoại|loi thoai|thoại|thoai|narration|voice ?over|lời|loi|script|nội dung)\s*[:\-–]\s*/i
+    // Bỏ ký tự trang trí đầu dòng (markdown ** ##, emoji, bullet) trước khi nhận diện -> "lì" hơn.
+    const stripDeco = (s: string) => s.replace(/^[^\p{L}\p{N}"']+/u, '').trim()
+    // Tiêu đề cảnh: KHÔNG bắt buộc dấu hai chấm ("Cảnh 1", "Cảnh 1: ...", "Cảnh 1 – Tiêu đề" đều nhận).
+    const sceneHdr = /^(?:c[ảa]nh|scene|đoạn|phân đoạn|part)\s*\d+\b\s*[:.)\-–—]*\s*/i
+    const visLabel = /^(?:h[ìi]nh ảnh|h[ìi]nh anh|prompt|visual|image|video|mô tả|mo ta|cảnh quay|bối cảnh)\s*[:\-–]\s*/i
+    const narLabel = /^(?:lời thoại|loi thoai|thoại|thoai|narration|voice ?over|dialogue|lời|loi|script|nội dung)\s*(?:\([^)]*\))?\s*[:\-–]\s*/i
+    // Dòng ghi chú sản xuất -> bỏ qua (tránh TTS đọc "Âm thanh: nhạc nền...", "Camera: ...").
+    const ignoreLabel = /^(?:âm thanh|am thanh|music|nhạc|sound|sfx|ghi chú|ghi chu|note|notes|camera|máy quay|may quay|góc máy|thời lượng|duration|style|phong cách|chuyển cảnh|transition|caption|text màn hình)\s*[:\-–]/i
     type S = { prompt: string; narration: string }
     const scenes: S[] = []
+    const lines = text.split('\n')
+    // Có tiêu đề "Cảnh N" -> chỉ tách theo tiêu đề. KHÔNG có -> tách theo mỗi nhãn HÌNH ẢNH (mỗi ảnh = 1 cảnh).
+    const hasHeaders = lines.some(l => sceneHdr.test(stripDeco(l.trim())))
     let cur: S | null = null
-    let last: 'prompt' | 'narration' = 'prompt'
-    const start = () => { cur = { prompt: '', narration: '' }; scenes.push(cur); last = 'prompt' }
-    const add = (f: 'prompt' | 'narration', t: string) => { if (!cur) start(); cur![f] += (cur![f] ? ' ' : '') + t.trim(); last = f }
+    let curHasImg = false   // cảnh hiện tại đã có nhãn HÌNH ẢNH chưa (để tách cảnh khi KHÔNG có tiêu đề "Cảnh N")
+    let last: 'prompt' | 'narration' | 'ignore' = 'prompt'
+    const start = () => { cur = { prompt: '', narration: '' }; scenes.push(cur); last = 'prompt'; curHasImg = false }
+    const add = (f: 'prompt' | 'narration' | 'ignore', t: string) => {
+      if (f === 'ignore') return
+      if (!cur) start()
+      cur![f] += (cur![f] ? ' ' : '') + t.trim(); last = f
+    }
 
-    for (const ln of text.split('\n')) {
-      let line = ln.trim()
+    for (const ln of lines) {
+      const line = stripDeco(ln.trim())
       if (!line) continue
-      if (sceneHdr.test(line)) { start(); continue }
-      const inl = line.match(sceneHdrInline)
-      if (inl) { start(); line = line.slice(inl[0].length).trim(); if (!line) continue }
-      if (visLabel.test(line)) { add('prompt', line.replace(visLabel, '')); continue }
-      if (narLabel.test(line)) { add('narration', line.replace(narLabel, '')); continue }
+      const hdr = line.match(sceneHdr)
+      if (hdr) { start(); const after = line.slice(hdr[0].length).replace(/[*_#~`]+$/g, '').trim(); if (after) add('prompt', after); continue }
+      const vm = line.match(visLabel)
+      if (vm) { if (!hasHeaders && curHasImg) start(); add('prompt', line.slice(vm[0].length)); curHasImg = true; continue }
+      const nm = line.match(narLabel)
+      if (nm) { add('narration', line.slice(nm[0].length)); continue }
+      if (ignoreLabel.test(line)) { last = 'ignore'; continue }
       add(last, line)
     }
     return scenes.map(s => ({ prompt: s.prompt.trim(), narration: s.narration.trim() }))
