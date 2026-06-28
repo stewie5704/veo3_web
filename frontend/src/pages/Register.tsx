@@ -6,7 +6,7 @@ import { authApi } from '../api/client'
 export default function Register() {
   const nav = useNavigate()
   const [params] = useSearchParams()
-  const ref = (params.get('ref') || '').trim()
+  const [ref, setRef] = useState((params.get('ref') || '').trim())
   const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -54,16 +54,6 @@ export default function Register() {
 
         {error && <div className="alert alert-error"><span>⚠️</span> {error}</div>}
 
-        {ref && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px',
-            borderRadius: 11, fontSize: 12.5, color: '#fbbf24',
-            background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)',
-          }}>
-            <Gift size={15} /> Bạn được giới thiệu bởi mã <b>{ref}</b>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Email</label>
@@ -86,6 +76,13 @@ export default function Register() {
               <input className="form-input" type="password" placeholder="••••••••"
                 value={form.confirm} onChange={set('confirm')} required />
             </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Gift size={12} /> Mã giới thiệu <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(không bắt buộc)</span>
+            </label>
+            <input className="form-input" type="text" placeholder="Nhập mã nếu có — có thể điền sau ở Hồ sơ"
+              value={ref} onChange={e => setRef(e.target.value)} />
           </div>
           <button type="submit" className="btn btn-primary btn-lg"
             style={{ width: '100%', marginTop: 8 }} disabled={loading}>

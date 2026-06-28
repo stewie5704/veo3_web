@@ -3,7 +3,7 @@ import { useToast } from '../components/Toast'
 import api, { authApi, billingApi } from '../api/client'
 import {
   User, KeyRound, Wifi, Shield, Save, Loader2, Crown, HardDrive, Sparkles,
-  Gem, Check, AtSign, Mail,
+  Gem, Check, AtSign, Mail, Gift,
 } from 'lucide-react'
 
 const PLAN_LABEL: Record<string, string> = { m1: '1 tháng', m6: '6 tháng', m12: '12 tháng' }
@@ -28,6 +28,9 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
 
   const [geminiKey, setGeminiKey] = useState('')
   const [keySaving, setKeySaving] = useState(false)
+
+  const [refCode, setRefCode] = useState('')
+  const [refSaving, setRefSaving] = useState(false)
 
   useEffect(() => {
     if (user) { setDisplayName(user.display_name || ''); setUsername(user.username || '') }
@@ -64,6 +67,16 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
     finally { setKeySaving(false) }
   }
+  async function applyRefCode() {
+    if (!refCode.trim()) return
+    setRefSaving(true)
+    try {
+      await authApi.applyRef(refCode.trim())
+      onUpdate(await authApi.me())
+      toast('Đã áp mã giới thiệu', 'success'); setRefCode('')
+    } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
+    finally { setRefSaving(false) }
+  }
 
   const TABS = [
     { k: 'profile', l: 'Hồ sơ', i: User },
@@ -76,7 +89,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const inTrial = sub?.in_trial && !active
   const trialHrs = sub?.trial_ends_at ? Math.max(0, Math.round((new Date(sub.trial_ends_at).getTime() - Date.now()) / 3600000)) : 0
   const stUsed = sub?.storage_used || 0
-  const stLimit = sub?.storage_limit || 500 * 1024 * 1024
+  const stLimit = sub?.storage_limit || 150 * 1024 * 1024
   const stPct = Math.min(100, Math.round((stUsed / stLimit) * 100))
   const stNear = stPct >= 85
 
@@ -163,8 +176,8 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 7 }}>
             {stNear
-              ? <span style={{ color: '#f87171' }}>Sắp đầy! {active ? 'Xóa bớt video cũ.' : 'Nâng gói để có 1.5GB.'}</span>
-              : active ? 'Gói trả phí: tối đa 1.5GB.' : 'Tài khoản free: 500MB. Nâng gói để lên 1.5GB.'}
+              ? <span style={{ color: '#f87171' }}>Sắp đầy! {active ? 'Xóa bớt video cũ.' : 'Nâng gói để có 1GB.'}</span>
+              : active ? 'Gói trả phí: tối đa 1GB.' : 'Tài khoản free: 150MB. Nâng gói để lên 1GB.'}
           </div>
         </div>
       </div>
@@ -204,6 +217,22 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
           <div className="form-group">
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Mail size={12} /> Email</label>
             <input className="form-input" value={user?.email || ''} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
+          </div>
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Gift size={12} /> Mã giới thiệu</label>
+            {user?.referred_by ? (
+              <div className="alert alert-success" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 0 }}>
+                <Check size={13} /> Bạn đã có người giới thiệu.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="form-input" placeholder="Nhập mã nếu được ai đó giới thiệu (chỉ áp 1 lần)"
+                  value={refCode} onChange={e => setRefCode(e.target.value)} style={{ flex: 1 }} />
+                <button type="button" className="btn btn-ghost" onClick={applyRefCode} disabled={refSaving || !refCode.trim()}>
+                  {refSaving ? <Loader2 size={13} className="spin" /> : 'Áp mã'}
+                </button>
+              </div>
+            )}
           </div>
           <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>
             {saving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu thay đổi</>}

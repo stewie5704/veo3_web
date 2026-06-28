@@ -13,8 +13,8 @@ from app.plans import PLANS
 
 
 TRIAL_HOURS = 24                         # free account: 24h tạo video miễn phí
-STORAGE_FREE = 500 * 1024 * 1024         # 500 MB cho free / hết hạn
-STORAGE_PAID = 1536 * 1024 * 1024        # 1.5 GB khi có gói
+STORAGE_FREE = 150 * 1024 * 1024         # 150 MB cho free / hết hạn
+STORAGE_PAID = 1024 * 1024 * 1024        # 1 GB khi có gói (Pro)
 
 
 def _now() -> datetime:
@@ -84,7 +84,7 @@ def can_generate(user) -> bool:
 
 
 def storage_limit(user) -> int:
-    """Hạn mức lưu trữ (bytes): 1.5GB nếu có gói còn hạn, ngược lại 500MB."""
+    """Hạn mức lưu trữ (bytes): 1GB nếu có gói còn hạn, ngược lại 150MB."""
     return STORAGE_PAID if is_active(user) else STORAGE_FREE
 
 

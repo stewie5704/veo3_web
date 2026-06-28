@@ -28,9 +28,14 @@ class UserResponse(BaseModel):
     has_gemini_key: bool
     plan: str = "free"
     plan_active: bool = False
+    referred_by: str | None = None   # id người giới thiệu (đã có -> không cho đổi)
 
     model_config = {"from_attributes": True}
 
 
 class UpdateGeminiKey(BaseModel):
     api_key: str
+
+
+class ApplyRefRequest(BaseModel):
+    ref: str   # mã giới thiệu nhập sau khi đăng ký (trang Hồ sơ)

@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
 from app.auth.models import User
-from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateGeminiKey
+from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateGeminiKey, ApplyRefRequest
 from app.auth.utils import hash_password, verify_password, create_access_token, decode_token
 from app.crypto import enc
 from app import subscription
@@ -101,7 +101,28 @@ async def me(user: User = Depends(get_current_user)):
         has_gemini_key=bool(user.gemini_api_key),
         plan=user.plan,
         plan_active=subscription.is_active(user),
+        referred_by=user.referred_by,
     )
+
+
+@router.post("/apply-ref")
+async def apply_ref(
+    body: ApplyRefRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Nhập mã giới thiệu SAU khi đăng ký (trang Hồ sơ). Chỉ áp được khi CHƯA có người giới thiệu."""
+    if user.referred_by:
+        raise HTTPException(status_code=400, detail="Bạn đã có người giới thiệu rồi, không thể đổi.")
+    code = (body.ref or "").strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Nhập mã giới thiệu.")
+    from app.affiliate import attach_referrer
+    await attach_referrer(db, user, code)
+    if not user.referred_by:
+        raise HTTPException(status_code=404, detail="Mã giới thiệu không tồn tại hoặc không hợp lệ.")
+    await db.commit()
+    return {"ok": True, "referred_by": user.referred_by}
 
 
 @router.post("/gemini-key")
