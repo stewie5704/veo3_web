@@ -25,23 +25,27 @@ const testiHTML = TESTI.map(t =>
 ).join('');
 
 // Video mẫu (showcase tĩnh). Khi có video thật: set video: 'samples/x.mp4' (hoặc link) -> render <video>.
+// ratio: '9:16' (dọc, mặc định) hoặc '16:9' (ngang). 16:9 -> card to gấp đôi, video hiện đúng tỉ lệ, KHÔNG cắt.
 const SAMPLES = [
-  { dur: '0:48', title: 'Mẹ & Nam mở spa — phim nhiều cảnh', seed: 'aiac-vid1', video: '' },
-  { dur: '0:32', title: 'Khoe túi xách da — video bán hàng UGC', seed: 'aiac-vid2', video: '' },
-  { dur: '1:04', title: 'Câu chuyện khởi nghiệp — kịch bản AI', seed: 'aiac-vid3', video: '' },
-  { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', video: '' },
-  { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', video: '' },
+  { dur: '0:48', title: 'Mẹ & Nam mở spa — phim nhiều cảnh', seed: 'aiac-vid1', ratio: '9:16' },
+  { dur: '0:32', title: 'Khoe túi xách da — video bán hàng UGC', seed: 'aiac-vid2', ratio: '9:16' },
+  { dur: '1:04', title: 'Câu chuyện khởi nghiệp — kịch bản AI', seed: 'aiac-vid3', ratio: '9:16' },
+  { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', ratio: '9:16' },
+  { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', ratio: '9:16' },
 ];
 // Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
 const svidHTML = SAMPLES.map((s, i) => {
+  const r = s.ratio || '9:16';
+  const wide = r === '16:9';
   const vfile = `samples/v${i + 1}.mp4`;
   const pfile = `samples/v${i + 1}.jpg`;
   const hasVideo = fs.existsSync(path.join(__dirname, vfile));
-  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/360/640`;
+  const ph = wide ? '640/360' : '360/640';
+  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${ph}`;
   const media = hasVideo
     ? `<video src="${vfile}" poster="${poster}" controls preload="metadata" playsinline></video>`
-    : `<img class="ph" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
-  return `<div class="svid"><span class="ratio">9:16</span>${hasVideo ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
+    : `<img class="ph${wide ? ' wide' : ''}" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
+  return `<div class="svid${wide ? ' wide' : ''}"><span class="ratio">${r}</span>${hasVideo ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
 }).join('');
 
 // Build the body HTML (same as Landing.tsx template)
