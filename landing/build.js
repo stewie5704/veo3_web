@@ -39,23 +39,20 @@ const SAMPLES = [
   { dur: '0:28', title: 'Video doanh nghiệp — góc quay rộng', seed: 'aiac-vid8', ratio: '16:9' },
 ];
 // Tự dò file trong landing/samples/. Ưu tiên .mp4 (chạy mọi trình duyệt); nhận thêm .webm/.mov/.m4v nếu có.
+// Đọc tên file THẬT (giữ đúng hoa/thường) để không 404 trên Linux VPS (vd v1.MP4 / v3.MOV).
 const VEXT = ['mp4', 'webm', 'mov', 'm4v'];
-const findVid = (base) => {
-  for (const e of VEXT) {
-    const rel = `samples/${base}.${e}`;
-    if (fs.existsSync(path.join(__dirname, rel))) return rel;
-  }
-  return null;
-};
-const mimeOf = (f) => f.endsWith('.webm') ? 'video/webm' : (f.endsWith('.mov') ? 'video/quicktime' : (f.endsWith('.m4v') ? 'video/x-m4v' : 'video/mp4'));
+let SFILES = [];
+try { SFILES = fs.readdirSync(path.join(__dirname, 'samples')); } catch (e) { SFILES = []; }
+const findReal = (name) => { const r = SFILES.find(f => f.toLowerCase() === name.toLowerCase()); return r ? `samples/${r}` : null; };
+const findVid = (base) => { for (const e of VEXT) { const hit = findReal(`${base}.${e}`); if (hit) return hit; } return null; };
+const mimeOf = (f) => { const l = f.toLowerCase(); return l.endsWith('.webm') ? 'video/webm' : (l.endsWith('.mov') ? 'video/quicktime' : (l.endsWith('.m4v') ? 'video/x-m4v' : 'video/mp4')); };
 const cardHTML = (s, i) => {
   const fW = findVid(`v${i + 1}w`);          // file NGANG 16:9 (hậu tố 'w')
   const vfile = fW || findVid(`v${i + 1}`);
   const hasVideo = !!vfile;
   const wide = !!fW || s.ratio === '16:9';   // slot 16:9 luôn ngang (v6.mp4 cũng được); hoặc file có hậu tố 'w'
   const r = wide ? '16:9' : '9:16';
-  const pfile = `samples/v${i + 1}.jpg`;
-  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${wide ? '640/360' : '360/640'}`;
+  const poster = findReal(`v${i + 1}.jpg`) || `https://picsum.photos/seed/${s.seed}/${wide ? '640/360' : '360/640'}`;
   const media = hasVideo
     ? `<video poster="${poster}" controls preload="metadata" playsinline><source src="${vfile}" type="${mimeOf(vfile)}"></video>`
     : `<img class="ph${wide ? ' wide' : ''}" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
