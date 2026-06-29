@@ -545,6 +545,47 @@ async def ensure_1080(src: Path, aspect_ratio: str = "16:9") -> Path | None:
     return None
 
 
+def _strip_face_for_ref(prompt: str) -> str:
+    """Khi có ảnh reference (giữ mặt), Veo dựa vào ẢNH để nhận dạng.
+    Mô tả chi tiết mặt/mắt/da bằng text ĐẦU NHAU với ảnh + hay kích filter
+    'prominent person' → Veo fallback render kiểu 3D/CGI thay vì realistic.
+    Strip: tuổi, face, eyes, skin, build, distinguishing marks khỏi block 'Same Name (...)'.
+    Giữ lại: tên, anchor, hair, trang phục, palette (đủ để phân biệt ai-là-ai)."""
+    # Xử lý block "Same Name (anchor; 24; oval face, defined jaw; ... hair; dark brown eyes; warm light skin; height=175cm...)."
+    # Bỏ các segment: tuổi thuần số, face descriptor, eyes, skin tone, build/height, distinguishing marks
+    def _clean_block(m):
+        prefix = m.group(1)  # "Same Name ("
+        inner = m.group(2)   # nội dung bên trong ngoặc
+        suffix = m.group(3)  # ")"
+        parts = [p.strip() for p in inner.split(";")]
+        keep = []
+        for p in parts:
+            pl = p.lower()
+            # Bỏ tuổi thuần số
+            if re.fullmatch(r'\d{1,3}', p.strip()):
+                continue
+            # Bỏ face descriptors
+            if any(w in pl for w in ('face', 'jaw', 'cheekbone', 'forehead', 'chin')):
+                continue
+            # Bỏ eyes
+            if pl.endswith('eyes') or 'almond-shaped' in pl or 'eye' in pl.split(',')[0]:
+                continue
+            # Bỏ skin tone
+            if 'skin' in pl and ('tone' in pl or 'light' in pl or 'warm' in pl or 'dark' in pl or 'fair' in pl or 'tan' in pl or 'medium' in pl or 'olive' in pl):
+                continue
+            # Bỏ build/height
+            if 'height=' in pl or 'build=' in pl or pl.startswith('build'):
+                continue
+            # Bỏ distinguishing marks
+            if 'distinguishing' in pl or 'scar' in pl or 'mole' in pl or 'freckle' in pl or 'birthmark' in pl:
+                continue
+            if p.strip():
+                keep.append(p.strip())
+        return prefix + "; ".join(keep) + suffix if keep else prefix.rstrip(" (") + suffix.lstrip(")")
+
+    return re.sub(r'(Same\s+\w[^(]{0,40}\()([^)]{5,800})(\))', _clean_block, prompt)
+
+
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
                         out_stem: str, start_image_path: Path | None = None,
@@ -594,7 +635,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         endpoint = "video:batchAsyncGenerateVideoText"
 
     # Bám reference: nhắc Veo giữ đúng mặt/tóc/trang phục theo ảnh tham chiếu (cho giống hơn).
+    # Strip mô tả mặt/mắt/da chi tiết: có ẢNH rồi thì text chi tiết chỉ gây xung đột + kích filter.
     if ref_ids:
+        prompt = _strip_face_for_ref(prompt)
         prompt += " Keep each person's face, hairstyle and outfit identical to the provided reference image(s)."
     silent = True
     if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)

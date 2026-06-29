@@ -357,23 +357,29 @@ def _append_bible_character(name, bible: dict, name_index: dict) -> str:
     return key
 
 
-def _describe_for_prompt(c: CharacterBible, trimmed: bool = False) -> str:
+def _describe_for_prompt(c: CharacterBible, trimmed: bool = False, has_ref: bool = False) -> str:
+    """Mô tả nhân vật cho prompt Veo.
+
+    has_ref=True: nhân vật CÓ ảnh reference (giữ mặt) → Veo dựa vào ẢNH để nhận dạng,
+    mô tả mặt/mắt/da bằng text sẽ ĐẦU NHAU với ảnh + dễ kích filter 'prominent person'
+    → chỉ giữ anchor + trang phục + tóc (đủ để Veo biết ai là ai mà không bị 3D/CGI)."""
     inner = []
     if c.anchor: inner.append(c.anchor)        # mỏ neo nhận dạng DẪN ĐẦU (Veo nặng token đầu)
-    if c.age: inner.append(c.age)
-    if c.face: inner.append(c.face)
+    if c.age and not has_ref: inner.append(c.age)
+    if c.face and not has_ref: inner.append(c.face)
     if c.hair: inner.append(f"{c.hair} hair")
-    if not trimmed and c.eyes: inner.append(f"{c.eyes} eyes")
-    if not trimmed and c.skin_tone: inner.append(f"{c.skin_tone} skin")
-    if not trimmed and c.body_metrics: inner.append(c.body_metrics)
+    if not trimmed and not has_ref and c.eyes: inner.append(f"{c.eyes} eyes")
+    if not trimmed and not has_ref and c.skin_tone: inner.append(f"{c.skin_tone} skin")
+    if not trimmed and not has_ref and c.body_metrics: inner.append(c.body_metrics)
     wf = (c.wardrobe_top, c.wardrobe_bottom) if trimmed else \
          (c.wardrobe_top, c.wardrobe_bottom, c.footwear, c.headwear, c.accessories)
     wear = ", ".join(x for x in wf if x)
     if wear: inner.append(f"wearing {wear}")
-    if c.distinguishing_marks: inner.append(f"distinguishing marks: {c.distinguishing_marks}")
+    if c.distinguishing_marks and not has_ref: inner.append(f"distinguishing marks: {c.distinguishing_marks}")
     if c.palette: inner.append(f"signature palette {c.palette}")
     nm = c.name or c.char_key
     return (f"{nm} (" + "; ".join(inner) + ")") if inner else nm
+
 
 
 def _audio_line(scene: SceneScript) -> str:
