@@ -230,13 +230,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   // data: cho phép tạo THẲNG từ kết quả phân tích (bỏ bước duyệt) thay vì đọc từ state (chưa kịp cập nhật)
-  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string }) {
+  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string; style?: string }) {
     const sScenes = data?.scenes ?? scenes
     const sPrompts = data?.prompts ?? prompts
     const sNarr = data?.narrations ?? narrations
     const sBible = data?.bible ?? bibleChars
     const sCharVoices = data?.charVoices ?? charVoices
     const sName = data?.name ?? name
+    const sStyle = data?.style ?? style
     // Nếu có kịch bản chi tiết -> lấy prompt (tiếng Anh) + lời thoại từ scenes (đã chỉnh sửa); else dùng format phẳng (Copy Idea)
     const basePrompts = sScenes.length ? sScenes.map(s => s.prompt || s.image || '') : sPrompts
     const baseNarr = sScenes.length
@@ -254,7 +255,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const proj = await projectsApi.create({
         name: sName || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
-        idea, style: style || undefined, model_key: model,
+        idea, style: sStyle || undefined, model_key: model,
         aspect_ratio: aspect, duration_seconds: duration, language,
         prompts: enriched, narrations: baseNarr, auto_render: autoRender,
         character_names: [...selectedChars],
@@ -301,7 +302,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const cost = modelObjNew.cost * (res.prompts?.length || 0)
       setCopyLoading(false)
       if (cost > 0 && !window.confirm(`Tạo ${res.prompts.length} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
-      await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations })
+      await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations, style: copyStyle, bible: [] })
     } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại'); setCopyLoading(false) }
   }
 
@@ -696,37 +697,86 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
       {/* COPY */}
       {tab === 'copy' && (
-        <div className="card fx-card" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20, padding: '14px', background: 'rgba(249,115,22,0.05)', borderRadius: 10, border: '1px solid rgba(249,115,22,0.15)' }}>
-            <span style={{ fontSize: 28 }}>🔍</span>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Chép ý tưởng</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Dán link YouTube/TikTok → AI đọc <strong>lời thoại + mô tả</strong> của video rồi viết lại kịch bản bám nội dung gốc. Video có phụ đề thì càng sát.</div>
+        <div className="composer fx-card">
+          <div className="cmp-steps">
+            <span className="on"><i>✦</i> Chép ý tưởng — clone video nguồn → kịch bản mới, render thẳng</span>
+          </div>
+          <div className="cmp-body">
+            <div className="cmp-titlerow">
+              <span className="cmp-tlabel">Link video</span>
+              <input className="cmp-titlein" placeholder="https://youtube.com/... hoặc TikTok" value={copyUrl} onChange={e => setCopyUrl(e.target.value)} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 20, padding: '12px 14px', background: 'rgba(249,115,22,0.06)', borderRadius: 12, border: '1px solid rgba(249,115,22,0.18)' }}>
+              <span style={{ fontSize: 22 }}>🔍</span>
+              <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.6 }}>AI đọc <strong>lời thoại + mô tả</strong> của video gốc rồi viết lại kịch bản bám nội dung. Video có phụ đề thì càng sát.</div>
+            </div>
+
+            <div className="cmp-settings">
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Số cảnh <span className="rv">{copyCount}</span></div>
+                <div className="stepper">
+                  <button type="button" onClick={() => setCopyCount(c => Math.max(2, c - 1))}>−</button>
+                  <input type="number" min={2} max={20} value={copyCount}
+                    onChange={e => setCopyCount(Math.min(20, Math.max(2, +e.target.value || 2)))} />
+                  <button type="button" onClick={() => setCopyCount(c => Math.min(20, c + 1))}>+</button>
+                </div>
+              </div>
+              <div className="cmp-ctrl">
+                <div className="cmp-label">Phong cách hình ảnh</div>
+                <div className="selwrap">
+                  <select className="cmp-sel" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
+                    <option value="">Giữ nguyên style gốc</option>
+                    {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Giữ mặt — đồng bộ nhân vật cho video clone */}
+            <div className="cmp-chiprow" style={{ marginBottom: 20 }}>
+              <span className="cmp-clab">Giữ mặt</span>
+              {chars.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm ảnh nhân vật để giữ NGUYÊN gương mặt qua mọi cảnh của video clone.</span>
+              )}
+              {chars.map(c => (
+                <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
+                  onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}>
+                  <img src={c.image_url} alt="" />@{c.name}
+                </div>
+              ))}
+              <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title="Tải ảnh để giữ đúng mặt nhân vật qua các cảnh">
+                {addCharOpen ? <><X size={13} /> đóng</> : <><Plus size={13} /> thêm nhân vật</>}
+              </div>
+            </div>
+            {addCharOpen && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                <input className="cmp-sel" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
+                <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
+                  {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : '📁 Chọn ảnh'}
+                  <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
+                </label>
+                <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
+                  {addingChar ? <Loader2 size={13} className="spin" /> : 'Lưu'}
+                </button>
+              </div>
+            )}
+
+            <div style={{ marginTop: 8 }}>
+              <AudioPicker value={audioMode} onChange={setAudioMode} />
             </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">URL video nguồn</label>
-            <input className="form-input" placeholder="https://youtube.com/watch?v=..." value={copyUrl} onChange={e => setCopyUrl(e.target.value)} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Phong cách hình ảnh (tùy chọn)</label>
-              <select className="form-select" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
-                <option value="">(Giữ nguyên style)</option>
-                {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+
+          <div className="cmp-actionbar">
+            <div className="cmp-est">
+              <span className="meta">{copyCount} cảnh{selectedChars.size > 0 ? ` · 🔒 khoá ${selectedChars.size} mặt` : ''}</span>
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Số cảnh</label>
-              <input className="form-input" type="number" min={2} max={20} value={copyCount} onChange={e => setCopyCount(+e.target.value)} />
-            </div>
+            <div style={{ flex: 1 }} />
+            <button className="cmp-cta" onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
+              {copyLoading ? <><Loader2 size={14} className="spin" /> Đang phân tích & tạo...</> : <>🔍 Phân tích & tạo phim →</>}
+            </button>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <AudioPicker value={audioMode} onChange={setAudioMode} />
-          </div>
-          <button className="cmp-cta" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
-            {copyLoading ? <><Loader2 size={13} className="spin" /> Đang phân tích video...</> : '🔍 Phân tích & Clone'}
-          </button>
         </div>
       )}
 
