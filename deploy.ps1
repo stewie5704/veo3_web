@@ -14,6 +14,12 @@ param(
 
 $VPS = "root@74.81.54.150"
 
+# Build landing tĩnh (aiautocut.com): sinh landing/index.html từ build.js + landing/samples/ + Landing.css.
+Write-Host ""
+Write-Host "==> [0/2] Build landing tinh..." -ForegroundColor Cyan
+node landing/build.js
+if ($LASTEXITCODE -ne 0) { Write-Host "   (build landing loi - van tiep tuc voi index.html cu)" -ForegroundColor Yellow }
+
 Write-Host ""
 Write-Host "==> [1/2] Commit + push (local)..." -ForegroundColor Cyan
 git add -A

@@ -32,11 +32,16 @@ const SAMPLES = [
   { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', video: '' },
   { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', video: '' },
 ];
-const svidHTML = SAMPLES.map(s => {
-  const media = s.video
-    ? `<video src="${s.video}" poster="https://picsum.photos/seed/${s.seed}/360/640" controls preload="metadata" playsinline></video>`
-    : `<img class="ph" loading="lazy" src="https://picsum.photos/seed/${s.seed}/360/640" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
-  return `<div class="svid"><span class="ratio">9:16</span>${s.video ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
+// Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
+const svidHTML = SAMPLES.map((s, i) => {
+  const vfile = `samples/v${i + 1}.mp4`;
+  const pfile = `samples/v${i + 1}.jpg`;
+  const hasVideo = fs.existsSync(path.join(__dirname, vfile));
+  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/360/640`;
+  const media = hasVideo
+    ? `<video src="${vfile}" poster="${poster}" controls preload="metadata" playsinline></video>`
+    : `<img class="ph" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
+  return `<div class="svid"><span class="ratio">9:16</span>${hasVideo ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
 }).join('');
 
 // Build the body HTML (same as Landing.tsx template)
