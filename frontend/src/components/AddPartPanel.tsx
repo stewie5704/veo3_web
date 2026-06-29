@@ -25,25 +25,15 @@ export default function AddPartPanel({ project, onDone, onClose }: {
   const charNames: string[] = (project.characters || []).map((c: any) => c.name)
 
   const [mode, setMode] = useState<'ai' | 'manual'>('ai')
-  const [step, setStep] = useState<'setup' | 'review'>('setup')
   const [idea, setIdea] = useState('')
   const [sceneCount, setSceneCount] = useState(6)
   const [duration, setDuration] = useState(project.duration_seconds || 8)
   const [model, setModel] = useState(project.model_key || MODELS[0].key)
   const [audioMode, setAudioMode] = useState<string>(project.audio_mode || 'voiceover')
-  const [loading, setLoading] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [busy, setBusy] = useState<'' | 'gen' | 'create'>('')
   const [error, setError] = useState('')
-  const [scenes, setScenes] = useState<any[]>([])
-  const [prompts, setPrompts] = useState<string[]>([])
-  const [narrations, setNarrations] = useState<string[]>([])
-  const [bibleChars, setBibleChars] = useState<any[]>([])
 
   const modelObj = MODELS.find(m => m.key === model) || MODELS[0]
-  const reviewN = (scenes.length || prompts.length) || sceneCount
-  const reviewCost = modelObj.cost * reviewN
-  const updateScene = (i: number, key: string, val: string) =>
-    setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
   // Ngữ cảnh nối tiếp: nhắc AI giữ nhân vật + bám phần trước (giữ mạch truyện).
   function continuationIdea() {
@@ -54,42 +44,38 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     return parts.join(' ') + '\n' + idea
   }
 
-  async function generate() {
+  // 1 BƯỚC: viết kịch bản -> tạo + render THẲNG (bỏ bước duyệt prompt, như kịch bản đầu).
+  async function run() {
     if (!idea.trim()) { setError(mode === 'manual' ? 'Dán kịch bản phần mới' : 'Nhập ý tưởng phần mới'); return }
-    setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
-    setLoading(true); setStep('review')
+    setError(''); setBusy('gen')
     const cast = project.character_bible || []   // KHÓA nhân vật đã có -> phần này dùng lại y nguyên
+    let res: any
     try {
-      const res = mode === 'manual'
+      res = mode === 'manual'
         ? await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio, cast })
         : await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language: project.language, aspect_ratio: project.aspect_ratio, cast })
-      setPrompts(res.prompts || []); setNarrations(res.narrations || []); setScenes(res.scenes || [])
-      setBibleChars(res.characters || [])
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo kịch bản thất bại'); setStep('setup') }
-    finally { setLoading(false) }
-  }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo kịch bản thất bại'); setBusy(''); return }
 
-  async function submit() {
-    const basePrompts = scenes.length ? scenes.map(s => s.prompt || s.image || '') : prompts
-    const baseNarr = scenes.length
-      ? scenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
-      : narrations
+    const scns: any[] = res.scenes || []
+    const basePrompts: string[] = scns.length ? scns.map((s: any) => s.prompt || s.image || '') : (res.prompts || [])
+    const baseNarr: string[] = scns.length
+      ? scns.map((s: any) => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
+      : (res.narrations || [])
     const valid = basePrompts.filter(p => (p || '').trim())
-    if (!valid.length) { setError('Chưa có cảnh nào'); return }
-    const msg = reviewCost === 0
-      ? `Thêm ${valid.length} cảnh (Phần ${nextPart}) — model Miễn phí, KHÔNG tốn credit. Tiếp tục?`
-      : `Thêm ${valid.length} cảnh (Phần ${nextPart}) — tốn khoảng ${reviewCost} 💎. Tiếp tục?`
-    if (!window.confirm(msg)) return
-    setError(''); setCreating(true)
+    if (!valid.length) { setError('AI chưa viết được cảnh nào, thử lại.'); setBusy(''); return }
+
+    const cost = modelObj.cost * valid.length
+    if (cost > 0 && !window.confirm(`Thêm ${valid.length} cảnh (Phần ${nextPart}) — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setBusy(''); return }
+
+    setBusy('create')
     try {
       await projectsApi.addScenes(project.id, {
-        idea: idea.trim(),
-        prompts: basePrompts, narrations: baseNarr,
+        idea: idea.trim(), prompts: basePrompts, narrations: baseNarr,
         model_key: model, duration_seconds: duration, audio_mode: audioMode,
-        character_bible: bibleChars, auto_render: true,
+        character_bible: res.characters || [], auto_render: true,
       })
       onDone()
-    } catch (e: any) { setError(e.response?.data?.detail || 'Thêm phần thất bại'); setCreating(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || 'Thêm phần thất bại'); setBusy('') }
   }
 
   return (
@@ -105,7 +91,6 @@ export default function AddPartPanel({ project, onDone, onClose }: {
 
         {error && <div className="alert alert-error" style={{ marginBottom: 14 }}>{error}</div>}
 
-        {step === 'setup' && (<>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>
             Nối tiếp dự án — <strong>giữ nguyên {charNames.length} nhân vật</strong>
             {charNames.length > 0 && <> ({charNames.map(n => '@' + n).join(', ')})</>} và <strong>tỉ lệ {project.aspect_ratio}</strong> để ghép phim liền mạch.
@@ -150,57 +135,11 @@ export default function AddPartPanel({ project, onDone, onClose }: {
             </div>
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={generate} disabled={loading || !idea.trim()}>
-            {loading ? <><Loader2 size={14} className="spin" /> Đang xử lý...</> : (mode === 'manual' ? 'Phân tích kịch bản →' : 'AI viết tiếp →')}
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={run} disabled={!!busy || !idea.trim()}>
+            {busy === 'gen' ? <><Loader2 size={14} className="spin" /> Đang viết kịch bản...</>
+              : busy === 'create' ? <><Loader2 size={14} className="spin" /> Đang thêm & render...</>
+              : (mode === 'manual' ? 'Phân tích & tạo →' : 'AI viết tiếp & tạo →')}
           </button>
-        </>)}
-
-        {step === 'review' && (<>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>📝 Phần {nextPart}: {reviewN} cảnh</span>
-            <span style={{ fontSize: 12, color: reviewCost === 0 ? 'var(--green)' : 'var(--yellow)', fontWeight: 600 }}>
-              {reviewCost === 0 ? 'FREE' : `${reviewCost} 💎`}
-            </span>
-            <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
-          </div>
-
-          <div style={{ maxHeight: '46vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-            {loading ? Array.from({ length: Math.min(sceneCount, 6) }).map((_, i) => (
-              <div key={i} className="card" style={{ margin: 0 }}>
-                <div className="skel" style={{ height: 12, width: 80, marginBottom: 8 }} />
-                <div className="skel" style={{ height: 26, width: '100%' }} />
-              </div>
-            )) : scenes.length > 0 ? scenes.map((s, i) => (
-              <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px', display: 'inline-block', marginBottom: 8 }}>Cảnh {i + 1}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'none', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
-                <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 8 }} value={s.image || ''} onChange={e => updateScene(i, 'image', e.target.value)} />
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 110px' }} placeholder="Người nói" value={s.speaker || ''} onChange={e => updateScene(i, 'speaker', e.target.value)} />
-                  <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue || ''} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
-                </div>
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Mô tả cảnh — sửa nếu cần</summary>
-                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt || ''} onChange={e => updateScene(i, 'prompt', e.target.value)} />
-                </details>
-              </div>
-            )) : prompts.map((p, i) => (
-              <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px', display: 'inline-block', marginBottom: 6 }}>Cảnh {i + 1}</div>
-                <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: 6 }} value={p}
-                  onChange={e => { const np = [...prompts]; np[i] = e.target.value; setPrompts(np) }} />
-                {narrations[i] !== undefined && (
-                  <input className="form-input" style={{ fontSize: 12 }} value={narrations[i]} placeholder="🔊 Lời thoại"
-                    onChange={e => { const nn = [...narrations]; nn[i] = e.target.value; setNarrations(nn) }} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={submit} disabled={creating || loading}>
-            {creating ? <><Loader2 size={14} className="spin" /> Đang thêm & render...</> : `➕ Thêm Phần ${nextPart} vào dự án`}
-          </button>
-        </>)}
       </div>
     </div>
   )
