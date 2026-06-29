@@ -228,6 +228,22 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
   .cell,.pcard,.step,.frame.big{transition:none}
   .cell::after,.pcard::after,.step::after{display:none}
 }
+
+/* Video mẫu (showcase tĩnh) — lưới dọc 9:16, hover nhấc + play gradient */
+.samples{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:16px}
+.svid{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#15111f;
+  box-shadow:0 18px 44px -24px rgba(0,0,0,.8);transition:transform .28s cubic-bezier(.2,.7,.2,1),box-shadow .28s,border-color .28s}
+.svid:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 28px 60px -26px rgba(0,0,0,.85),0 0 34px -16px rgba(236,72,153,.45)}
+.svid .ph,.svid video{width:100%;aspect-ratio:9/16;object-fit:cover;display:block;background:#0e0b14}
+.svid .ratio{position:absolute;top:8px;right:8px;z-index:2;font-family:var(--mono);font-size:10px;color:#fff;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:2px 7px}
+.svid .dur{position:absolute;top:8px;left:8px;z-index:2;font-family:var(--mono);font-size:10px;color:#fff;background:rgba(0,0,0,.5);border-radius:5px;padding:2px 7px}
+.svid .play{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:var(--grad);display:grid;place-items:center;box-shadow:0 10px 26px -6px rgba(236,72,153,.6);opacity:.92;transition:transform .2s,opacity .2s;pointer-events:none}
+.svid:hover .play{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+.svid .play svg{width:18px;height:18px;color:#fff;margin-left:2px}
+.svid .meta{padding:10px 12px}
+.svid .meta .t{font-size:13px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.svid .meta .by{font-size:11.5px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between;align-items:center}
+@media(prefers-reduced-motion:reduce){.svid{transition:none}.svid .play{transition:none}}
 </style>
 </head>
 <body>
@@ -241,6 +257,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
   <div class="navlinks">
     <a href="#features">Tính năng</a>
     <a href="#how">Cách hoạt động</a>
+    <a href="#samples">Video mẫu</a>
     <a href="#pricing">Bảng giá</a>
   </div>
   <div class="navright">
@@ -324,6 +341,19 @@ footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:3
     <div class="step reveal"><div class="n">01</div><h3>Nhập ý tưởng</h3><p>Mô tả nội dung, chọn số cảnh, thời lượng và phong cách. Thêm nhân vật cần giữ mặt nếu có.</p></div>
     <div class="step reveal" data-d="1"><div class="n">02</div><h3>Duyệt kịch bản</h3><p>AI sinh prompt từng cảnh. Bạn xem trên storyboard và chỉnh sửa tự do trước khi render.</p></div>
     <div class="step reveal" data-d="2"><div class="n">03</div><h3>Render &amp; ghép</h3><p>Bấm một nút, mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
+  </div>
+</div></section>
+
+<section id="samples"><div class="inner">
+  <div class="reveal"><div class="eyebrow">Video mẫu</div>
+  <h2 class="h2">Video từ cộng đồng</h2>
+  <p class="sub">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p></div>
+  <div class="samples reveal">
+    <div class="svid"><span class="ratio">9:16</span><span class="dur">0:48</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid1/360/640" alt="Video mẫu: phim nhiều cảnh giữ mặt nhân vật"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Mẹ &amp; Nam mở spa — phim nhiều cảnh</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>
+    <div class="svid"><span class="ratio">9:16</span><span class="dur">0:32</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid2/360/640" alt="Video mẫu: bán hàng UGC"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Khoe túi xách da — video bán hàng UGC</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>
+    <div class="svid"><span class="ratio">9:16</span><span class="dur">1:04</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid3/360/640" alt="Video mẫu: câu chuyện khởi nghiệp"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Câu chuyện khởi nghiệp — kịch bản AI</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>
+    <div class="svid"><span class="ratio">9:16</span><span class="dur">0:24</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid4/360/640" alt="Video mẫu: review mỹ phẩm"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Review mỹ phẩm — giữ mặt KOL</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>
+    <div class="svid"><span class="ratio">9:16</span><span class="dur">0:40</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid5/360/640" alt="Video mẫu: phim hoạt hình 3D"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Phim hoạt hình 3D — nhân vật dễ thương</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>
   </div>
 </div></section>
 
