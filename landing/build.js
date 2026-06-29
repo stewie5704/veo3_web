@@ -38,19 +38,26 @@ const SAMPLES = [
   { dur: '0:52', title: 'Trailer thương hiệu — phong cách điện ảnh', seed: 'aiac-vid7', ratio: '16:9' },
   { dur: '0:28', title: 'Video doanh nghiệp — góc quay rộng', seed: 'aiac-vid8', ratio: '16:9' },
 ];
-// Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
+// Tự dò file trong landing/samples/. Ưu tiên .mp4 (chạy mọi trình duyệt); nhận thêm .webm/.mov/.m4v nếu có.
+const VEXT = ['mp4', 'webm', 'mov', 'm4v'];
+const findVid = (base) => {
+  for (const e of VEXT) {
+    const rel = `samples/${base}.${e}`;
+    if (fs.existsSync(path.join(__dirname, rel))) return rel;
+  }
+  return null;
+};
+const mimeOf = (f) => f.endsWith('.webm') ? 'video/webm' : (f.endsWith('.mov') ? 'video/quicktime' : (f.endsWith('.m4v') ? 'video/x-m4v' : 'video/mp4'));
 const cardHTML = (s, i) => {
-  const v9 = `samples/v${i + 1}.mp4`;
-  const vW = `samples/v${i + 1}w.mp4`;          // hậu tố 'w' = video NGANG 16:9
-  const hasW = fs.existsSync(path.join(__dirname, vW));
-  const hasVideo = hasW || fs.existsSync(path.join(__dirname, v9));
-  const vfile = hasW ? vW : v9;
-  const wide = hasW || s.ratio === '16:9';   // slot 16:9 luôn ngang (v6.mp4 cũng được); hoặc file có hậu tố 'w'
+  const fW = findVid(`v${i + 1}w`);          // file NGANG 16:9 (hậu tố 'w')
+  const vfile = fW || findVid(`v${i + 1}`);
+  const hasVideo = !!vfile;
+  const wide = !!fW || s.ratio === '16:9';   // slot 16:9 luôn ngang (v6.mp4 cũng được); hoặc file có hậu tố 'w'
   const r = wide ? '16:9' : '9:16';
   const pfile = `samples/v${i + 1}.jpg`;
   const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${wide ? '640/360' : '360/640'}`;
   const media = hasVideo
-    ? `<video src="${vfile}" poster="${poster}" controls preload="metadata" playsinline></video>`
+    ? `<video poster="${poster}" controls preload="metadata" playsinline><source src="${vfile}" type="${mimeOf(vfile)}"></video>`
     : `<img class="ph${wide ? ' wide' : ''}" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
   return `<div class="svid${wide ? ' wide' : ''}"><span class="ratio">${r}</span>${hasVideo ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
 };

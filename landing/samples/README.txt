@@ -10,6 +10,12 @@ LAYOUT HIỆN TẠI: 8 ô = 5 DỌC (9:16) + 3 NGANG (16:9).
     NGANG 16:9-> v6.mp4  v7.mp4  v8.mp4               (ô 6-8 đã set sẵn là ngang)
     ảnh bìa   -> v1.jpg  v2.jpg  ...                  (TÙY CHỌN; không có thì dùng khung đầu video)
 
+ĐỊNH DẠNG:
+    NÊN: .mp4 (H.264) — chạy MỌI trình duyệt + điện thoại. An toàn nhất.
+    Cũng nhận: .webm / .mov / .m4v (đặt v1.mov, v6.mov... đều được).
+    ⚠ .mov hên xui: Firefox & nhiều máy Android KHÔNG phát; iPhone quay ra .mov HEVC -> Chrome/Android đen ô.
+       -> Chỉ có .mov? Cứ bỏ vào + nhắn Claude, sẽ convert sang .mp4 cho chắc.
+
 QUY TẮC:
   - Ô 1-5 là DỌC, ô 6-8 là NGANG — cứ bỏ file đúng số (v1..v8) là khớp, KHÔNG cần thêm gì.
   - Ô ngang (6-8) tự to gấp đôi bề ngang, video hiện đúng tỉ lệ, KHÔNG bị cắt méo.
