@@ -222,7 +222,7 @@ LỜI THOẠI: ...
 
       if (!direct) {
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
-        const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, has_kol: !!kol, brief: text })
+        const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: !!kol, brief: text })
         const scns: any[] = sres.scenes || []
         prompts = scns.map(s => s.prompt || '')
         narrations = scns.map(s => s.narration || '')

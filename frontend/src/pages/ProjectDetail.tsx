@@ -20,6 +20,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [loading, setLoading] = useState(true)
   const [editingScene, setEditingScene] = useState<string | null>(null)
   const [editPrompt, setEditPrompt] = useState('')
+  const [editNarration, setEditNarration] = useState('')
   const [addPartOpen, setAddPartOpen] = useState(false)   // mở panel thêm kịch bản/phần mới
   const [editPart, setEditPart] = useState<number | null>(null)   // đang sửa kịch bản phần nào
   const [partDraft, setPartDraft] = useState('')
@@ -126,7 +127,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
 
   async function saveScene(sceneId: string) {
     if (!id) return
-    await projectsApi.updateScene(id, sceneId, { prompt: editPrompt })
+    await projectsApi.updateScene(id, sceneId, { prompt: editPrompt, narration: editNarration })
     setEditingScene(null)
     pushLog(`Đã lưu prompt scene`)
     load(true)
@@ -418,6 +419,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             <>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>Mô tả cảnh:</div>
               <textarea className="form-textarea" rows={4} value={editPrompt} onChange={e => setEditPrompt(e.target.value)} style={{ fontSize: 13 }} />
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>🎙️ Lời thoại (để trống = không thoại):</div>
+              <textarea className="form-textarea" rows={2} value={editNarration} onChange={e => setEditNarration(e.target.value)} placeholder="Lời thoại nhân vật / narration cảnh này..." style={{ fontSize: 13 }} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}><Save size={13} /> Lưu</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditingScene(null)}>Hủy</button>
@@ -458,7 +461,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                 {st === 'done' && scene.video_file && (
                   <DownloadMenu base={`/projects/${id}/scenes/${scene.id}/download`} filename={`canh_${scene.index + 1}.mp4`} iconOnly />
                 )}
-                <button className="btn btn-ghost btn-sm" title="Sửa mô tả" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt) }}>
+                <button className="btn btn-ghost btn-sm" title="Sửa mô tả & lời thoại" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt); setEditNarration(scene.narration || '') }}>
                   <Pencil size={14} />
                 </button>
                 <button className="btn btn-ghost btn-sm" title="Tạo lại cảnh" onClick={() => rerenderScene(scene.id)}>

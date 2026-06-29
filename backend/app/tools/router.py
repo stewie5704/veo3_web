@@ -513,7 +513,7 @@ def _mr_outline(api_key: str, source: str, n: int, lang_label: str, aspect: str,
     rule = ("GIỮ NGUYÊN VĂN lời thoại + TÊN; mỗi 'Cảnh'/'Scene' = 1 beat."
             if parse_mode else "Chia ý tưởng thành các cảnh ~8s, mỗi beat = 1 cú máy.")
     system = f"""Bạn là biên kịch/đạo diễn cho video Veo 3.1. Từ nội dung trong <{fence}>, trả về MỘT JSON DUY NHẤT cho DÀN Ý: summary, suggested_style, style_lock, characters[], beats[] (ĐÚNG {n} phần tử).
-NGÔN NGỮ: style_lock + mọi trường nhân vật = TIẾNG ANH; beat/intent/dialogue = {lang_label}.
+NGÔN NGỮ: style_lock + mọi trường nhân vật = TIẾNG ANH; beat/intent/dialogue = {lang_label}. NHÂN VẬT khớp ngôn ngữ: diện mạo + quốc tịch hợp {lang_label} (tiếng Việt → người Việt Nam, nét Á Đông) và nói 100% {lang_label}, TRỪ KHI ý tưởng nói rõ người nước khác.
 characters[]: hồ sơ nhân vật tái xuất hiện (KHÔNG id, theo thứ tự xuất hiện), các trường TÁCH RỜI tiếng Anh: name, role, age, gender_presentation, face, eyes, hair, skin_tone (TRUNG TÍNH — không nhãn chủng tộc), build, wardrobe_top, wardrobe_bottom, footwear, headwear, accessories, distinguishing_marks (BẮT BUỘC), anchor (1 chi tiết DUY NHẤT dễ nhớ nhất, dẫn đầu nhận dạng), palette, voice, tts_voice (Kore/Aoede/Leda=NỮ, Puck/Charon/Orus=NAM, khớp giới).
 style_lock: 1 đoạn tiếng Anh khoá phong cách (film grain/grade/ánh sáng/DOF). suggested_style = tên ngắn.
 beats[]: {n} phần tử CỰC GỌN, mỗi phần tử dạng {beat_shape}. {rule} Tham chiếu nhân vật bằng KHÓA "CHAR_n" theo characters[]; KHÔNG bịa nhân vật mới.
@@ -617,7 +617,7 @@ async def autoprompt(
 
 NHIỆM VỤ: từ Ý TƯỞNG trong <YTUONG>, trả về MỘT object JSON DUY NHẤT: summary, suggested_style, style_lock, characters[], scenes[] (ĐÚNG {n} cảnh, tỉ lệ {body.aspect_ratio}, mỗi cảnh ~8 giây = một cú máy).
 
-NGÔN NGỮ (bắt buộc): mọi mô tả + style_lock + prompt + thông số máy = TIẾNG ANH. CHỈ "beat" và "dialogue" = {lang_label}.
+NGÔN NGỮ (bắt buộc): mọi mô tả + style_lock + prompt + thông số máy = TIẾNG ANH. CHỈ "beat" và "dialogue" = {lang_label}. NHÂN VẬT phải KHỚP ngôn ngữ đã chọn: diện mạo + quốc tịch hợp {lang_label} (tiếng Việt → người Việt Nam, nét Á Đông: gương mặt/da/tóc người Việt) và NÓI 100% {lang_label} — TRỪ KHI ý tưởng nêu rõ nhân vật người nước khác.
 
 (1) characters[] — HỒ SƠ NHÂN VẬT khoá để cùng một người trông GIỐNG HỆT ở mọi cảnh (KHÔNG ảnh tham chiếu, đồng bộ hoàn toàn bằng mô tả). Liệt kê nhân vật TÁI XUẤT HIỆN theo thứ tự, KHÔNG gán id. Mỗi nhân vật là object với CÁC TRƯỜNG TÁCH RỜI (tiếng Anh, cụ thể & tái lập được): name, role, age (số cho người lớn / giai đoạn cho trẻ), gender_presentation, face, eyes, hair, skin_tone (sắc độ TRUNG TÍNH — KHÔNG nhãn chủng tộc/quốc tịch), build ("height=175cm; build=lean-athletic"), wardrobe_top, wardrobe_bottom, footwear, headwear, accessories, distinguishing_marks (BẮT BUỘC — sẹo/nốt ruồi/kính/tàn nhang), anchor (1 chi tiết DUY NHẤT dễ nhớ nhất — vd "silver locket"/"round glasses"/"scar above brow" — sẽ DẪN ĐẦU nhận dạng ở mọi cảnh), palette (2-3 màu chủ đạo), voice, tts_voice (giọng đọc — CHỌN 1: Kore/Aoede/Leda cho NỮ, Puck/Charon/Orus cho NAM, KHỚP giới tính; nhân vật khác nhau nên giọng khác nhau). MỖI nhân vật một bộ trang phục cố định.
 
@@ -913,6 +913,7 @@ class SellScriptRequest(BaseModel):
     tone: str = "ugc"
     scene_count: int = 5
     language: str = "vi"
+    duration: int = 8   # thời lượng mỗi cảnh (giây) -> ràng buộc độ dài lời thoại cho khớp
     has_kol: bool = False
     brief: str = ""   # ý tưởng/kịch bản người dùng dán vào -> AI bám theo, tự tạo prompt
 
@@ -928,6 +929,8 @@ async def sell_script(body: SellScriptRequest, user: User = Depends(get_current_
     sc = _SCENE_VI.get(body.scene, _SCENE_VI["street"])
     to = _TONE_VI.get(body.tone, _TONE_VI["ugc"])
     lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    dur = max(3, min(15, int(body.duration or 8)))
+    lo, hi = int(dur * 1.8), int(dur * 2.6)   # ~ số từ nói VỪA trong dur giây ở nhịp tự nhiên
     brief = _sanitize(body.brief)[:2000].strip()
     brief_block = (f'\n\nBÁM SÁT ý tưởng/kịch bản người dùng cung cấp dưới đây (chia thành {n} cảnh hợp lý, giữ đúng thông điệp & mạch bán hàng; LỜI THOẠI bám sát ý này, không bịa thêm sản phẩm khác):\n"""{brief}"""') if brief else ""
     system = f"""Bạn là biên kịch + prompt-engineer cho Google Veo 3.1 làm video BÁN HÀNG affiliate TikTok Shop: dọc 9:16, kiểu UGC quay tay, {n} cảnh NỐI TIẾP (cảnh sau nối liền mạch cảnh trước).
@@ -936,10 +939,12 @@ Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.{brief_block}
 
 QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI: dùng ĐÚNG người trong ẢNH THAM CHIẾU. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100% diện mạo + giới tính). Trong prompt CHỈ gọi "the person" / "they". KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man"/"a girl"/"young".
 
+QUY TẮC NHỊP THOẠI (chống cụt/ngắt đột ngột — tham khảo cách người thật nói chuyện): mỗi cảnh dài ~{dur} giây. LỜI THOẠI phải nói VỪA HẾT trong ~{dur} giây ở tốc độ trò chuyện TỰ NHIÊN (có nhịp thở, KHÔNG đọc gấp) ≈ {lo}–{hi} từ/cảnh. Ưu tiên NGẮN hơn để chừa nhịp, KHÔNG để dài quá bị cắt giữa chừng. Mỗi câu TRỌN VẸN, ngắt nghỉ tự nhiên như người thật. Lời thoại 100% {lang_label}, KHÔNG pha ngôn ngữ khác.
+
 Trả về JSON DUY NHẤT:
 {{"scenes":[
   {{"prompt":"<MỘT đoạn TIẾNG ANH cho Veo: [cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [the person cầm/mặc/dùng & khoe sản phẩm, hành động cụ thể nối tiếp cảnh trước] -> [bối cảnh + ánh sáng tự nhiên CÓ NGUỒN] -> [UGC quay tay: handheld nhẹ, da thật, KHÔNG bóng bẩy]. BẮT BUỘC chèn: 'keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it'. KHÔNG tả ngoại hình/giới tính người. KHÔNG lời thoại/ngoặc kép/says/voiceover.>",
-   "narration":"<lời thoại bán hàng {lang_label} ~1 câu cho cảnh, tự nhiên, nối mạch>"}}
+   "narration":"<lời thoại bán hàng {lang_label}, nói VỪA trong ~{dur}s (~{lo}–{hi} từ), câu TRỌN VẸN không cụt, nối mạch cảnh trước; cảnh đầu hook, cảnh cuối kêu gọi mua>"}}
   ... ĐÚNG {n} cảnh ...
 ]}}
 KHÔNG markdown, KHÔNG chữ ngoài JSON."""
