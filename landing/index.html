@@ -7,179 +7,508 @@
 <meta name="description" content="AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật qua từng cảnh, render bằng Veo 3.1 rồi ghép thành video hoàn chỉnh. Dùng thử miễn phí 24h.">
 <meta name="keywords" content="AI video, tạo video AI, Veo 3.1, giữ mặt nhân vật, video TikTok, AI AutoCut">
 <meta property="og:title" content="AI AutoCut — Biến ý tưởng thành phim AI">
-<meta property="og:description" content="Tự viết kịch bản, giữ mặt, render & ghép phim tự động bằng Veo 3.1.">
+<meta property="og:description" content="Tự viết kịch bản, giữ mặt, render và ghép phim tự động bằng Veo 3.1. Dùng thử miễn phí 24h.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://aiautocut.com">
 <link rel="canonical" href="https://aiautocut.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<style>html,body{margin:0;padding:0;background:#0B0911;min-height:100vh}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* Landing page — scoped under #lp to avoid clashing with app's global .btn/.card/etc. */
+#lp{
+  --bg:#0B0911; --bg2:#0E0B16; --surface:#16121F; --surface2:#1E1830; --inset:#100D19;
+  --line:rgba(255,255,255,0.08); --line2:rgba(255,255,255,0.15);
+  --text:#F4F1FA; --text2:rgba(228,221,246,0.62); --text3:rgba(200,191,228,0.40);
+  --accent:#F97316; --accent2:#FDBA74; --pink:#EC4899; --violet:#A855F7; --green:#34D399;
+  --grad:linear-gradient(115deg,#F97316,#EC4899 56%,#A855F7);
+  --sans:-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
+  --display:"Space Grotesk",-apple-system,"Segoe UI",system-ui,Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,monospace;
+  position:relative;min-height:100vh;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  letter-spacing:-0.006em;overflow-x:hidden;
+}
+#lp *{box-sizing:border-box}
+#lp svg{display:block}
+#lp a{color:inherit;text-decoration:none}
+#lp .shell{position:relative}
+#lp .shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 40% at 12% -4%, rgba(249,115,22,0.14),transparent 60%),
+    radial-gradient(ellipse 46% 42% at 92% 8%, rgba(236,72,153,0.13),transparent 60%),
+    radial-gradient(ellipse 60% 50% at 70% 102%, rgba(168,85,247,0.12),transparent 64%)}
+#lp .shell::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#lp .inner{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px}
+
+/* HEADER */
+#lp header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,9,17,0.7);border-bottom:1px solid var(--line)}
+#lp .hrow{display:flex;align-items:center;gap:14px;height:64px}
+#lp .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;letter-spacing:-.3px}
+#lp .brand .logo{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;box-shadow:0 6px 18px -4px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+#lp .brand .logo svg{width:18px;height:18px;color:#fff}
+#lp nav.links{display:flex;gap:6px;margin-left:18px}
+#lp nav.links a{padding:8px 13px;border-radius:9px;color:var(--text2);font-size:13.5px;font-weight:550}
+#lp nav.links a:hover{color:var(--text);background:rgba(255,255,255,.04)}
+#lp .hright{margin-left:auto;display:flex;align-items:center;gap:10px}
+#lp .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:11px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
+#lp .btn svg{width:15px;height:15px}
+#lp .btn-grad{background:var(--grad);color:#fff;box-shadow:0 8px 22px -6px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.22)}
+#lp .btn-grad:hover{filter:brightness(1.07)}
+#lp .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--line)}
+#lp .btn-ghost:hover{color:var(--text);border-color:var(--line2)}
+@media(max-width:720px){#lp nav.links{display:none}}
+
+/* HERO */
+#lp .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:72px 0 56px}
+#lp .pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.02em;
+  color:var(--accent2);background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);padding:6px 13px;border-radius:99px;margin-bottom:22px}
+#lp .pill .d{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+#lp h1{font-size:clamp(34px,5.4vw,58px);line-height:1.04;font-weight:800;letter-spacing:-.025em;margin:0 0 18px}
+#lp h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#lp .lead{font-size:17.5px;color:var(--text2);max-width:520px;margin:0 0 28px}
+#lp .cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+#lp .btn-lg{padding:14px 24px;font-size:15px;border-radius:13px}
+#lp .caps{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
+#lp .cap{font-family:var(--mono);font-size:11.5px;color:var(--text3);border:1px solid var(--line);border-radius:8px;padding:5px 10px}
+#lp .cap b{color:var(--text2);font-weight:600}
+
+/* product window */
+#lp .window{position:relative;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#15111F,#0F0C18);
+  box-shadow:0 40px 100px -30px rgba(0,0,0,.85),0 0 60px -20px rgba(236,72,153,.25);overflow:hidden}
+#lp .wtop{display:flex;align-items:center;gap:7px;padding:13px 16px;border-bottom:1px solid var(--line)}
+#lp .wtop i{width:10px;height:10px;border-radius:50%;background:var(--line2);display:block}
+#lp .wtop .url{margin-left:10px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+#lp .wbody{padding:18px}
+#lp .wpane{display:flex;gap:8px;align-items:center;background:var(--inset);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:14px}
+#lp .wpane svg{width:15px;height:15px;color:var(--pink);flex:0 0 auto}
+#lp .wpane span{font-size:12.5px;color:var(--text2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#lp .board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+#lp .cell{aspect-ratio:16/10;border:1px solid var(--line);border-radius:10px;background:#120F1E;position:relative;overflow:hidden;
+  opacity:0;transform:translateY(8px);animation:lp-cell-in .5s ease forwards}
+#lp .cell img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#lp .cell::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(11,9,17,.05),rgba(11,9,17,.55));pointer-events:none}
+#lp .cell .tg{position:absolute;z-index:2;bottom:6px;left:6px;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(0,0,0,.5);border-radius:5px;padding:1px 6px}
+#lp .cell .play{position:absolute;z-index:2;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.16);backdrop-filter:blur(6px);display:grid;place-items:center;opacity:.85;transition:.2s}
+#lp .cell .play svg{width:12px;height:12px;color:#fff;margin-left:1px}
+#lp .cell:hover .play{opacity:1;transform:translate(-50%,-50%) scale(1.14)}
+#lp .cell.f{box-shadow:inset 0 0 0 1.6px rgba(236,72,153,.7),0 0 22px -6px rgba(236,72,153,.6)}
+@keyframes lp-cell-in{to{opacity:1;transform:none}}
+#lp .cell:nth-child(1){animation-delay:.05s}#lp .cell:nth-child(2){animation-delay:.12s}#lp .cell:nth-child(3){animation-delay:.19s}
+#lp .cell:nth-child(4){animation-delay:.26s}#lp .cell:nth-child(5){animation-delay:.33s}#lp .cell:nth-child(6){animation-delay:.4s}
+#lp .wfoot{display:flex;align-items:center;gap:10px;margin-top:14px;font-family:var(--mono);font-size:12px}
+#lp .wfoot .big{font-size:17px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#lp .wfoot .free{color:var(--green);font-weight:700}
+#lp .wfoot .go{margin-left:auto;background:var(--grad);color:#fff;border-radius:9px;padding:7px 14px;font-family:var(--sans);font-size:12.5px;font-weight:700}
+@media(max-width:860px){#lp .hero{grid-template-columns:1fr;gap:36px;padding:48px 0 40px}}
+
+/* SECTIONS */
+#lp section.blk{padding:64px 0;position:relative;z-index:1}
+#lp .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--pink);margin-bottom:12px}
+#lp .h2{font-size:clamp(26px,3.5vw,36px);font-weight:800;letter-spacing:-.02em;margin:0 0 12px}
+#lp .sub{font-size:16px;color:var(--text2);max-width:560px;margin:0 0 36px}
+
+/* FEATURES */
+#lp .feat{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+#lp .fcard{background:linear-gradient(180deg,#17131F,#120F1A);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+#lp .fcard .ic{width:42px;height:42px;border-radius:11px;background:rgba(236,72,153,.1);border:1px solid rgba(236,72,153,.25);display:grid;place-items:center;margin-bottom:16px}
+#lp .fcard .ic svg{width:20px;height:20px;color:var(--pink)}
+#lp .fcard h3{font-size:16.5px;font-weight:750;margin:0 0 7px}
+#lp .fcard p{font-size:13.5px;color:var(--text2);margin:0;line-height:1.6}
+@media(max-width:720px){#lp .feat{grid-template-columns:1fr}}
+
+/* STEPS */
+#lp .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+#lp .step{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+#lp .step .n{font-family:var(--mono);font-size:13px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:14px;display:block}
+#lp .step h3{font-size:16px;font-weight:750;margin:0 0 6px}
+#lp .step p{font-size:13.5px;color:var(--text2);margin:0}
+@media(max-width:720px){#lp .steps{grid-template-columns:1fr}}
+
+/* PRICING */
+#lp .price{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+#lp .pcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px;position:relative}
+#lp .pcard.hot{border-color:transparent;box-shadow:inset 0 0 0 1.5px rgba(236,72,153,.5),0 24px 60px -24px rgba(236,72,153,.4)}
+#lp .pcard .tag{position:absolute;top:-11px;left:24px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:4px 11px;border-radius:99px}
+#lp .pcard .name{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:10px}
+#lp .pcard .amt{font-size:30px;font-weight:800;letter-spacing:-.02em}
+#lp .pcard .amt small{font-size:14px;color:var(--text3);font-weight:600}
+#lp .pcard ul{list-style:none;padding:0;margin:18px 0 22px;display:flex;flex-direction:column;gap:10px}
+#lp .pcard li{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--text2)}
+#lp .pcard li svg{width:16px;height:16px;color:var(--green);flex:0 0 auto;margin-top:2px}
+#lp .pcard .btn{width:100%;justify-content:center}
+@media(max-width:720px){#lp .price{grid-template-columns:1fr}}
+
+/* CTA band wrapper (shared) */
+#lp .band{position:relative;z-index:1;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(ellipse 80% 140% at 50% -20%, rgba(236,72,153,.18),transparent 60%),linear-gradient(180deg,#17131F,#0F0C18)}
+
+@media(prefers-reduced-motion:reduce){#lp .cell{animation:none;opacity:1;transform:none}}
+
+/* HERO stats strip */
+#lp .stats{display:flex;gap:28px;flex-wrap:wrap;margin-top:30px;padding-top:22px;border-top:1px solid var(--line)}
+#lp .stat{display:flex;flex-direction:column;gap:2px}
+#lp .stat b{font-size:18px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.01em}
+#lp .stat span{font-size:11.5px;color:var(--text3)}
+
+/* FEATURES bento — 1 thẻ lớn (có ảnh) + 2 thẻ nhỏ */
+#lp .fcard.span2{grid-column:1 / -1;display:grid;grid-template-columns:1.1fr 1fr;gap:26px;align-items:center}
+#lp .fc-shots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#lp .fc-shots img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+@media(max-width:720px){#lp .fcard.span2{grid-template-columns:1fr;gap:18px}}
+
+/* GUIDE 3 bước */
+#lp .guide3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+#lp .gcard{position:relative;background:linear-gradient(180deg,#17131F,#110E1A);border:1px solid var(--line);border-radius:16px;padding:26px 22px;overflow:hidden}
+#lp .gcard .gn{position:absolute;top:14px;right:18px;font-family:var(--mono);font-size:30px;font-weight:800;color:rgba(255,255,255,.05)}
+#lp .gcard .gic{width:44px;height:44px;border-radius:12px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.28);display:grid;place-items:center;margin-bottom:15px}
+#lp .gcard .gic svg{width:21px;height:21px;color:var(--accent2)}
+#lp .gcard h3{font-size:16.5px;font-weight:750;margin:0 0 7px}
+#lp .gcard p{font-size:13.5px;color:var(--text2);margin:0;line-height:1.6}
+#lp .gcard code{background:var(--inset);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11.5px}
+#lp .ghint{margin-top:18px;text-align:center;font-size:13px;color:var(--text2);background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:12px;padding:13px 16px}
+@media(max-width:720px){#lp .guide3{grid-template-columns:1fr}}
+
+/* Scroll-reveal */
+#lp .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+#lp .reveal.is-in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){#lp .reveal{opacity:1;transform:none;transition:none}}
+
+/* TESTIMONIALS */
+#lp .testi{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;margin-top:4px;scrollbar-width:none}
+#lp .testi::-webkit-scrollbar{display:none}
+#lp .tcard{flex:0 0 230px;background:linear-gradient(180deg,#17131F,#120F1A);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:13px}
+#lp .av-row{display:flex;align-items:center;gap:12px}
+#lp .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;color:#fff;flex:0 0 auto;letter-spacing:0}
+#lp .tc-meta{display:flex;flex-direction:column;gap:2px}
+#lp .tc-meta b{font-size:14px;font-weight:750;line-height:1.2}
+#lp .tc-meta span{font-size:11.5px;color:var(--text3)}
+#lp .tcard p{font-size:13px;color:var(--text2);margin:0;line-height:1.65;flex:1}
+#lp .stars{display:flex;gap:2px;color:#FBBF24}
+@media(min-width:1000px){#lp .testi{display:grid;grid-template-columns:repeat(5,1fr)}#lp .tcard{flex:unset}}
+@media(max-width:999px) and (min-width:640px){#lp .tcard{flex:0 0 260px}}
+
+/* CTA BAND — split layout */
+#lp .band{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;text-align:left;padding:48px}
+#lp .band h2{font-size:clamp(22px,3vw,30px);font-weight:800;letter-spacing:-.02em;margin:0 0 10px;line-height:1.2}
+#lp .band p{color:var(--text2);margin:0 0 22px;font-size:15px}
+#lp .band-form{display:flex;gap:10px;flex-wrap:wrap}
+#lp .band-input{flex:1;min-width:160px;background:var(--inset);border:1px solid var(--line2);border-radius:11px;padding:12px 16px;color:var(--text2);font-size:14px;font-family:var(--sans);outline:none;cursor:pointer;transition:border-color .2s}
+#lp .band-input:focus{border-color:var(--accent)}
+#lp .band-input::placeholder{color:var(--text3)}
+#lp .band-right img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:14px;border:1px solid var(--line)}
+@media(max-width:760px){#lp .band{grid-template-columns:1fr;gap:28px;padding:32px 24px;text-align:center}#lp .band-right{display:none}#lp .band-form{justify-content:center}}
+
+/* FOOTER — 4 columns */
+#lp footer{position:relative;z-index:1;border-top:1px solid var(--line);margin-top:64px}
+#lp .foot-top{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:36px;padding:48px 0 36px;align-items:start}
+#lp .foot-brand .brand{margin-bottom:12px}
+#lp .foot-desc{font-size:13px;color:var(--text3);line-height:1.7;max-width:220px;margin:0}
+#lp .fcol{display:flex;flex-direction:column;gap:10px}
+#lp .fcol b{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+#lp .fcol a{font-size:13px;color:var(--text3);transition:color .15s}
+#lp .fcol a:hover{color:var(--text2)}
+#lp .foot-bottom{border-top:1px solid var(--line);padding:20px 0;text-align:center;color:var(--text3);font-size:12.5px}
+@media(max-width:900px){#lp .foot-top{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){#lp .foot-top{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){#lp .foot-top{grid-template-columns:1fr}}
+
+/* ═══════════════ REDESIGN — premium polish (font · motion · glow · spotlight) ═══════════════ */
+/* Display font cho tiêu đề + số (Space Grotesk có tiếng Việt) */
+#lp h1,#lp .h2,#lp .brand,#lp .band h2,#lp .amt,#lp .stat b,#lp .wfoot .big,
+#lp .fcard h3,#lp .step h3,#lp .gcard h3,#lp .tc-meta b,#lp .pcard .name{font-family:var(--display)}
+#lp h1{letter-spacing:-.032em}
+
+/* Headline gradient chuyển màu chậm — chữ "sống" */
+#lp h1 .g{background:var(--grad);background-size:220% 220%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:lp-grad 7s ease-in-out infinite}
+@keyframes lp-grad{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* Nút: nhấc + nhấn + glow mạnh; CTA hero thở nhẹ */
+#lp .btn{transition:transform .16s ease,filter .16s,box-shadow .25s}
+#lp .btn-grad:hover{filter:brightness(1.08);transform:translateY(-2px);box-shadow:0 16px 38px -8px rgba(236,72,153,.7),inset 0 1px 0 rgba(255,255,255,.22)}
+#lp .btn-grad:active,#lp .btn-ghost:active{transform:translateY(0) scale(.98)}
+#lp .btn-ghost:hover{transform:translateY(-2px)}
+#lp .hero .btn-lg.btn-grad{animation:lp-cta 3.6s ease-in-out infinite}
+@keyframes lp-cta{0%,100%{box-shadow:0 8px 22px -6px rgba(236,72,153,.5),inset 0 1px 0 rgba(255,255,255,.22)}
+  50%{box-shadow:0 16px 42px -6px rgba(236,72,153,.85),0 0 28px -8px rgba(249,115,22,.55),inset 0 1px 0 rgba(255,255,255,.22)}}
+
+/* Thẻ: nhấc + bóng ám hồng + viền spotlight chạy theo con trỏ */
+#lp .fcard,#lp .gcard,#lp .step,#lp .pcard{transition:transform .28s cubic-bezier(.2,.7,.2,1),border-color .28s,box-shadow .28s}
+#lp .fcard:hover,#lp .gcard:hover,#lp .step:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 26px 56px -26px rgba(0,0,0,.85),0 0 34px -16px rgba(236,72,153,.45)}
+#lp .pcard:hover{transform:translateY(-5px)}
+#lp .pcard.hot{transform:scale(1.035)}
+#lp .pcard.hot:hover{transform:scale(1.035) translateY(-5px)}
+#lp .fcard::after,#lp .pcard::after,#lp .gcard::after,#lp .step::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
+  background:radial-gradient(220px circle at var(--mx,-300px) var(--my,-300px),var(--accent),rgba(236,72,153,.55) 36%,transparent 62%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s}
+#lp .fcard:hover::after,#lp .pcard:hover::after,#lp .gcard:hover::after,#lp .step:hover::after{opacity:.85}
+
+/* Nav: gạch chân gradient trượt; pill: chấm nhịp */
+#lp nav.links a{position:relative}
+#lp nav.links a::after{content:"";position:absolute;left:13px;right:13px;bottom:4px;height:1.5px;border-radius:2px;background:var(--grad);transform:scaleX(0);transform-origin:left;transition:transform .25s ease}
+#lp nav.links a:hover::after{transform:scaleX(1)}
+#lp .pill .d{animation:lp-ping 2.2s ease-out infinite}
+@keyframes lp-ping{0%{box-shadow:0 0 0 0 rgba(249,115,22,.55)}70%,100%{box-shadow:0 0 0 8px transparent}}
+
+/* Window hero: hover nhấc + glow đậm hơn */
+#lp .window{transition:transform .3s ease,box-shadow .3s ease}
+#lp .window:hover{transform:translateY(-3px);box-shadow:0 52px 116px -30px rgba(0,0,0,.9),0 0 82px -18px rgba(236,72,153,.42)}
+
+@media(prefers-reduced-motion:reduce){
+  #lp h1 .g,#lp .hero .btn-lg.btn-grad,#lp .pill .d{animation:none}
+  #lp .fcard,#lp .gcard,#lp .step,#lp .pcard,#lp .window,#lp .btn{transition:none}
+  #lp .fcard::after,#lp .pcard::after,#lp .gcard::after,#lp .step::after{display:none}
+}
+
+/* Video mẫu (showcase tĩnh) — lưới dọc 9:16, hover nhấc + play gradient */
+#lp .samples{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:16px}
+#lp .svid{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#15111f;box-shadow:0 18px 44px -24px rgba(0,0,0,.8);transition:transform .28s cubic-bezier(.2,.7,.2,1),box-shadow .28s,border-color .28s}
+#lp .svid:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 28px 60px -26px rgba(0,0,0,.85),0 0 34px -16px rgba(236,72,153,.45)}
+#lp .svid .ph,#lp .svid video{width:100%;aspect-ratio:9/16;object-fit:cover;display:block;background:#0e0b14}
+#lp .svid .ratio{position:absolute;top:8px;right:8px;z-index:2;font-family:var(--mono);font-size:10px;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:2px 7px}
+#lp .svid .dur{position:absolute;top:8px;left:8px;z-index:2;font-family:var(--mono);font-size:10px;color:#fff;background:rgba(0,0,0,.5);border-radius:5px;padding:2px 7px}
+#lp .svid .play{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:var(--grad);display:grid;place-items:center;box-shadow:0 10px 26px -6px rgba(236,72,153,.6);opacity:.92;transition:transform .2s,opacity .2s;pointer-events:none}
+#lp .svid:hover .play{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+#lp .svid .play svg{width:18px;height:18px;color:#fff;margin-left:2px}
+#lp .svid .meta{padding:10px 12px}
+#lp .svid .meta .t{font-size:13px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#lp .svid .meta .by{font-size:11.5px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between;align-items:center}
+@media(prefers-reduced-motion:reduce){#lp .svid,#lp .svid .play{transition:none}}
+</style>
 </head>
 <body>
-<!-- NAV -->
-<header id="nav">
-<div class="mx"><div class="nav-row">
-  <a href="/" class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span>AI AutoCut</a>
-  <nav class="links"><a href="#features">Tính năng</a><a href="#how">Cách hoạt động</a><a href="#pricing">Bảng giá</a><a href="#faq">FAQ</a></nav>
-  <div class="nav-r"><a class="nb" href="https://app.aiautocut.com/login">Đăng nhập</a><a class="nb pri" href="https://app.aiautocut.com/register">Bắt đầu miễn phí</a></div>
-</div></div>
-</header>
+<div id="lp">
+<div class="shell">
+  <header><div class="inner"><div class="hrow">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span>
+      AI AutoCut
+    </div>
+    <nav class="links">
+      <a href="#features">Tính năng</a>
+      <a href="#how">Cách hoạt động</a>
+      <a href="#samples">Video mẫu</a>
+      <a href="#guide">Hướng dẫn</a>
+      <a href="#pricing">Bảng giá</a>
+    </nav>
+    <div class="hright">
+      <a class="btn btn-ghost" href="https://app.aiautocut.com/login">Đăng nhập</a>
+      <a class="btn btn-grad" href="https://app.aiautocut.com/register">Bắt đầu miễn phí</a>
+    </div>
+  </div></div></header>
 
-<!-- HERO -->
-<section class="hero"><div class="mx">
-<div class="hero-grid">
-  <div class="hero-text rv">
-    <div class="pill"><span class="dot"></span>🎁 Dùng thử miễn phí 24h · Veo 3.1</div>
-    <h1>Một dòng ý tưởng,<br>thành <span class="gr">bộ phim AI</span><br>hoàn chỉnh.</h1>
-    <p class="lead">AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật qua từng cảnh, render bằng Veo 3.1 rồi ghép thành video. Bạn chỉ cần ý tưởng.</p>
-    <div class="cta-row">
-      <a class="nb pri lg" href="https://app.aiautocut.com/register">✨ Tạo video đầu tiên — miễn phí</a>
-      <a class="nb gh lg" href="#how">Xem cách hoạt động</a>
-    </div>
-    <div class="stats-row">
-      <div class="st"><b>Veo 3.1</b><span>engine mới nhất</span></div>
-      <div class="st"><b>Giữ mặt</b><span>xuyên mọi cảnh</span></div>
-      <div class="st"><b>Tự ghép</b><span>ra phim hoàn chỉnh</span></div>
-      <div class="st"><b>~vài phút</b><span>mỗi video</span></div>
-    </div>
-  </div>
-  <div class="hero-win rv">
-    <div class="win">
-      <div class="wtop"><i></i><i></i><i></i><span>app.aiautocut.com</span></div>
-      <div class="wbody">
-        <div class="wprompt">✨ Hồ ly chín đuôi tu luyện ngàn năm hóa thành thiếu nữ...</div>
-        <div class="wgrid">
-          <div class="wc hot"><span>Cảnh 01</span></div>
-          <div class="wc"><span>Cảnh 02</span></div>
-          <div class="wc"><span>Cảnh 03</span></div>
-          <div class="wc"><span>Cảnh 04</span></div>
-          <div class="wc"><span>Cảnh 05</span></div>
-          <div class="wc"><span>Cảnh 06</span></div>
+  <div class="inner">
+    <section class="hero">
+      <div class="reveal">
+        <div class="pill"><span class="d"></span>🎁 Dùng thử miễn phí 24h · Veo 3.1</div>
+        <h1>Một dòng ý tưởng,<br/>thành <span class="g">bộ phim AI</span> hoàn chỉnh.</h1>
+        <p class="lead">AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật qua từng cảnh, render bằng Veo 3.1 rồi ghép thành video. Bạn chỉ cần ý tưởng — phần còn lại để AI lo.</p>
+        <div class="cta-row">
+          <a class="btn btn-grad btn-lg" href="https://app.aiautocut.com/register"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg> Tạo video đầu tiên — miễn phí</a>
+          <a class="btn btn-ghost btn-lg" href="#how">Xem cách hoạt động</a>
         </div>
-        <div class="wfoot"><b class="gr">1:36</b><span>· 12×8s ·</span><span class="free">FREE</span><span class="go">Viết kịch bản →</span></div>
+        <div class="stats">
+          <div class="stat"><b>Veo 3.1</b><span>engine mới nhất</span></div>
+          <div class="stat"><b>Giữ mặt</b><span>xuyên mọi cảnh</span></div>
+          <div class="stat"><b>Tự ghép</b><span>ra phim hoàn chỉnh</span></div>
+          <div class="stat"><b>~vài phút</b><span>mỗi video</span></div>
+        </div>
+      </div>
+      <div class="window reveal">
+        <div class="wtop"><i></i><i></i><i></i><span class="url">app.aiautocut.com</span></div>
+        <div class="wbody">
+          <div class="wpane">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
+            <span>Hồ ly chín đuôi tu luyện ngàn năm hóa thành thiếu nữ...</span>
+          </div>
+          <div class="board">
+            <div class="cell f"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox1/440/300" alt=""><span class="tg">Cảnh 01</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+            <div class="cell"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox2/440/300" alt=""><span class="tg">Cảnh 02</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+            <div class="cell"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox3/440/300" alt=""><span class="tg">Cảnh 03</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+            <div class="cell"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox4/440/300" alt=""><span class="tg">Cảnh 04</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+            <div class="cell"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox5/440/300" alt=""><span class="tg">Cảnh 05</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+            <div class="cell"><img loading="lazy" src="https://picsum.photos/seed/aiac-fox6/440/300" alt=""><span class="tg">Cảnh 06</span><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+          </div>
+          <div class="wfoot"><span class="big">1:36</span><span style="color:var(--text3)">· 12×8s ·</span><span class="free">FREE</span><span class="go">Viết kịch bản →</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="blk" id="features"><div class="inner">
+    <div class="eyebrow reveal">Tính năng</div>
+    <h2 class="h2 reveal">Cả một xưởng phim, gói trong một dòng ý tưởng</h2>
+    <p class="sub reveal">Không cần biết dựng phim. Bạn mô tả, phần còn lại để AI AutoCut lo.</p>
+    <div class="feat">
+      <div class="fcard span2 reveal">
+        <div class="fc-text">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg></div>
+          <h3>Kịch bản tự động, chia cảnh thông minh</h3>
+          <p>Gõ ý tưởng — AI chia thành nhiều cảnh có lớp lang, viết prompt điện ảnh riêng cho từng cảnh. Bạn xem trên storyboard và sửa thoải mái trước khi render.</p>
+        </div>
+        <div class="fc-shots">
+          <img loading="lazy" src="https://picsum.photos/seed/aiac-f1/300/200" alt=""/>
+          <img loading="lazy" src="https://picsum.photos/seed/aiac-f2/300/200" alt=""/>
+          <img loading="lazy" src="https://picsum.photos/seed/aiac-f3/300/200" alt=""/>
+        </div>
+      </div>
+      <div class="fcard reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></div>
+        <h3>Giữ mặt nhân vật</h3>
+        <p>Tải ảnh nhân vật một lần — gương mặt được giữ nguyên xuyên suốt mọi cảnh, kể cả khi làm nhiều phần (Phần 1, Phần 2…).</p>
+      </div>
+      <div class="fcard reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div>
+        <h3>Render &amp; ghép tự động</h3>
+        <p>Mỗi cảnh render bằng Veo 3.1, hệ thống tự nối thành một video hoàn chỉnh để tải về ngay — không cần phần mềm dựng.</p>
       </div>
     </div>
-  </div>
-</div>
-</div></section>
+  </div></section>
 
-<!-- FEATURES -->
-<section class="blk" id="features"><div class="mx">
-<p class="eye rv">Tính năng</p>
-<h2 class="h2 rv">Cả một xưởng phim, gói trong một dòng ý tưởng</h2>
-<p class="sub rv">Không cần biết dựng phim. Bạn mô tả, phần còn lại để AI AutoCut lo.</p>
-<div class="feat">
-  <div class="fc span rv">
-    <div class="fc-t"><div class="ic pink">📝</div><h3>Kịch bản tự động, chia cảnh thông minh</h3><p>Gõ ý tưởng — AI chia thành nhiều cảnh có lớp lang, viết prompt điện ảnh cho từng cảnh. Sửa thoải mái trước khi render.</p></div>
-  </div>
-  <div class="fc rv"><div class="ic org">👤</div><h3>Giữ mặt nhân vật</h3><p>Tải ảnh một lần — gương mặt được giữ nguyên xuyên suốt mọi cảnh, kể cả nhiều phần.</p></div>
-  <div class="fc rv"><div class="ic vio">🎬</div><h3>Render & ghép tự động</h3><p>Mỗi cảnh render bằng Veo 3.1, hệ thống tự nối thành video hoàn chỉnh — không cần phần mềm dựng.</p></div>
-  <div class="fc rv"><div class="ic grn">🔊</div><h3>Lồng tiếng AI tự nhiên</h3><p>Giọng đọc tiếng Việt tự nhiên, tự gán theo nhân vật. Hỗ trợ chế độ nhân vật tự nói (nhép miệng).</p></div>
-  <div class="fc rv"><div class="ic cya">🛒</div><h3>Video bán hàng TikTok Shop</h3><p>Dán link sản phẩm Shopee/TikTok Shop → AI tạo video quảng cáo chuyên nghiệp trong 2 phút.</p></div>
-  <div class="fc rv"><div class="ic red">🔍</div><h3>Chép ý tưởng (Spy Tool)</h3><p>Dán link video viral → AI phân tích nội dung và tạo kịch bản tương tự cho bạn.</p></div>
-</div>
-</div></section>
+  <section class="blk" id="how"><div class="inner">
+    <div class="eyebrow reveal">Cách hoạt động</div>
+    <h2 class="h2 reveal">Ba bước, từ ý tưởng tới video</h2>
+    <p class="sub reveal">Trung bình vài phút cho một video nhiều cảnh hoàn chỉnh.</p>
+    <div class="steps">
+      <div class="step reveal"><span class="n">01</span><h3>Nhập ý tưởng</h3><p>Mô tả nội dung, chọn số cảnh, thời lượng, tỉ lệ và phong cách. Thêm nhân vật cần giữ mặt nếu có.</p></div>
+      <div class="step reveal"><span class="n">02</span><h3>AI viết kịch bản</h3><p>AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.</p></div>
+      <div class="step reveal"><span class="n">03</span><h3>Render &amp; ghép</h3><p>Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
+    </div>
+  </div></section>
 
-<!-- HOW IT WORKS -->
-<section class="blk" id="how"><div class="mx">
-<p class="eye rv">Cách hoạt động</p>
-<h2 class="h2 rv">Ba bước, từ ý tưởng tới video</h2>
-<p class="sub rv">Trung bình vài phút cho một video nhiều cảnh hoàn chỉnh.</p>
-<div class="steps">
-  <div class="stp rv"><span class="sn">01</span><h3>Nhập ý tưởng</h3><p>Mô tả nội dung, chọn số cảnh, thời lượng, phong cách. Thêm nhân vật cần giữ mặt nếu có.</p></div>
-  <div class="stp rv"><span class="sn">02</span><h3>AI viết kịch bản</h3><p>AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.</p></div>
-  <div class="stp rv"><span class="sn">03</span><h3>Render & ghép</h3><p>Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
-</div>
-</div></section>
+  <section class="blk" id="samples"><div class="inner">
+    <div class="eyebrow reveal">Video mẫu</div>
+    <h2 class="h2 reveal">Video từ cộng đồng</h2>
+    <p class="sub reveal">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p>
+    <div class="samples reveal"><div class="svid"><span class="ratio">9:16</span><span class="dur">0:48</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid1/360/640" alt="Video mẫu AI AutoCut: Mẹ & Nam mở spa — phim nhiều cảnh"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Mẹ & Nam mở spa — phim nhiều cảnh</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div><div class="svid"><span class="ratio">9:16</span><span class="dur">0:32</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid2/360/640" alt="Video mẫu AI AutoCut: Khoe túi xách da — video bán hàng UGC"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Khoe túi xách da — video bán hàng UGC</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div><div class="svid"><span class="ratio">9:16</span><span class="dur">1:04</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid3/360/640" alt="Video mẫu AI AutoCut: Câu chuyện khởi nghiệp — kịch bản AI"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Câu chuyện khởi nghiệp — kịch bản AI</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div><div class="svid"><span class="ratio">9:16</span><span class="dur">0:24</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid4/360/640" alt="Video mẫu AI AutoCut: Review mỹ phẩm — giữ mặt KOL"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Review mỹ phẩm — giữ mặt KOL</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div><div class="svid"><span class="ratio">9:16</span><span class="dur">0:40</span><img class="ph" loading="lazy" src="https://picsum.photos/seed/aiac-vid5/360/640" alt="Video mẫu AI AutoCut: Phim hoạt hình 3D — nhân vật dễ thương"><span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><div class="meta"><div class="t">Phim hoạt hình 3D — nhân vật dễ thương</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div></div>
+  </div></section>
 
-<!-- TESTIMONIALS -->
-<section class="blk" id="testi"><div class="mx">
-<p class="eye rv">Người dùng nói gì</p>
-<h2 class="h2 rv">Hàng nghìn creator đang tạo phim với AI AutoCut</h2>
-<div class="trow">
-  <div class="tc rv"><div class="tc-h"><div class="av" style="background:#F97316">M</div><div><b>Minh Hoàng</b><span>TikTok Creator</span></div></div><p>AI AutoCut giúp mình tạo hàng chục video mỗi ngày. Nhân vật nhất quán xuyên suốt mọi cảnh.</p><div class="stars">⭐⭐⭐⭐⭐</div></div>
-  <div class="tc rv"><div class="tc-h"><div class="av" style="background:#10B981">L</div><div><b>Thùy Linh</b><span>Content Creator</span></div></div><p>Kịch bản hay, giọng đọc tự nhiên. Video viral hơn hẳn từ khi dùng AI AutoCut.</p><div class="stars">⭐⭐⭐⭐⭐</div></div>
-  <div class="tc rv"><div class="tc-h"><div class="av" style="background:#8B5CF6">T</div><div><b>Anh Tuấn</b><span>Affiliate Marketer</span></div></div><p>Tăng hiệu quả affiliate lên 300% nhờ video AI. Tiết kiệm cả tuần quay dựng mỗi tháng.</p><div class="stars">⭐⭐⭐⭐⭐</div></div>
-  <div class="tc rv"><div class="tc-h"><div class="av" style="background:#3B82F6">Y</div><div><b>Hải Yến</b><span>Giảng viên Online</span></div></div><p>Công cụ quá mạnh cho coaching. Tạo nội dung khoá học nhanh gấp 5 lần trước đây.</p><div class="stars">⭐⭐⭐⭐⭐</div></div>
-  <div class="tc rv"><div class="tc-h"><div class="av" style="background:#EC4899">B</div><div><b>Trần Bình</b><span>CEO – BizUp</span></div></div><p>Tiết kiệm chi phí sản xuất video đáng kể. Đáng đầu tư nhất trong năm qua.</p><div class="stars">⭐⭐⭐⭐⭐</div></div>
-</div>
-</div></section>
+  <section class="blk" id="testimonials"><div class="inner">
+    <div class="eyebrow reveal">Người dùng nói gì</div>
+    <h2 class="h2 reveal">Hàng nghìn creator đang tạo phim với AI AutoCut</h2>
+    <div class="testi reveal"><div class="tcard"><div class="av-row"><div class="av" style="background:#F97316">M</div><div class="tc-meta"><b>Minh Hoàng</b><span>TikTok Creator</span></div></div><p>AI AutoCut giúp mình tạo hàng chục video mỗi ngày mà không tốn nhiều thời gian. Nhân vật nhất quán xuyên suốt mọi cảnh.</p><div class="stars"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg></div></div><div class="tcard"><div class="av-row"><div class="av" style="background:#10B981">T</div><div class="tc-meta"><b>Thùy Linh</b><span>Content Creator</span></div></div><p>Kịch bản hay, giọng đọc tự nhiên, video viral hơn hẳn từ khi dùng AI AutoCut. Không thể thiếu.</p><div class="stars"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg></div></div><div class="tcard"><div class="av-row"><div class="av" style="background:#8B5CF6">A</div><div class="tc-meta"><b>Anh Tuấn</b><span>Affiliate Marketer</span></div></div><p>Tăng hiệu quả affiliate lên 300% nhờ video AI. Tiết kiệm cả tuần quay dựng mỗi tháng.</p><div class="stars"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg></div></div><div class="tcard"><div class="av-row"><div class="av" style="background:#3B82F6">H</div><div class="tc-meta"><b>Hải Yến</b><span>Giảng viên Online</span></div></div><p>Công cụ quá mạnh cho ai làm coaching như mình. Tạo nội dung khoá học nhanh gấp 5 lần trước đây.</p><div class="stars"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg></div></div><div class="tcard"><div class="av-row"><div class="av" style="background:#EC4899">T</div><div class="tc-meta"><b>Trần Bình</b><span>CEO – BizUp</span></div></div><p>Tiết kiệm chi phí sản xuất video đáng kể cho doanh nghiệp. Đáng đầu tư nhất trong năm qua.</p><div class="stars"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg></div></div></div>
+  </div></section>
 
-<!-- PRICING -->
-<section class="blk" id="pricing"><div class="mx">
-<p class="eye rv">Bảng giá</p>
-<h2 class="h2 rv">Dùng thử miễn phí, nâng Pro khi cần</h2>
-<p class="sub rv">Mở tài khoản là có ngay <b>24 giờ tạo video miễn phí</b> — không cần thẻ.</p>
-<div class="price">
-  <div class="pc rv">
-    <span class="pt org-t">DÙNG THỬ</span>
-    <div class="pn">Miễn phí</div>
-    <div class="pa">0đ<small>/24 giờ đầu</small></div>
-    <ul><li>✓ <b>24 giờ</b> tạo video thả ga</li><li>✓ Model Veo 3.1 Lite — <b>FREE</b></li><li>✓ Giữ mặt & tự ghép phim</li><li>✓ 150MB lưu trữ</li></ul>
-    <a class="nb gh full" href="https://app.aiautocut.com/register">Dùng thử miễn phí</a>
-  </div>
-  <div class="pc hot rv">
-    <span class="pt">Phổ biến nhất</span>
-    <div class="pn">Pro</div>
-    <div class="pa">249k<small>/tháng</small></div>
-    <ul><li>✓ Tạo video <b>không giới hạn</b></li><li>✓ <b>Tất cả</b> model: Lite · Fast · Quality</li><li>✓ Render hàng loạt + ưu tiên</li><li>✓ <b>1GB</b> lưu trữ</li><li>✓ Hỗ trợ ưu tiên</li></ul>
-    <a class="nb pri full" href="https://app.aiautocut.com/register">Nâng Pro ngay</a>
-  </div>
-  <div class="pc rv">
-    <span class="pt grn-t">TIẾT KIỆM 13%</span>
-    <div class="pn">Pro · 12 tháng</div>
-    <div class="pa">2.599k<small>/năm</small></div>
-    <ul><li>✓ Mọi thứ ở gói Pro</li><li>✓ Chỉ <b>~217k/tháng</b></li><li>✓ Thanh toán 1 lần, dùng cả năm</li></ul>
-    <a class="nb gh full" href="https://app.aiautocut.com/register">Chọn gói năm</a>
-  </div>
-</div>
-</div></section>
+  <section class="blk" id="guide"><div class="inner">
+    <div class="eyebrow reveal">Hướng dẫn bắt đầu</div>
+    <h2 class="h2 reveal">Chạy được trong 3 bước</h2>
+    <p class="sub reveal">Cần máy tính + trình duyệt Chrome. Làm một lần là xong.</p>
+    <div class="guide3">
+      <div class="gcard reveal">
+        <span class="gn">01</span>
+        <div class="gic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><path d="M17 13v4m-2-2h4"/></svg></div>
+        <h3>Cài tiện ích Chrome</h3>
+        <p>Tải gói tiện ích (có sẵn trong app), bật <b>Developer mode</b> ở <code>chrome://extensions</code> rồi <b>Load unpacked</b>.</p>
+      </div>
+      <div class="gcard reveal">
+        <span class="gn">02</span>
+        <div class="gic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7H6a3 3 0 0 0 0 6h3m6 0h3a3 3 0 0 0 0-6h-3M8 10h8"/></svg></div>
+        <h3>Kết nối Google Ultra</h3>
+        <p>Đăng nhập tài khoản Google có gói Ultra qua tiện ích, mở một tab Flow — badge xanh là sẵn sàng.</p>
+      </div>
+      <div class="gcard reveal">
+        <span class="gn">03</span>
+        <div class="gic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg></div>
+        <h3>Tạo video</h3>
+        <p>Vào Dự án viết kịch bản, hoặc dùng các Công cụ (Ảnh→Video, Giữ mặt→Video, Tạo ảnh…). Bấm tạo là xong.</p>
+      </div>
+    </div>
+    <div class="ghint reveal">📘 Sau khi đăng nhập, mục <b>Hướng dẫn</b> trong app có chi tiết từng bước + nút tải tiện ích.</div>
+  </div></section>
 
-<!-- FAQ -->
-<section class="blk" id="faq"><div class="mx">
-<p class="eye rv">Câu hỏi thường gặp</p>
-<h2 class="h2 rv">FAQ</h2>
-<div class="faqs">
-  <details class="fq rv"><summary>AI AutoCut hoạt động thế nào?</summary><p>Bạn nhập ý tưởng → AI viết kịch bản chia cảnh → render bằng Google Veo 3.1 → tự ghép thành video hoàn chỉnh. Toàn bộ quy trình chỉ mất vài phút.</p></details>
-  <details class="fq rv"><summary>Cần tài khoản Google Ultra không?</summary><p>Có. AI AutoCut sử dụng Veo 3.1 qua tài khoản Google AI Ultra của bạn. Bạn cần cài tiện ích Chrome để kết nối.</p></details>
-  <details class="fq rv"><summary>Dùng thử miễn phí thế nào?</summary><p>Đăng ký là được <b>24 giờ dùng thử miễn phí</b> không giới hạn — không cần thẻ tín dụng. Sau đó nâng Pro từ 249k/tháng.</p></details>
-  <details class="fq rv"><summary>Video có watermark không?</summary><p>Không. Mọi video tạo ra đều sạch, không watermark, bạn toàn quyền sử dụng cho mục đích cá nhân và thương mại.</p></details>
-  <details class="fq rv"><summary>Giữ mặt nhân vật hoạt động ra sao?</summary><p>Tải ảnh nhân vật 1 lần — hệ thống sử dụng reference image của Veo để giữ nguyên khuôn mặt xuyên suốt mọi cảnh trong video.</p></details>
-</div>
-</div></section>
+  <section class="blk" id="pricing"><div class="inner">
+    <div class="eyebrow reveal">Bảng giá</div>
+    <h2 class="h2 reveal">Dùng thử miễn phí, nâng Pro khi cần</h2>
+    <p class="sub reveal">Mở tài khoản là có ngay <b>24 giờ tạo video miễn phí</b> — không cần thẻ. Thích thì nâng Pro chỉ từ <b>249k/tháng</b>.</p>
+    <div class="price">
+      <div class="pcard reveal">
+        <span class="tag" style="background:rgba(249,115,22,.14);color:var(--accent);border:1px solid var(--line2)">DÙNG THỬ</span>
+        <div class="name">Miễn phí</div>
+        <div class="amt">0đ<small>/24 giờ đầu</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> <b>24 giờ</b> tạo video thả ga</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Model Veo 3.1 Lite — <b>FREE</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Giữ mặt &amp; tự ghép phim</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> 150MB lưu trữ</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Dùng thử miễn phí</a>
+      </div>
+      <div class="pcard hot reveal">
+        <span class="tag">Phổ biến nhất</span>
+        <div class="name">Pro</div>
+        <div class="amt">249k<small>/tháng</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Tạo video <b>không giới hạn</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> <b>Tất cả</b> model: Lite · Fast · Quality</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Render hàng loạt + ưu tiên hàng đợi</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> <b>1GB</b> lưu trữ</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Hỗ trợ ưu tiên (Telegram/Zalo)</li>
+        </ul>
+        <a class="btn btn-grad" href="https://app.aiautocut.com/register">Nâng Pro ngay</a>
+      </div>
+      <div class="pcard reveal">
+        <span class="tag" style="background:rgba(16,185,129,.14);color:var(--green);border:1px solid var(--line2)">TIẾT KIỆM 13%</span>
+        <div class="name">Pro · 12 tháng</div>
+        <div class="amt">2.599k<small>/năm</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Mọi thứ ở gói Pro</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Chỉ <b>~217k/tháng</b> — rẻ hơn 13%</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg> Thanh toán 1 lần, dùng cả năm</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn gói năm</a>
+      </div>
+    </div>
+    <p class="sub reveal" style="margin-top:16px;font-size:13px">Còn gói <b>6 tháng — 1.419k</b> (tiết kiệm 5%). Mọi gói Pro đều <b>1GB</b> lưu trữ &amp; full tính năng. Hủy bất cứ lúc nào.</p>
 
-<!-- CTA FINAL -->
-<section class="blk cta-final"><div class="mx">
-<div class="band rv">
-  <h2>Bắt đầu tạo video AI<br>ngay hôm nay</h2>
-  <p>Mở tài khoản nhận ngay <b>24h tạo video miễn phí</b> — không cần thẻ tín dụng.</p>
-  <a class="nb pri lg" href="https://app.aiautocut.com/register">✨ Tạo video ngay — miễn phí</a>
-</div>
-</div></section>
+    <div class="band reveal">
+      <div class="band-left">
+        <h2>Bắt đầu tạo video của bạn<br/>ngay hôm nay</h2>
+        <p>Mở tài khoản nhận ngay <b>24h tạo video miễn phí</b> — không cần thẻ tín dụng.</p>
+        <div class="band-form">
+          <input class="band-input" type="text" placeholder="Nhập ý tưởng của bạn..." onclick="window.location='https://app.aiautocut.com/register'" readonly />
+          <a class="btn btn-grad" href="https://app.aiautocut.com/register">Tạo video ngay</a>
+        </div>
+      </div>
+      <div class="band-right">
+        <img loading="lazy" src="https://picsum.photos/seed/aiac-cta2/500/340" alt="AI AutoCut video preview" />
+      </div>
+    </div>
+  </div></section>
 
-<!-- FOOTER -->
-<footer><div class="mx">
-<div class="ft-top">
-  <div class="ft-brand"><a href="/" class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span>AI AutoCut</a><p>Nền tảng AI tạo video giúp bạn biến ý tưởng thành video chuyên nghiệp trong vài phút.</p></div>
-  <div class="ft-col"><b>Sản phẩm</b><a href="#features">Tính năng</a><a href="#pricing">Bảng giá</a></div>
-  <div class="ft-col"><b>Hỗ trợ</b><a href="https://t.me/thaidem57" target="_blank">Telegram</a><a href="https://zalo.me/0366566303" target="_blank">Zalo: 0366566303</a></div>
-  <div class="ft-col"><b>Chính sách</b><a href="#">Điều khoản</a><a href="#">Bảo mật</a></div>
+  <footer><div class="inner">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><line x1="8.1" y1="7.6" x2="20" y2="18"/><line x1="8.1" y1="16.4" x2="20" y2="6"/></svg></span> AI AutoCut</div>
+        <p class="foot-desc">Nền tảng AI tạo video giúp bạn biến ý tưởng thành những video chuyên nghiệp trong vài phút.</p>
+      </div>
+      <div class="fcol"><b>Sản phẩm</b><a href="#features">Tính năng</a><a href="#pricing">Bảng giá</a><a href="#">API</a><a href="#">Blog</a></div>
+      <div class="fcol"><b>Hỗ trợ</b><a href="https://app.aiautocut.com/guide">Hướng dẫn</a><a href="https://t.me/thaidem57" target="_blank" rel="noreferrer">Telegram</a><a href="https://zalo.me/0366566303" target="_blank" rel="noreferrer">Zalo: 0366566303</a></div>
+      <div class="fcol"><b>Công ty</b><a href="#">Về chúng tôi</a><a href="#">Blog</a><a href="#">Tuyển dụng</a></div>
+      <div class="fcol"><b>Chính sách</b><a href="#">Điều khoản sử dụng</a><a href="#">Chính sách bảo mật</a><a href="#">Tiếng Việt</a></div>
+    </div>
+    <div class="foot-bottom"><span>© 2026 AI AutoCut. All rights reserved.</span></div>
+  </div></footer>
 </div>
-<div class="ft-bot">© 2026 AI AutoCut. All rights reserved.</div>
-</div></footer>
-
+</div>
 <script>
-// Scroll reveal
-const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.12});
-document.querySelectorAll('.rv').forEach(e=>io.observe(e));
-// Sticky nav bg
-const hd=document.getElementById('nav');
-window.addEventListener('scroll',()=>{hd.classList.toggle('scrolled',scrollY>40)},{passive:true});
-// Spotlight
-let raf=0;
-window.addEventListener('mousemove',e=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;const el=e.target.closest('.fc,.pc,.stp,.tc');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',e.clientX-r.left+'px');el.style.setProperty('--my',e.clientY-r.top+'px')})},{passive:true});
-// FAQ toggle
-document.querySelectorAll('.fq summary').forEach(s=>s.addEventListener('click',e=>{const d=s.parentElement;if(d.open){e.preventDefault();d.classList.add('closing');d.addEventListener('animationend',()=>{d.classList.remove('closing');d.open=false},{once:true})}}));
+(function(){
+  var els=document.querySelectorAll('#lp .reveal');
+  var rm=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if(rm){els.forEach(function(e){e.classList.add('is-in')});return}
+  var io=new IntersectionObserver(function(ents){ents.forEach(function(en){if(en.isIntersecting){en.target.classList.add('is-in');io.unobserve(en.target)}})},{threshold:.12});
+  els.forEach(function(e){io.observe(e)});
+  var raf=0;
+  window.addEventListener('mousemove',function(e){
+    if(raf)return;
+    raf=requestAnimationFrame(function(){raf=0;
+      var el=e.target.closest('.fcard,.pcard,.gcard,.step');
+      if(!el)return;var r=el.getBoundingClientRect();
+      el.style.setProperty('--mx',(e.clientX-r.left)+'px');
+      el.style.setProperty('--my',(e.clientY-r.top)+'px');
+    });
+  },{passive:true});
+})();
 </script>
 </body>
 </html>

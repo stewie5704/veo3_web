@@ -24,6 +24,21 @@ const testiHTML = TESTI.map(t =>
   `<div class="tcard"><div class="av-row"><div class="av" style="background:${t.col}">${t.name[0]}</div><div class="tc-meta"><b>${t.name}</b><span>${t.role}</span></div></div><p>${t.text}</p><div class="stars">${stars5}</div></div>`
 ).join('');
 
+// Video mẫu (showcase tĩnh). Khi có video thật: set video: 'samples/x.mp4' (hoặc link) -> render <video>.
+const SAMPLES = [
+  { dur: '0:48', title: 'Mẹ & Nam mở spa — phim nhiều cảnh', seed: 'aiac-vid1', video: '' },
+  { dur: '0:32', title: 'Khoe túi xách da — video bán hàng UGC', seed: 'aiac-vid2', video: '' },
+  { dur: '1:04', title: 'Câu chuyện khởi nghiệp — kịch bản AI', seed: 'aiac-vid3', video: '' },
+  { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', video: '' },
+  { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', video: '' },
+];
+const svidHTML = SAMPLES.map(s => {
+  const media = s.video
+    ? `<video src="${s.video}" poster="https://picsum.photos/seed/${s.seed}/360/640" controls preload="metadata" playsinline></video>`
+    : `<img class="ph" loading="lazy" src="https://picsum.photos/seed/${s.seed}/360/640" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
+  return `<div class="svid"><span class="ratio">9:16</span>${s.video ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
+}).join('');
+
 // Build the body HTML (same as Landing.tsx template)
 const bodyHTML = `
 <div class="shell">
@@ -35,6 +50,7 @@ const bodyHTML = `
     <nav class="links">
       <a href="#features">Tính năng</a>
       <a href="#how">Cách hoạt động</a>
+      <a href="#samples">Video mẫu</a>
       <a href="#guide">Hướng dẫn</a>
       <a href="#pricing">Bảng giá</a>
     </nav>
@@ -121,6 +137,13 @@ const bodyHTML = `
       <div class="step reveal"><span class="n">02</span><h3>AI viết kịch bản</h3><p>AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.</p></div>
       <div class="step reveal"><span class="n">03</span><h3>Render &amp; ghép</h3><p>Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
     </div>
+  </div></section>
+
+  <section class="blk" id="samples"><div class="inner">
+    <div class="eyebrow reveal">Video mẫu</div>
+    <h2 class="h2 reveal">Video từ cộng đồng</h2>
+    <p class="sub reveal">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p>
+    <div class="samples reveal">${svidHTML}</div>
   </div></section>
 
   <section class="blk" id="testimonials"><div class="inner">
