@@ -148,7 +148,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }, [])
 
   // Overlay "đang tạo" (manual): cuộn qua các bước ~1.8s để cảm giác đang chạy
-  const overlayOn = mode === 'manual' && (loadingPrompts || creating)
+  const overlayOn = tab === 'new' && (loadingPrompts || creating)
   useEffect(() => {
     if (!overlayOn) { setLoadStep(0); return }
     const id = setInterval(() => setLoadStep(s => Math.min(s + 1, CREATE_STEPS.length - 1)), 1800)
@@ -172,20 +172,21 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const updateScene = (i: number, key: string, val: string) =>
     setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
+  // AI viết kịch bản xong là TẠO + RENDER thẳng (vào hàng chờ) — BỎ bước duyệt prompt.
   async function genPrompts() {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
-    // Nhảy thẳng sang bước Duyệt + hiện skeleton NGAY (cảm giác tức thì, không màn hình trắng chờ)
-    setError(''); setScenes([]); setPrompts([]); setNarrations([]); setBibleChars([])
-    setLoadingPrompts(true); setStep('review')
+    setError(''); setLoadingPrompts(true)
     try {
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
-      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || [])
       const bc = res.characters || []
-      setBibleChars(bc)
-      setCharVoices(Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice])))
-      pushLog(`Đã viết kịch bản ${(res.scenes || res.prompts).length} cảnh`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setStep('setup') }
-    finally { setLoadingPrompts(false) }
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
+      const n = (res.scenes?.length || res.prompts?.length || 0)
+      pushLog(`Đã viết kịch bản ${n} cảnh`)
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setLoadingPrompts(false) }
   }
 
   // Tự nhập kịch bản: phân tích xong TẠO + RENDER thẳng — BỎ bước duyệt (user đã có kịch bản rồi).
@@ -229,12 +230,13 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   // data: cho phép tạo THẲNG từ kết quả phân tích (bỏ bước duyệt) thay vì đọc từ state (chưa kịp cập nhật)
-  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string> }) {
+  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string }) {
     const sScenes = data?.scenes ?? scenes
     const sPrompts = data?.prompts ?? prompts
     const sNarr = data?.narrations ?? narrations
     const sBible = data?.bible ?? bibleChars
     const sCharVoices = data?.charVoices ?? charVoices
+    const sName = data?.name ?? name
     // Nếu có kịch bản chi tiết -> lấy prompt (tiếng Anh) + lời thoại từ scenes (đã chỉnh sửa); else dùng format phẳng (Copy Idea)
     const basePrompts = sScenes.length ? sScenes.map(s => s.prompt || s.image || '') : sPrompts
     const baseNarr = sScenes.length
@@ -251,7 +253,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     })
     try {
       const proj = await projectsApi.create({
-        name: name || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
+        name: sName || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
         idea, style: style || undefined, model_key: model,
         aspect_ratio: aspect, duration_seconds: duration, language,
         prompts: enriched, narrations: baseNarr, auto_render: autoRender,
@@ -295,11 +297,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setError(''); setCopyLoading(true)
     try {
       const res = await toolsApi.copyIdea({ url: copyUrl, style: copyStyle || undefined, scene_count: copyCount })
-      setName(res.title); setPrompts(res.prompts); setNarrations(res.narrations); setScenes([])
-      setIdea(`Clone từ: ${copyUrl}`); setTab('new'); setStep('review')
-      pushLog(`Copy idea: ${res.prompts.length} scenes`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại') }
-    finally { setCopyLoading(false) }
+      pushLog(`Chép ý tưởng: ${res.prompts.length} cảnh`)
+      const cost = modelObjNew.cost * (res.prompts?.length || 0)
+      setCopyLoading(false)
+      if (cost > 0 && !window.confirm(`Tạo ${res.prompts.length} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
+      await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations })
+    } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại'); setCopyLoading(false) }
   }
 
   async function delProject(id: string, e: React.MouseEvent) {
@@ -344,9 +347,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       {tab === 'new' && (
         <div className="composer fx-card">
           <div className="cmp-steps">
-            <span className={step === 'setup' ? 'on' : ''}><i>01</i> Ý tưởng &amp; thiết lập</span>
-            <span className="arr">→</span>
-            <span className={step === 'review' ? 'on' : ''}><i>02</i> Duyệt kịch bản &amp; tạo</span>
+            <span className="on"><i>✦</i> Tạo từ ý tưởng — AI tự viết kịch bản &amp; render thẳng</span>
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
@@ -474,7 +475,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
               <div style={{ flex: 1 }} />
               <button className="cmp-cta" onClick={mode === 'manual' ? parseScript : genPrompts} disabled={loadingPrompts || !idea.trim()}>
-                {loadingPrompts ? <><Loader2 size={14} className="spin" /> {mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang xử lý...'}</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích & tạo phim →' : 'Viết kịch bản →'}</>}
+                {loadingPrompts ? <><Loader2 size={14} className="spin" /> {mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang viết & tạo...'}</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích & tạo phim →' : 'AI viết & tạo phim →'}</>}
               </button>
             </div>
           </>)}
