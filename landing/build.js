@@ -35,13 +35,15 @@ const SAMPLES = [
 ];
 // Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
 const svidHTML = SAMPLES.map((s, i) => {
-  const r = s.ratio || '9:16';
-  const wide = r === '16:9';
-  const vfile = `samples/v${i + 1}.mp4`;
+  const v9 = `samples/v${i + 1}.mp4`;
+  const vW = `samples/v${i + 1}w.mp4`;          // hậu tố 'w' = video NGANG 16:9
+  const hasW = fs.existsSync(path.join(__dirname, vW));
+  const hasVideo = hasW || fs.existsSync(path.join(__dirname, v9));
+  const vfile = hasW ? vW : v9;
+  const wide = hasW || (!hasVideo && s.ratio === '16:9');   // có file w -> ngang; chưa có file -> theo ratio mẫu
+  const r = wide ? '16:9' : '9:16';
   const pfile = `samples/v${i + 1}.jpg`;
-  const hasVideo = fs.existsSync(path.join(__dirname, vfile));
-  const ph = wide ? '640/360' : '360/640';
-  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${ph}`;
+  const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${wide ? '640/360' : '360/640'}`;
   const media = hasVideo
     ? `<video src="${vfile}" poster="${poster}" controls preload="metadata" playsinline></video>`
     : `<img class="ph${wide ? ' wide' : ''}" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
