@@ -23,16 +23,16 @@ def test_free_user_inactive_and_blocked():
 
 def test_activate_grants_active_window():
     u = U()
-    s.activate(u, "basic")
-    assert u.plan == "basic" and s.is_active(u) is True
+    s.activate(u, "m1")
+    assert u.plan == "m1" and s.is_active(u) is True
     assert 29 < s.days_left(u) <= 30
     s.ensure_can_generate(u)  # must not raise
 
 
 def test_buying_again_extends_cumulatively():
     u = U()
-    s.activate(u, "basic")     # +30
-    s.activate(u, "pro_year")  # +365 from current expiry
+    s.activate(u, "m1")    # +30
+    s.activate(u, "m12")   # +365 from current expiry
     assert 393 < s.days_left(u) <= 396
 
 

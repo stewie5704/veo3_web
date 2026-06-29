@@ -7,7 +7,7 @@ from app.tools import router
 def test_mapreduce_keeps_count_and_injects_bible_style(monkeypatch):
     N = 50  # > MAPREDUCE_THRESHOLD
 
-    def fake_outline(api_key, source, n, lang_label, aspect, parse_mode):
+    def fake_outline(api_key, source, n, lang_label, aspect, parse_mode, cast=None):
         assert n == N
         return {
             "summary": "s", "suggested_style": "cinematic",
@@ -46,7 +46,7 @@ def test_mapreduce_keeps_count_and_injects_bible_style(monkeypatch):
 def test_mapreduce_fills_failed_chunk(monkeypatch):
     N = 40
 
-    def fake_outline(api_key, source, n, lang_label, aspect, parse_mode):
+    def fake_outline(api_key, source, n, lang_label, aspect, parse_mode, cast=None):
         return {"style_lock": "soft grade", "suggested_style": "x",
                 "characters": [{"name": "A", "gender_presentation": "male"}],
                 "beats": [{"beat": f"b{i}", "chars": ["CHAR_1"], "intent": f"i{i}"} for i in range(N)]}
