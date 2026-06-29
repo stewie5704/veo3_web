@@ -927,7 +927,11 @@ async def run_scene_job(scene_id: str, user_id: str):
             char_ref_files = [c.image_file for c in (present + others)]
 
         extra_ref_paths = [str(CHAR_PATH / f) for f in char_ref_files]
-        use_seed = proj_seed or _stable_seed(project_db_id)
+        base_seed = proj_seed or _stable_seed(project_db_id)
+        # Rerender (scene đã có video trước đó): ĐỔI seed để Veo tạo video KHÁC.
+        # Lần render đầu dùng seed cố định (nhân vật nhất quán); rerender cần kết quả mới.
+        is_rerender = bool(scene.video_file)
+        use_seed = random.randint(1, 2 ** 31 - 1) if is_rerender else base_seed
 
         if proj_stopped:
             await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")

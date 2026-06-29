@@ -250,7 +250,8 @@ const html = `<!DOCTYPE html>
 <link rel="canonical" href="https://aiautocut.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${css}</style>
+<style>html,body{margin:0;padding:0;background:#0B0911;min-height:100vh}
+${css}</style>
 </head>
 <body>
 <div id="lp">${bodyHTML}</div>
