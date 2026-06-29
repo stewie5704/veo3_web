@@ -33,10 +33,10 @@ log = logging.getLogger("veo3.projects")
 CHAR_PATH = UPLOAD_PATH.parent / "images" / "chars"
 
 
-def build_portrait_prompt(c: dict, style_desc: str = "") -> str:
+def build_portrait_prompt(c: dict, style_desc: str = "", nationality: str = "") -> str:
     """Prompt sinh CHÂN DUNG AI cho 1 nhân vật (từ bible) — dùng làm reference giữ mặt.
-    style_desc = mô tả PHONG CÁCH của dự án (realistic / 3D / anime…) -> chân dung sinh ĐÚNG style để
-    khoá mặt không lệch tông (chọn realistic thì ra ẢNH THẬT, KHÔNG bị ép 3D như trước)."""
+    style_desc = phong cách dự án (realistic/3D…). nationality = quốc tịch ÉP theo ngôn ngữ (vd "Vietnamese")
+    -> ảnh chân dung (ref khoá mặt) ra ĐÚNG người Việt, hết cảnh 'chọn tiếng Việt mà ra mặt Tây'."""
     g = lambda k: str(c.get(k, "") or "").strip()
     bits = [x for x in (
         g("anchor"), g("age"), g("gender_presentation"), g("face"), g("eyes"),
@@ -53,9 +53,12 @@ def build_portrait_prompt(c: dict, style_desc: str = "") -> str:
     look = style_desc.strip() or (
         "Photorealistic real photograph, natural skin texture, shot on DSLR 85mm, soft studio light. "
         "NOT 3D, NOT CGI, NOT illustration, NOT cartoon.")
-    return ("Character reference portrait, single subject, front-facing, head and shoulders, neutral "
+    nat = nationality.strip()
+    who = f" of a {nat} person" if nat else ""
+    nat_lock = f" Ethnicity: {nat}, authentic {nat} facial features (East Asian)." if nat else ""
+    return ("Character reference portrait" + who + ", single subject, front-facing, head and shoulders, neutral "
             "studio lighting, plain light-grey background. " + (desc + ". " if desc else "") +
-            "Consistent wardrobe. Style: " + look + " No text, no watermark, no logo.")
+            "Consistent wardrobe." + nat_lock + " Style: " + look + " No text, no watermark, no logo.")
 
 
 _portrait_inflight: set[str] = set()   # project_id đang sinh chân dung -> single-flight, chống tạo Character trùng
@@ -79,6 +82,7 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
             existing = {_norm_name(c.name) for c in res.scalars().all()}
             proj = await db.get(Project, project_db_id)
             style_desc = style_description(proj.style if proj else None)   # chân dung sinh theo style dự án
+            nat = "Vietnamese" if (proj and (proj.language or "vi") == "vi") else ""   # ép quốc tịch khớp ngôn ngữ
         # nhân vật còn thiếu ảnh, khử trùng tên NGAY trong lô (tránh sinh 2 lần cùng người)
         need: list[dict] = []
         seen = set(existing)
@@ -99,7 +103,7 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
             try:
                 files = await generate_images_flow(
                     user_id=user_id, cookies=cookies, project_id=gproj,
-                    prompt=build_portrait_prompt(ch, style_desc), count=1, aspect_ratio="1:1",
+                    prompt=build_portrait_prompt(ch, style_desc, nationality=nat), count=1, aspect_ratio="1:1",
                     out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
                 if files:
                     async with AsyncSessionLocal() as db:
