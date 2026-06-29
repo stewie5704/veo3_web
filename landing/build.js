@@ -27,11 +27,16 @@ const testiHTML = TESTI.map(t =>
 // Video mẫu (showcase tĩnh). Khi có video thật: set video: 'samples/x.mp4' (hoặc link) -> render <video>.
 // ratio: '9:16' (dọc, mặc định) hoặc '16:9' (ngang). 16:9 -> card to gấp đôi, video hiện đúng tỉ lệ, KHÔNG cắt.
 const SAMPLES = [
+  // 5 video DỌC 9:16  -> đặt tên file v1.mp4 ... v5.mp4
   { dur: '0:48', title: 'Mẹ & Nam mở spa — phim nhiều cảnh', seed: 'aiac-vid1', ratio: '9:16' },
   { dur: '0:32', title: 'Khoe túi xách da — video bán hàng UGC', seed: 'aiac-vid2', ratio: '9:16' },
   { dur: '1:04', title: 'Câu chuyện khởi nghiệp — kịch bản AI', seed: 'aiac-vid3', ratio: '9:16' },
   { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', ratio: '9:16' },
   { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', ratio: '9:16' },
+  // 3 video NGANG 16:9 -> đặt tên file v6.mp4 ... v8.mp4 (card tự to gấp đôi, không cắt)
+  { dur: '0:36', title: 'TVC quảng cáo — khung hình ngang', seed: 'aiac-vid6', ratio: '16:9' },
+  { dur: '0:52', title: 'Trailer thương hiệu — phong cách điện ảnh', seed: 'aiac-vid7', ratio: '16:9' },
+  { dur: '0:28', title: 'Video doanh nghiệp — góc quay rộng', seed: 'aiac-vid8', ratio: '16:9' },
 ];
 // Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
 const svidHTML = SAMPLES.map((s, i) => {
@@ -40,7 +45,7 @@ const svidHTML = SAMPLES.map((s, i) => {
   const hasW = fs.existsSync(path.join(__dirname, vW));
   const hasVideo = hasW || fs.existsSync(path.join(__dirname, v9));
   const vfile = hasW ? vW : v9;
-  const wide = hasW || (!hasVideo && s.ratio === '16:9');   // có file w -> ngang; chưa có file -> theo ratio mẫu
+  const wide = hasW || s.ratio === '16:9';   // slot 16:9 luôn ngang (v6.mp4 cũng được); hoặc file có hậu tố 'w'
   const r = wide ? '16:9' : '9:16';
   const pfile = `samples/v${i + 1}.jpg`;
   const poster = fs.existsSync(path.join(__dirname, pfile)) ? pfile : `https://picsum.photos/seed/${s.seed}/${wide ? '640/360' : '360/640'}`;
