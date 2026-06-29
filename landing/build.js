@@ -28,15 +28,15 @@ const testiHTML = TESTI.map(t =>
 // ratio: '9:16' (dọc, mặc định) hoặc '16:9' (ngang). 16:9 -> card to gấp đôi, video hiện đúng tỉ lệ, KHÔNG cắt.
 const SAMPLES = [
   // 5 video DỌC 9:16  -> đặt tên file v1.mp4 ... v5.mp4
-  { dur: '0:48', title: 'Mẹ & Nam mở spa — phim nhiều cảnh', seed: 'aiac-vid1', ratio: '9:16' },
-  { dur: '0:32', title: 'Khoe túi xách da — video bán hàng UGC', seed: 'aiac-vid2', ratio: '9:16' },
-  { dur: '1:04', title: 'Câu chuyện khởi nghiệp — kịch bản AI', seed: 'aiac-vid3', ratio: '9:16' },
-  { dur: '0:24', title: 'Review mỹ phẩm — giữ mặt KOL', seed: 'aiac-vid4', ratio: '9:16' },
-  { dur: '0:40', title: 'Phim hoạt hình 3D — nhân vật dễ thương', seed: 'aiac-vid5', ratio: '9:16' },
+  { dur: '0:15', title: 'Áo trắng tay dài, kính gọng mảnh, nón hồng che nghiêng — vẻ đẹp thanh tao giữa nắng sớm. 🌸', seed: 'aiac-vid1', ratio: '9:16' },
+  { dur: '0:12', title: 'Thân hình mảnh mai trong lớp lụa trắng mỏng, tóc búi cao — như tiên tử giáng trần. ✨', seed: 'aiac-vid2', ratio: '9:16' },
+  { dur: '0:28', title: 'Đồ ngủ hồng nhẹ nhàng, tay chạm cằm, ánh đèn ấm — một góc khuê phòng yên tĩnh. 🌙', seed: 'aiac-vid3', ratio: '9:16' },
+  { dur: '0:13', title: 'Satin đen óng ả, kính gọng mảnh, tóc xõa — khí chất quý phi lạnh lùng. 🖤', seed: 'aiac-vid4', ratio: '9:16' },
+  { dur: '0:08', title: 'Mèo nón lá đứng giữa ruộng lúa bậc thang — như linh thú trong tranh sơn thủy. 🐱🌾', seed: 'aiac-vid5', ratio: '9:16' },
   // 3 video NGANG 16:9 -> đặt tên file v6.mp4 ... v8.mp4 (card tự to gấp đôi, không cắt)
-  { dur: '0:36', title: 'TVC quảng cáo — khung hình ngang', seed: 'aiac-vid6', ratio: '16:9' },
-  { dur: '0:52', title: 'Trailer thương hiệu — phong cách điện ảnh', seed: 'aiac-vid7', ratio: '16:9' },
-  { dur: '0:28', title: 'Video doanh nghiệp — góc quay rộng', seed: 'aiac-vid8', ratio: '16:9' },
+  { dur: '0:08', title: 'Mẹ con ngồi bên cửa sổ, cùng xem điện thoại — khoảnh khắc ấm áp như tranh gia đình cổ phong. 👨‍👩‍👦', seed: 'aiac-vid6', ratio: '16:9' },
+  { dur: '0:08', title: 'Rắn biển uốn lượn trên nền cát trắng — như giao long ẩn mình giữa biển sâu. 🌊', seed: 'aiac-vid7', ratio: '16:9' },
+  { dur: '0:08', title: 'Rùa biển bơi giữa rừng san hô rực rỡ — cảnh tượng tiên cảnh dưới đáy biển. 🐢💙', seed: 'aiac-vid8', ratio: '16:9' },
 ];
 // Tự dò file trong landing/samples/. Ưu tiên .mp4 (chạy mọi trình duyệt); nhận thêm .webm/.mov/.m4v nếu có.
 // Đọc tên file THẬT (giữ đúng hoa/thường) để không 404 trên Linux VPS (vd v1.MP4 / v3.MOV).
