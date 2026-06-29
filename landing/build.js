@@ -39,7 +39,7 @@ const SAMPLES = [
   { dur: '0:28', title: 'Video doanh nghiệp — góc quay rộng', seed: 'aiac-vid8', ratio: '16:9' },
 ];
 // Tự dò file trong landing/samples/: có v{N}.mp4 -> render video thật; có v{N}.jpg -> dùng làm ảnh bìa.
-const svidHTML = SAMPLES.map((s, i) => {
+const cardHTML = (s, i) => {
   const v9 = `samples/v${i + 1}.mp4`;
   const vW = `samples/v${i + 1}w.mp4`;          // hậu tố 'w' = video NGANG 16:9
   const hasW = fs.existsSync(path.join(__dirname, vW));
@@ -53,7 +53,12 @@ const svidHTML = SAMPLES.map((s, i) => {
     ? `<video src="${vfile}" poster="${poster}" controls preload="metadata" playsinline></video>`
     : `<img class="ph${wide ? ' wide' : ''}" loading="lazy" src="${poster}" alt="Video mẫu AI AutoCut: ${s.title}"><span class="play">${PLAY}</span>`;
   return `<div class="svid${wide ? ' wide' : ''}"><span class="ratio">${r}</span>${hasVideo ? '' : `<span class="dur">${s.dur}</span>`}${media}<div class="meta"><div class="t">${s.title}</div><div class="by"><span>AI AutoCut</span><span>720p</span></div></div></div>`;
-}).join('');
+};
+// 2 TẦNG: tầng trên = video DỌC (9:16), tầng dưới = video NGANG (16:9). Giữ index gốc để dò đúng file vN.
+const idx = SAMPLES.map((s, i) => ({ s, i }));
+const rowVert = idx.filter(x => x.s.ratio !== '16:9').map(x => cardHTML(x.s, x.i)).join('');
+const rowHorz = idx.filter(x => x.s.ratio === '16:9').map(x => cardHTML(x.s, x.i)).join('');
+const svidHTML = `<div class="srow srow-v">${rowVert}</div>${rowHorz ? `<div class="srow srow-h">${rowHorz}</div>` : ''}`;
 
 // Build the body HTML (same as Landing.tsx template)
 const bodyHTML = `
