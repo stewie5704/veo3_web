@@ -709,11 +709,6 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <input className="cmp-titlein" placeholder="https://youtube.com/... hoặc TikTok" value={copyUrl} onChange={e => setCopyUrl(e.target.value)} />
             </div>
 
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 20, padding: '12px 14px', background: 'rgba(249,115,22,0.06)', borderRadius: 12, border: '1px solid rgba(249,115,22,0.18)' }}>
-              <span style={{ fontSize: 22 }}>🔍</span>
-              <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.6 }}>Dán link → bấm 1 nút: AI đọc <strong>lời thoại + nội dung</strong> video gốc, tự viết kịch bản mới rồi <strong>render thẳng</strong> sang trang tạo video. Video có phụ đề thì càng sát.</div>
-            </div>
-
             <div className="cmp-settings">
               <div className="cmp-ctrl">
                 <div className="cmp-label">Số cảnh <span className="rv">{copyCount}</span></div>
