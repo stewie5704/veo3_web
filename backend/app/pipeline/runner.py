@@ -639,6 +639,11 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     if ref_ids:
         prompt = _strip_face_for_ref(prompt)
         prompt += " Keep each person's face, hairstyle and outfit identical to the provided reference image(s)."
+        # Có sản phẩm trong cảnh (video bán hàng) -> khoá luôn diện mạo SẢN PHẨM theo ảnh ref, xuyên MỌI
+        # cảnh (giống cách giữ mặt nhân vật). Chỉ thêm khi prompt nhắc 'product' => không đụng dự án kể chuyện.
+        if re.search(r"\bproducts?\b", prompt, re.I):
+            prompt += (" Keep the product's exact color, pattern, print, logo, text and shape identical to the "
+                       "reference image across every shot — do not alter, recolor, restyle or replace it.")
     silent = True
     if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)
         prompt = _to_character_speak(prompt, dialogue)

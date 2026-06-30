@@ -224,7 +224,9 @@ LỜI THOẠI: ...
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
         const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: !!kol, brief: text })
         const scns: any[] = sres.scenes || []
-        prompts = scns.map(s => s.prompt || '')
+        // Lưới an toàn: AI thỉnh thoảng quên chèn khoá sản phẩm -> tự bù như nhánh dán sẵn,
+        // để MỌI cảnh đều neo đúng sản phẩm theo ảnh ref (đồng bộ xuyên cảnh).
+        prompts = scns.map(s => { const p = s.prompt || ''; return p && !/reference image/i.test(p) ? `${p} — ${PRODUCT_LOCK}` : p })
         narrations = scns.map(s => s.narration || '')
         if (!prompts.length) throw new Error('AI chưa viết được kịch bản, thử lại.')
       }
