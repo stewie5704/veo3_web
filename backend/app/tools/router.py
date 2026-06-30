@@ -1014,9 +1014,9 @@ async def sell_prompt(body: SellPromptRequest, user: User = Depends(get_current_
 Bối cảnh: {scene}. Tông: {tone}.
 
 Viết MỘT prompt TIẾNG ANH cho Veo theo thứ tự:
-[cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [{subj} cầm/mặc/dùng và khoe sản phẩm tự nhiên, 1-2 hành động cụ thể] -> [bối cảnh + thời điểm + ánh sáng CÓ NGUỒN, daylight tự nhiên] -> [cảm giác UGC quay tay: handheld nhẹ, da thật có texture, KHÔNG bóng bẩy].
+[cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [{subj} cầm/mặc/dùng và khoe sản phẩm tự nhiên, 1-2 hành động cụ thể] -> [bối cảnh + thời điểm + ánh sáng CÓ NGUỒN, daylight tự nhiên] -> [cảm giác UGC quay tay: handheld nhẹ, da thật có texture, KHÔNG bóng bẩy; sản phẩm lấy nét rõ, chi tiết sắc, màu trung thực].
 
-BẮT BUỘC chèn khóa sản phẩm: "keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it".
+BẮT BUỘC chèn khóa sản phẩm: "keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; never recolour, restyle, relabel, resize, swap, distort, morph or regenerate it, and never add or remove any text or logo".
 TUYỆT ĐỐI KHÔNG: lời thoại, dấu ngoặc kép thoại, says/voiceover/narrator; KHÔNG tả lại khuôn mặt KOL (đã có ảnh ref). Cụ thể, điện ảnh-đời-thường, 2-4 câu.
 
 Trả về JSON DUY NHẤT: {{"prompt":"<đoạn prompt tiếng Anh>"}} — KHÔNG markdown, KHÔNG chữ ngoài JSON."""
@@ -1067,7 +1067,7 @@ QUY TẮC NHỊP THOẠI (chống cụt/ngắt đột ngột — tham khảo cá
 
 Trả về JSON DUY NHẤT:
 {{"scenes":[
-  {{"prompt":"<MỘT đoạn TIẾNG ANH cho Veo: [cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [the person cầm/mặc/dùng & khoe sản phẩm, hành động cụ thể nối tiếp cảnh trước] -> [bối cảnh + ánh sáng tự nhiên CÓ NGUỒN] -> [UGC quay tay: handheld nhẹ, da thật, KHÔNG bóng bẩy]. BẮT BUỘC chèn: 'keep the exact product from the reference image — same color, pattern, print, logo and shape, do not alter it'. KHÔNG tả ngoại hình/giới tính người. KHÔNG lời thoại/ngoặc kép/says/voiceover.>",
+  {{"prompt":"<MỘT đoạn TIẾNG ANH cho Veo: [cỡ cảnh + ống kính + chuyển động máy nhẹ] -> [the person cầm/mặc/dùng & khoe sản phẩm, hành động cụ thể nối tiếp cảnh trước] -> [bối cảnh + ánh sáng tự nhiên CÓ NGUỒN] -> [UGC quay tay: handheld nhẹ, da thật, KHÔNG bóng bẩy; sản phẩm LẤY NÉT RÕ, chi tiết sắc, màu trung thực, sản phẩm là tâm điểm khung hình]. BẮT BUỘC chèn: 'keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; never recolour, restyle, relabel, resize, swap, distort, morph or regenerate it, and never add or remove any text or logo'. KHÔNG tả ngoại hình/giới tính người. KHÔNG lời thoại/ngoặc kép/says/voiceover.>",
    "narration":"<lời thoại bán hàng {lang_label}, nói VỪA trong ~{dur}s (~{lo}–{hi} từ), câu TRỌN VẸN không cụt, nối mạch cảnh trước; cảnh đầu hook, cảnh cuối kêu gọi mua>"}}
   ... ĐÚNG {n} cảnh ...
 ]}}
