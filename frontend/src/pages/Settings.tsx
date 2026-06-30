@@ -3,7 +3,7 @@ import { useToast } from '../components/Toast'
 import api, { authApi, billingApi } from '../api/client'
 import {
   User, KeyRound, Wifi, Shield, Save, Loader2, Crown, HardDrive, Sparkles,
-  Gem, Check, AtSign, Mail, Gift,
+  Gem, Check, AtSign, Mail, Gift, Bot, ExternalLink, Search,
 } from 'lucide-react'
 
 const PLAN_LABEL: Record<string, string> = { m1: '1 tháng', m6: '6 tháng', m12: '12 tháng' }
@@ -32,10 +32,15 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const [refCode, setRefCode] = useState('')
   const [refSaving, setRefSaving] = useState(false)
 
+  // Trợ lý AI được tặng kèm gói (quà) — link ChatGPT ẩn dưới tên
+  const [gift, setGift] = useState<any>(null)
+  const [asstQ, setAsstQ] = useState('')
+
   useEffect(() => {
     if (user) { setDisplayName(user.display_name || ''); setUsername(user.username || '') }
   }, [user])
   useEffect(() => { billingApi.me().then(setSub).catch(() => {}) }, [])
+  useEffect(() => { billingApi.myAssistants().then(setGift).catch(() => {}) }, [])
 
   async function saveProfile() {
     setSaving(true)
@@ -92,6 +97,20 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const stLimit = sub?.storage_limit || 150 * 1024 * 1024
   const stPct = Math.min(100, Math.round((stUsed / stLimit) * 100))
   const stNear = stPct >= 85
+
+  // Trợ lý tặng: lọc theo ô tìm + gom nhóm theo danh mục (giữ thứ tự)
+  const allAssts: any[] = gift?.assistants || []
+  const asstQuery = asstQ.trim().toLowerCase()
+  const asstFiltered = asstQuery
+    ? allAssts.filter(a => `${a.name || ''} ${a.category || ''}`.toLowerCase().includes(asstQuery))
+    : allAssts
+  const asstGroups: [string, any[]][] = []
+  const asstIdx: Record<string, any[]> = {}
+  for (const a of asstFiltered) {
+    const cat = a.category || 'Khác'
+    if (!asstIdx[cat]) { asstIdx[cat] = []; asstGroups.push([cat, asstIdx[cat]]) }
+    asstIdx[cat].push(a)
+  }
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
@@ -202,6 +221,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
 
       {/* Profile */}
       {tab === 'profile' && (
+        <>
         <div className="card">
           <div className="card-header"><User size={15} /> Thông tin hồ sơ</div>
           <div className="form-group">
@@ -238,6 +258,43 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
             {saving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu thay đổi</>}
           </button>
         </div>
+
+        {/* ── Trợ lý AI được tặng (quà kèm gói) — bấm tên để mở ChatGPT ── */}
+        {gift?.gifted && allAssts.length > 0 && (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-header" style={{ justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={15} color="#fb923c" /> Trợ lý AI được tặng</span>
+              <span className="badge" style={{ background: 'var(--grad)', color: '#fff', border: 'none' }}>{gift.count} trợ lý</span>
+            </div>
+            <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 14 }}>
+              Quà kèm theo gói của bạn. Bấm vào <b>tên trợ lý</b> để mở trên ChatGPT (mở tab mới).
+            </div>
+            {allAssts.length > 8 && (
+              <div style={{ position: 'relative', marginBottom: 14 }}>
+                <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+                <input className="form-input" style={{ paddingLeft: 34 }} placeholder="Tìm trợ lý..."
+                  value={asstQ} onChange={e => setAsstQ(e.target.value)} />
+              </div>
+            )}
+            <div className="gift-asst-list">
+              {asstGroups.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text3)', padding: '18px 4px', textAlign: 'center' }}>Không tìm thấy trợ lý nào.</div>
+              ) : asstGroups.map(([cat, items]) => (
+                <div key={cat}>
+                  <div className="gift-asst-cat">{cat}</div>
+                  {items.map((a: any, i: number) => (
+                    <a key={a.id ?? `${cat}-${i}`} className="gift-asst" href={a.url} target="_blank" rel="noreferrer" title={a.name}>
+                      <span className="ai-ico"><Bot size={15} /></span>
+                      <span className="ai-name">{a.name}</span>
+                      <ExternalLink size={13} className="ai-ext" />
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Security */}

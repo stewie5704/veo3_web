@@ -545,3 +545,14 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 @media (max-width:600px){
   input,textarea,select,.form-input,.form-textarea{font-size:16px}
 }
+
+/* ── Trợ lý AI được tặng (hồ sơ) — danh sách "link ẩn dưới tên" ── */
+.gift-asst-list{max-height:430px;overflow-y:auto;margin:0 -4px;padding:0 4px}
+.gift-asst-cat{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin:14px 4px 8px}
+.gift-asst-cat:first-child{margin-top:2px}
+.gift-asst{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.025);color:var(--text2);text-decoration:none;font-size:13px;font-weight:500;margin-bottom:6px;transition:border-color .15s,background .15s,color .15s,transform .15s}
+.gift-asst:hover{border-color:rgba(249,115,22,0.4);background:rgba(249,115,22,0.08);color:var(--text);transform:translateX(2px)}
+.gift-asst .ai-ico{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;background:var(--grad);color:#fff;box-shadow:0 4px 12px -4px rgba(236,72,153,0.5)}
+.gift-asst .ai-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gift-asst .ai-ext{flex:none;color:var(--text3);opacity:0;transition:opacity .15s}
+.gift-asst:hover .ai-ext{opacity:1}
