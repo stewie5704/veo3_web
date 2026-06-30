@@ -121,6 +121,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [copyUrl, setCopyUrl] = useState('')
   const [copyStyle, setCopyStyle] = useState('')
   const [copyCount, setCopyCount] = useState(6)
+  const [copyAspect, setCopyAspect] = useState('9:16')
   const [copyLoading, setCopyLoading] = useState(false)
 
   useEffect(() => {
@@ -230,7 +231,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   // data: cho phép tạo THẲNG từ kết quả phân tích (bỏ bước duyệt) thay vì đọc từ state (chưa kịp cập nhật)
-  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string; style?: string }) {
+  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string; style?: string; aspect?: string }) {
     const sScenes = data?.scenes ?? scenes
     const sPrompts = data?.prompts ?? prompts
     const sNarr = data?.narrations ?? narrations
@@ -238,6 +239,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const sCharVoices = data?.charVoices ?? charVoices
     const sName = data?.name ?? name
     const sStyle = data?.style ?? style
+    const sAspect = data?.aspect ?? aspect
     // Nếu có kịch bản chi tiết -> lấy prompt (tiếng Anh) + lời thoại từ scenes (đã chỉnh sửa); else dùng format phẳng (Copy Idea)
     const basePrompts = sScenes.length ? sScenes.map(s => s.prompt || s.image || '') : sPrompts
     const baseNarr = sScenes.length
@@ -256,7 +258,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const proj = await projectsApi.create({
         name: sName || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
         idea, style: sStyle || undefined, model_key: model,
-        aspect_ratio: aspect, duration_seconds: duration, language,
+        aspect_ratio: sAspect, duration_seconds: duration, language,
         prompts: enriched, narrations: baseNarr, auto_render: autoRender,
         character_names: [...selectedChars],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
@@ -302,7 +304,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const cost = modelObjNew.cost * (res.prompts?.length || 0)
       setCopyLoading(false)
       if (cost > 0 && !window.confirm(`Tạo ${res.prompts.length} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
-      await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations, style: copyStyle, bible: [] })
+      await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations, style: copyStyle, bible: [], aspect: copyAspect })
     } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại'); setCopyLoading(false) }
   }
 
@@ -709,7 +711,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 20, padding: '12px 14px', background: 'rgba(249,115,22,0.06)', borderRadius: 12, border: '1px solid rgba(249,115,22,0.18)' }}>
               <span style={{ fontSize: 22 }}>🔍</span>
-              <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.6 }}>AI đọc <strong>lời thoại + mô tả</strong> của video gốc rồi viết lại kịch bản bám nội dung. Video có phụ đề thì càng sát.</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.6 }}>Dán link → bấm 1 nút: AI đọc <strong>lời thoại + nội dung</strong> video gốc, tự viết kịch bản mới rồi <strong>render thẳng</strong> sang trang tạo video. Video có phụ đề thì càng sát.</div>
             </div>
 
             <div className="cmp-settings">
@@ -723,6 +725,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
+                <div className="cmp-label">Khung hình</div>
+                <div className="selwrap">
+                  <select className="cmp-sel" value={copyAspect} onChange={e => setCopyAspect(e.target.value)}>
+                    <option value="9:16">9:16 — Dọc (TikTok / Reels)</option>
+                    <option value="16:9">16:9 — Ngang (YouTube)</option>
+                    <option value="1:1">1:1 — Vuông</option>
+                  </select>
+                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+              <div className="cmp-ctrl" style={{ gridColumn: '1 / -1' }}>
                 <div className="cmp-label">Phong cách hình ảnh</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
@@ -770,11 +783,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
           <div className="cmp-actionbar">
             <div className="cmp-est">
-              <span className="meta">{copyCount} cảnh{selectedChars.size > 0 ? ` · 🔒 khoá ${selectedChars.size} mặt` : ''}</span>
+              <span className="meta">{copyCount} cảnh · {copyAspect}{selectedChars.size > 0 ? ` · 🔒 khoá ${selectedChars.size} mặt` : ''}</span>
             </div>
             <div style={{ flex: 1 }} />
             <button className="cmp-cta" onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
-              {copyLoading ? <><Loader2 size={14} className="spin" /> Đang phân tích & tạo...</> : <>🔍 Phân tích & tạo phim →</>}
+              {copyLoading ? <><Loader2 size={14} className="spin" /> Đang phân tích & tạo phim...</> : <>🚀 Tạo phim ngay →</>}
             </button>
           </div>
         </div>
