@@ -439,10 +439,21 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 
     endpoint = f"projects/{project_id}/flowMedia:batchGenerateImages"
     code, resp = await _api_post(endpoint, body, token)
-    if code in (401, 403):
-        token = await _get_bearer_token(cookies)
-        if token:
-            code, resp = await _api_post(endpoint, body, token)
+    # 401/403 ở đây thường là reCAPTCHA bị từ chối ("evaluation failed"/UNUSUAL_ACTIVITY) HOẶC bearer
+    # hết hạn. Captcha là SINGLE-USE → gửi lại token cũ chắc chắn fail; phải lấy captcha MỚI + làm mới
+    # bearer, giãn cách (backoff + jitter, kiểu người dùng) rồi thử lại tối đa 2 lần. cctx dùng chung
+    # object với reqs+body nên ghi token mới vào cctx là tự lan sang toàn bộ request.
+    for attempt in range(2):
+        if code not in (401, 403):
+            break
+        await asyncio.sleep(2.0 + random.uniform(0.0, 2.5) * (attempt + 1))
+        new_token = await _get_bearer_token(cookies)
+        if new_token:
+            token = new_token
+        fresh = await request_captcha(user_id, "IMAGE_GENERATION")
+        if fresh:
+            cctx["recaptchaContext"]["token"] = fresh
+        code, resp = await _api_post(endpoint, body, token)
     if code != 200 or not isinstance(resp, dict):
         raise RuntimeError(f"API tạo ảnh HTTP {code}: {str(resp)[:200]}")
 

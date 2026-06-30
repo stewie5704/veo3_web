@@ -3,6 +3,7 @@ Projects + Scenes router — full VEO MAX feature parity.
 Supports: Auto Render, Manual prompt-only, Batch, Chain, I2V, Character pick, Import video.
 """
 import json
+import random
 import shutil
 import uuid
 import asyncio
@@ -114,7 +115,12 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
                     log.info("portrait ok: %s -> %s", name, files[0])
             except Exception as e:
                 log.warning("portrait gen failed for %s: %s", name, e)
-        await asyncio.gather(*[_one(c) for c in need[:8]])
+        # TUẦN TỰ + giãn cách ngẫu nhiên (KHÔNG bắn 8 ảnh/giây như gather cũ) -> tránh reCAPTCHA
+        # gắn cờ 'UNUSUAL_ACTIVITY' (403). Chậm hơn vài giây/nhân vật, đổi lại không bị Google chặn.
+        for i, c in enumerate(need[:8]):
+            if i:
+                await asyncio.sleep(2.5 + random.uniform(0.0, 2.5))
+            await _one(c)
     except Exception as e:
         log.error("gen portraits failed (project %s): %s", project_db_id, e)
     finally:
