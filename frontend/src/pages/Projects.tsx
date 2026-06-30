@@ -77,7 +77,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // NEW tab
   const [step, setStep] = useState<'setup' | 'review'>('setup')  // wizard: thiết lập -> duyệt kịch bản
-  const [mode, setMode] = useState<'ai' | 'manual'>('ai')        // AI viết | Tự nhập kịch bản
+  const [mode, setMode] = useState<'ai' | 'manual' | 'storyboard'>('ai')   // AI viết | Tự nhập kịch bản | Đọc storyboard
   const [name, setName] = useState('')
   const [idea, setIdea] = useState('')
   const [sceneCount, setSceneCount] = useState(6)
@@ -104,6 +104,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [newCharFile, setNewCharFile] = useState<File | null>(null)
   const [addingChar, setAddingChar] = useState(false)
   const charFileRef = useRef<HTMLInputElement>(null)
+  // Đọc storyboard: ảnh grid / PDF -> AI trích từng khung thành cảnh
+  const [sbFiles, setSbFiles] = useState<File[]>([])
+  const sbFileRef = useRef<HTMLInputElement>(null)
 
   // "Từ prompt" tab: mỗi ô = 1 CẢNH của CÙNG 1 video -> render rồi ghép
   const [bName, setBName] = useState('')
@@ -206,6 +209,24 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
       await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
+  }
+
+  // Đọc storyboard (ảnh grid / PDF) -> trích cảnh -> TẠO + RENDER thẳng (số cảnh = số khung, để AI tự đếm).
+  async function readStoryboard() {
+    if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); return }
+    setError(''); setLoadingPrompts(true)
+    try {
+      const res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style: style || undefined })
+      const bc = res.characters || []
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
+      const n = (res.scenes?.length || res.prompts?.length || 0)
+      pushLog(`Đã đọc storyboard ${n} cảnh`)
+      if (!n) { setError('Không đọc được khung nào từ storyboard — thử ảnh rõ hơn.'); setLoadingPrompts(false); return }
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi đọc storyboard'); setLoadingPrompts(false) }
   }
 
   function addScene() {
@@ -364,15 +385,45 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <div className="cmp-tabs" style={{ marginBottom: 14 }}>
                 <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
                 <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
+                <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
               </div>
 
-              <div className="cmp-herowrap">
-                <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
-                <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
-                  placeholder={mode === 'manual'
-                    ? 'Dán kịch bản của bạn (kèm lời thoại + tên nhân vật)...\nVD:\nCảnh 1: Mẹ ngồi gục ở quầy spa, mệt mỏi.\nLời thoại (Mẹ): "Cả ngày không có khách nào..."\nCảnh 2: Con trai bước vào...'
-                    : 'Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát...'} />
-              </div>
+              {mode === 'storyboard' ? (
+                <div style={{ marginBottom: 4 }}>
+                  <label htmlFor="sb-input" style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    minHeight: 130, padding: '20px 16px', cursor: 'pointer', textAlign: 'center',
+                    border: '1.5px dashed var(--line, #2a2740)', borderRadius: 14, background: 'rgba(255,255,255,0.02)',
+                  }}>
+                    <Clapperboard size={26} style={{ color: 'var(--accent2)' }} />
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Chọn ảnh storyboard hoặc PDF</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 420 }}>
+                      1 ảnh nhiều khung (grid), nhiều ảnh rời, hoặc PDF. AI đọc từng khung → tự viết prompt + lời thoại.
+                      <strong> Số cảnh = số khung.</strong> Tối đa 10 file, ~18MB.
+                    </div>
+                    <input id="sb-input" ref={sbFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }}
+                      onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) setSbFiles(prev => [...prev, ...fs].slice(0, 10)); if (sbFileRef.current) sbFileRef.current.value = '' }} />
+                  </label>
+                  {sbFiles.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                      {sbFiles.map((f, i) => (
+                        <span key={i} className="cmp-chip" style={{ cursor: 'default', gap: 6 }}>
+                          {f.type === 'application/pdf' ? '📄' : '🖼️'} {f.name.length > 22 ? f.name.slice(0, 20) + '…' : f.name}
+                          <X size={13} style={{ cursor: 'pointer' }} onClick={() => setSbFiles(prev => prev.filter((_, j) => j !== i))} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="cmp-herowrap">
+                  <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
+                  <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
+                    placeholder={mode === 'manual'
+                      ? 'Dán kịch bản của bạn (kèm lời thoại + tên nhân vật)...\nVD:\nCảnh 1: Mẹ ngồi gục ở quầy spa, mệt mỏi.\nLời thoại (Mẹ): "Cả ngày không có khách nào..."\nCảnh 2: Con trai bước vào...'
+                      : 'Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát...'} />
+                </div>
+              )}
 
               <div className="cmp-settings">
                 <div className="cmp-ctrl">
@@ -477,8 +528,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <span className={modelObjNew.cost === 0 ? 'free' : ''}>{modelObjNew.cost === 0 ? 'FREE' : `${modelObjNew.cost * sceneCount} 💎`}</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="cmp-cta" onClick={mode === 'manual' ? parseScript : genPrompts} disabled={loadingPrompts || !idea.trim()}>
-                {loadingPrompts ? <><Loader2 size={14} className="spin" /> {mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang viết & tạo...'}</> : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'manual' ? 'Phân tích & tạo phim →' : 'AI viết & tạo phim →'}</>}
+              <button className="cmp-cta"
+                onClick={mode === 'storyboard' ? readStoryboard : mode === 'manual' ? parseScript : genPrompts}
+                disabled={loadingPrompts || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
+                {loadingPrompts
+                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? 'Đang đọc storyboard...' : mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang viết & tạo...'}</>
+                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : 'AI viết & tạo phim →'}</>}
               </button>
             </div>
           </>)}
