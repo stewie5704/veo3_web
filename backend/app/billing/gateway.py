@@ -459,7 +459,7 @@ async def mark_paid_and_activate(db, payment, gateway_ref: str | None = None) ->
         await db.commit()
     except IntegrityError:
         # A concurrent paid-transition (webhook vs poller vs admin) already recorded
-        # this — the unique(commission.payment_id) constraint fired. Treat as done.
+        # this — the unique(commission payment_id, level) index fired. Treat as done.
         await db.rollback()
 
 

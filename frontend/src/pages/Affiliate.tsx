@@ -127,6 +127,36 @@ export default function Affiliate() {
         )}
       </div>
 
+      {/* ── Hoa hồng 2 tầng (F1 trực tiếp + F2 gián tiếp) ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header"><Share2 size={15} /> Hoa hồng 2 tầng</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <div style={{ padding: '14px 16px', borderRadius: 13, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)' }}>
+            <div style={{ fontSize: 11.5, color: 'var(--text3)', fontWeight: 600, marginBottom: 4 }}>TẦNG 1 · Trực tiếp</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+              <span style={{ fontSize: 26, fontWeight: 900, color: '#34d399' }}>{d.rate}%</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>mỗi đơn</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
+              {d.paid_referrals} khách mua · nhận <b style={{ color: 'var(--green)' }}>{fmtVND(d.earned_f1 ?? 0)}</b>
+            </div>
+          </div>
+          <div style={{ padding: '14px 16px', borderRadius: 13, background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.3)' }}>
+            <div style={{ fontSize: 11.5, color: 'var(--text3)', fontWeight: 600, marginBottom: 4 }}>TẦNG 2 · Gián tiếp</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+              <span style={{ fontSize: 26, fontWeight: 900, color: '#c084fc' }}>{d.tier2_rate ?? 5}%</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>mỗi đơn</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
+              {d.f2_referrals ?? 0} người tuyến dưới · nhận <b style={{ color: '#c084fc' }}>{fmtVND(d.earned_f2 ?? 0)}</b>
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 11, lineHeight: 1.6 }}>
+          Người bạn giới thiệu mua gói → bạn nhận <b style={{ color: '#34d399' }}>{d.rate}%</b>. Người mà <b>họ</b> giới thiệu mua → bạn nhận thêm <b style={{ color: '#c084fc' }}>{d.tier2_rate ?? 5}%</b>. Tất cả tự cộng vào ví ngay.
+        </div>
+      </div>
+
       {/* ── Ranks ladder ── */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header"><TrendingUp size={15} /> Bậc cộng tác viên</div>

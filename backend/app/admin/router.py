@@ -348,7 +348,7 @@ async def list_commissions(
     return [{
         "id": c.id, "affiliate": aff_user, "affiliate_email": aff_email,
         "referred_user": refmap.get(c.referred_user_id, "—"),
-        "amount": c.amount, "rate": c.rate, "status": c.status,
+        "amount": c.amount, "rate": c.rate, "status": c.status, "level": getattr(c, "level", 1) or 1,
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "paid_at": c.paid_at.isoformat() if c.paid_at else None,
     } for c, aff_user, aff_email in rows]

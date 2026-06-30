@@ -53,6 +53,16 @@ async def affiliate_me(user: User = Depends(get_current_user), db: AsyncSession 
         select(func.coalesce(func.sum(Commission.amount), 0))
         .where(Commission.affiliate_id == user.id, Commission.status == "paid")
     )).scalar() or 0)
+    # Tầng 2 (F2 gián tiếp): số người do F1 của mình giới thiệu + hoa hồng F2 đã nhận
+    f2_referrals = int((await db.execute(
+        select(func.count()).select_from(User).where(
+            User.referred_by.in_(select(User.id).where(User.referred_by == user.id)))
+    )).scalar() or 0)
+    earned_f2 = int((await db.execute(
+        select(func.coalesce(func.sum(Commission.amount), 0))
+        .where(Commission.affiliate_id == user.id, Commission.status == "paid", Commission.level == 2)
+    )).scalar() or 0)
+    earned_f1 = earned - earned_f2
 
     com_rows = (await db.execute(
         select(Commission).where(Commission.affiliate_id == user.id)
@@ -70,6 +80,8 @@ async def affiliate_me(user: User = Depends(get_current_user), db: AsyncSession 
         "paid_referrals": paid_refs,
         "total_referrals": total_refs,
         "rate": rate, "rank": rank, "rank_locked": locked,
+        "tier2_rate": affiliate.TIER2_RATE,
+        "f2_referrals": f2_referrals, "earned_f1": earned_f1, "earned_f2": earned_f2,
         "next": ({"threshold": nxt[0], "rate": nxt[1], "rank": nxt[2]} if nxt else None),
         "progress": progress,
         "tiers": [{"threshold": t[0], "rate": t[1], "rank": t[2]} for t in reversed(affiliate.TIERS)],
@@ -80,7 +92,7 @@ async def affiliate_me(user: User = Depends(get_current_user), db: AsyncSession 
         "plan": user.plan, "plan_active": subscription.is_active(user),
         "plan_expires_at": user.plan_expires_at.isoformat() if user.plan_expires_at else None,
         "commissions": [{
-            "amount": c.amount, "rate": c.rate, "status": c.status,
+            "amount": c.amount, "rate": c.rate, "status": c.status, "level": getattr(c, "level", 1) or 1,
             "created_at": c.created_at.isoformat() if c.created_at else None,
         } for c in com_rows],
         "txns": [{

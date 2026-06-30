@@ -18,6 +18,10 @@ TIERS = [
     (0, 10, "Luyện Khí"),
 ]
 
+# % hoa hồng TẦNG 2 (F2 gián tiếp): khách do người-mình-giới-thiệu giới thiệu mua -> mình nhận thêm.
+# Cố định, KHÔNG theo bậc. Nguồn DUY NHẤT cho cả tính tiền lẫn hiển thị -> đồng bộ toàn hệ.
+TIER2_RATE = 5
+
 
 def tier_for(paid_referrals: int) -> tuple[int, str]:
     """Return (rate%, rank_name) for a given count of paying referrals."""
@@ -91,37 +95,56 @@ async def attach_referrer(db: AsyncSession, new_user, ref_code: str | None) -> N
         new_user.referred_by = affiliate.id
 
 
-async def record_commission(db: AsyncSession, payment, paying_user) -> None:
-    """On a confirmed-paid order: create the commission AND auto-credit the referrer's
-    wallet immediately (status=paid). Idempotent via the unique payment_id. Caller commits."""
-    if not paying_user or not paying_user.referred_by:
-        return
-    from app.auth.models import User
+async def _pay_commission(db: AsyncSession, *, earner, paying_user, payment,
+                          rate: int, level: int) -> None:
+    """Tạo 1 hoa hồng cho `earner` ở tầng `level` + tự cộng ví ngay (status=paid).
+    Idempotent theo (payment_id, level). rate<=0 hoặc tiền=0 -> bỏ qua. Caller commit."""
     from app.billing.models import Commission
-
-    affiliate = await db.get(User, paying_user.referred_by)
-    if not affiliate:
-        return
-    if affiliate.id == paying_user.id:
-        return   # defense-in-depth: never pay a user commission on their own purchase
-    # one commission per payment
-    dup = await db.execute(select(Commission.id).where(Commission.payment_id == payment.id))
-    if dup.scalar_one_or_none():
-        return
-    rate = await effective_rate(db, affiliate)   # cultivation tier, or admin-locked custom
     if rate <= 0:
-        return   # rate 0 = disabled
+        return
     amount = round(int(payment.amount) * rate / 100)
     if amount <= 0:
         return
+    dup = await db.execute(select(Commission.id).where(
+        Commission.payment_id == payment.id, Commission.level == level))
+    if dup.scalar_one_or_none():
+        return
     db.add(Commission(
-        affiliate_id=affiliate.id,
+        affiliate_id=earner.id,
         referred_user_id=paying_user.id,
         payment_id=payment.id,
+        level=level,
         amount=amount,
         rate=rate,
         status="paid",                        # auto-credited to wallet right away
         paid_at=datetime.now(timezone.utc).replace(tzinfo=None),
     ))
-    await credit_wallet(db, affiliate, amount, "commission",
-                        note=f"Hoa hồng {rate}% đơn {payment.plan}")
+    tag = "" if level == 1 else " (F2)"
+    await credit_wallet(db, earner, amount, "commission",
+                        note=f"Hoa hồng{tag} {rate}% đơn {payment.plan}")
+
+
+async def record_commission(db: AsyncSession, payment, paying_user) -> None:
+    """On a confirmed-paid order: trả hoa hồng 2 TẦNG + tự cộng ví ngay (status=paid).
+    - Tầng 1 (F1): người giới thiệu TRỰC TIẾP, % theo bậc tu tiên / mức admin khoá.
+    - Tầng 2 (F2): tuyến trên của F1 (giới thiệu GIÁN TIẾP), nhận TIER2_RATE% cố định.
+    Idempotent theo (payment_id, level). Caller commits."""
+    if not paying_user or not paying_user.referred_by:
+        return
+    from app.auth.models import User
+
+    # Tầng 1 — người giới thiệu trực tiếp
+    f1 = await db.get(User, paying_user.referred_by)
+    if not f1 or f1.id == paying_user.id:
+        return   # defense-in-depth: never pay a user commission on their own purchase
+    await _pay_commission(db, earner=f1, paying_user=paying_user, payment=payment,
+                          rate=await effective_rate(db, f1), level=1)
+
+    # Tầng 2 — tuyến trên của F1 (nếu có), nhận 5% cố định, độc lập với trạng thái F1
+    if not f1.referred_by:
+        return
+    f2 = await db.get(User, f1.referred_by)
+    if not f2 or f2.id in (paying_user.id, f1.id):
+        return   # tránh tự trả / vòng giới thiệu lỗi
+    await _pay_commission(db, earner=f2, paying_user=paying_user, payment=payment,
+                          rate=TIER2_RATE, level=2)

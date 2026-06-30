@@ -52,10 +52,30 @@ def _lightweight_migrate(conn):
         ("users", "email_verify_code", "VARCHAR(8)"),
         ("users", "email_verify_sent_at", "TIMESTAMP"),
         ("projects", "character_bible", "TEXT"),
+        ("commissions", "level", "INTEGER DEFAULT 1"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+    # Affiliate 2 tầng: bảng commissions trước đây unique(payment_id) = 1 hoa hồng/đơn. Giờ cho phép
+    # F1 (level 1) + F2 (level 2) cùng 1 đơn -> BỎ ràng buộc unique đơn-cột cũ, thay bằng unique
+    # (payment_id, level). Drop động theo tên thật (Postgres tự đặt tên) để chắc tay, tránh F2 insert
+    # đụng ràng buộc cũ -> rollback nuốt luôn việc kích hoạt gói.
+    if "commissions" in existing and conn.dialect.name == "postgresql":
+        ucons = conn.execute(text(
+            "SELECT con.conname FROM pg_constraint con "
+            "JOIN pg_class rel ON rel.oid = con.conrelid "
+            "WHERE rel.relname = 'commissions' AND con.contype = 'u'")).fetchall()
+        for (cname,) in ucons:
+            cols = {r[0] for r in conn.execute(text(
+                "SELECT a.attname FROM pg_constraint con "
+                "JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey) "
+                "WHERE con.conname = :n"), {"n": cname}).fetchall()}
+            if cols == {"payment_id"}:   # chỉ drop unique CHỈ gồm payment_id, không đụng cái khác
+                conn.execute(text(f'ALTER TABLE commissions DROP CONSTRAINT IF EXISTS "{cname}"'))
+    if "commissions" in existing:
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_commissions_payment_level "
+                          "ON commissions (payment_id, level)"))
     # index cho cột mới (IF NOT EXISTS chạy được trên cả SQLite & Postgres)
     if "characters" in existing:
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_characters_project_id ON characters (project_id)"))

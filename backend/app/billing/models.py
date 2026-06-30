@@ -22,13 +22,16 @@ class Payment(Base):
 
 
 class Commission(Base):
-    """Affiliate earning created when a referred user's payment is confirmed paid."""
+    """Affiliate earning created when a referred user's payment is confirmed paid.
+    2 tầng: level=1 (F1 trực tiếp, % theo bậc) + level=2 (F2 gián tiếp, 5%). Mỗi đơn tối đa
+    1 hoa hồng MỖI tầng -> unique (payment_id, level) (index tạo ở _lightweight_migrate)."""
     __tablename__ = "commissions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     affiliate_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
     referred_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    payment_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)  # 1 commission / payment
+    payment_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)  # KHÔNG unique đơn lẻ nữa (xem level)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)  # 1 = F1 trực tiếp, 2 = F2 gián tiếp
     amount: Mapped[int] = mapped_column(Integer, nullable=False)   # VND
     rate: Mapped[int] = mapped_column(Integer, nullable=False)     # % applied
     status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / paid
