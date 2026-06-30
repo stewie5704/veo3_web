@@ -64,6 +64,31 @@ const rowVert = idx.filter(x => x.s.ratio !== '16:9').map(x => cardHTML(x.s, x.i
 const rowHorz = idx.filter(x => x.s.ratio === '16:9').map(x => cardHTML(x.s, x.i)).join('');
 const svidHTML = `<div class="srow srow-v">${rowVert}</div>${rowHorz ? `<div class="srow srow-h">${rowHorz}</div>` : ''}`;
 
+// ===== Dải "năng lực" + "số liệu" dưới hero (re-design theo phong cách thương hiệu mình) =====
+// Icon đổ gradient cam->hồng->tím dùng chung 1 def SVG (#aiacg).
+const GRAD_DEF = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="aiacg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F97316"/><stop offset=".56" stop-color="#EC4899"/><stop offset="1" stop-color="#A855F7"/></linearGradient></defs></svg>`;
+const capIcon = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const CAPS = [
+  { t: 'Text to Video', d: 'Biến văn bản thành video sống động', ic: `<path d="M5 7h12M5 12h8M5 17h5"/><path d="m15 11 6 3.5-6 3.5z"/>` },
+  { t: 'Image to Video', d: 'Biến hình ảnh thành video chuyên nghiệp', ic: `<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><circle cx="8.4" cy="10" r="1.7"/><path d="m4 17 5-4 4 3 3-2 4 3"/>` },
+  { t: 'Kịch bản (Story)', d: 'Tạo video dạng câu chuyện cuốn hút', ic: `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/>` },
+  { t: 'Đồng nhất nhân vật', d: 'Giữ nhân vật nhất quán giữa các cảnh', ic: `<circle cx="9" cy="9" r="2.6"/><path d="M4 19a5 5 0 0 1 10 0"/><path d="M15.6 7.3a2.6 2.6 0 0 1 0 4.5"/><path d="M16.2 14.6a5 5 0 0 1 3.8 4.4"/>` },
+  { t: 'Sao chép phong cách', d: 'Tái hiện phong cách video bạn thích', ic: `<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>` },
+  { t: 'Thư viện Prompt', d: 'Hàng trăm mẫu prompt để tham khảo', ic: `<path d="M4 20h16"/><path d="M6.5 20V9M10.5 20V5M14.5 20v-7M18.5 20V11"/>` },
+  { t: 'Check thương hiệu', d: 'Soi logo, watermark trong hình ảnh', ic: `<path d="M12 3.5 5 6v5c0 4.3 2.9 7.4 7 8.8 4.1-1.4 7-4.5 7-8.8V6z"/><path d="m9.2 11.8 2 2 3.6-3.8"/>` },
+];
+const capsHTML = CAPS.map(c => `<div class="cap"><span class="ci">${capIcon(c.ic)}</span><h4>${c.t}</h4><p>${c.d}</p></div>`).join('');
+const SPARK = `<svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg>`;
+// ⚠️ SỐ LIỆU marketing — sửa cho ĐÚNG thực tế của mình (đây là số khởi điểm theo mẫu).
+const NUMS = [
+  { n: '2.1M+', l: 'Video đã tạo' },
+  { n: '12.000+', l: 'Creator tin dùng' },
+  { n: '4.8M+ phút', l: 'Thời gian tiết kiệm' },
+  { n: '48+', l: 'Quốc gia sử dụng' },
+  { n: 'Hàng ngày', l: 'Nội dung mới từ cộng đồng' },
+];
+const numsHTML = NUMS.map(s => `<div class="snum"><span class="si">${SPARK}</span><div class="sx"><b>${s.n}</b><span>${s.l}</span></div></div>`).join('');
+
 // Build the body HTML (same as Landing.tsx template)
 const bodyHTML = `
 <div class="shell">
@@ -121,6 +146,12 @@ const bodyHTML = `
         </div>
       </div>
     </section>
+  </div>
+
+  <div class="inner caps-wrap reveal">
+    ${GRAD_DEF}
+    <div class="capstrip">${capsHTML}</div>
+    <div class="statstrip">${numsHTML}</div>
   </div>
 
   <section class="blk" id="features"><div class="inner">

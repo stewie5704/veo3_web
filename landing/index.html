@@ -282,6 +282,34 @@
 #lp .svid .meta .t{font-size:12.5px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 #lp .svid .meta .by{font-size:11.5px;color:var(--text3);margin-top:5px;display:flex;justify-content:space-between;align-items:center}
 @media(prefers-reduced-motion:reduce){#lp .svid,#lp .svid .play{transition:none}}
+
+/* Dải năng lực + số liệu (band dưới hero) — phong cách thương hiệu, icon gradient */
+#lp .caps-wrap{display:flex;flex-direction:column;gap:14px;margin-top:30px}
+#lp .capstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;background:linear-gradient(180deg,#16111f,#110d19);border:1px solid var(--line);border-radius:22px;padding:24px 14px}
+#lp .cap{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 6px;border-radius:14px;transition:transform .26s cubic-bezier(.2,.7,.2,1),background .26s}
+#lp .cap:hover{transform:translateY(-4px);background:rgba(255,255,255,.035)}
+#lp .cap .ci{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:radial-gradient(130% 130% at 28% 18%,rgba(249,115,22,.18),rgba(168,85,247,.12));border:1px solid var(--line2);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);transition:box-shadow .26s,transform .26s}
+#lp .cap:hover .ci{box-shadow:0 12px 28px -12px rgba(236,72,153,.55);transform:scale(1.07)}
+#lp .cap .ci svg{width:24px;height:24px}
+#lp .cap h4{font-size:13.5px;font-weight:700;letter-spacing:-.01em}
+#lp .cap p{font-size:11.5px;line-height:1.4;color:var(--text3);max-width:16ch}
+#lp .statstrip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;background:linear-gradient(180deg,#16111f,#110d19);border:1px solid var(--line);border-radius:22px;padding:22px 18px}
+#lp .snum{display:flex;align-items:center;gap:12px;justify-content:center}
+#lp .snum .si{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line2);background:rgba(255,255,255,.02)}
+#lp .snum .si svg{width:20px;height:20px}
+#lp .snum .sx{display:flex;flex-direction:column;line-height:1.12}
+#lp .snum .sx b{font-size:23px;font-weight:800;letter-spacing:-.02em;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#lp .snum .sx span{font-size:12px;color:var(--text3);margin-top:3px}
+@media(max-width:980px){
+  #lp .capstrip{grid-template-columns:repeat(4,1fr);row-gap:18px}
+  #lp .statstrip{grid-template-columns:repeat(3,1fr);row-gap:18px}
+}
+@media(max-width:620px){
+  #lp .capstrip{grid-template-columns:repeat(3,1fr)}
+  #lp .statstrip{grid-template-columns:repeat(2,1fr);justify-items:start}
+  #lp .snum{justify-content:flex-start}
+}
+@media(max-width:380px){#lp .capstrip{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -341,6 +369,12 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <div class="inner caps-wrap reveal">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="aiacg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F97316"/><stop offset=".56" stop-color="#EC4899"/><stop offset="1" stop-color="#A855F7"/></linearGradient></defs></svg>
+    <div class="capstrip"><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h12M5 12h8M5 17h5"/><path d="m15 11 6 3.5-6 3.5z"/></svg></span><h4>Text to Video</h4><p>Biến văn bản thành video sống động</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.2"/><circle cx="8.4" cy="10" r="1.7"/><path d="m4 17 5-4 4 3 3-2 4 3"/></svg></span><h4>Image to Video</h4><p>Biến hình ảnh thành video chuyên nghiệp</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></svg></span><h4>Kịch bản (Story)</h4><p>Tạo video dạng câu chuyện cuốn hút</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="2.6"/><path d="M4 19a5 5 0 0 1 10 0"/><path d="M15.6 7.3a2.6 2.6 0 0 1 0 4.5"/><path d="M16.2 14.6a5 5 0 0 1 3.8 4.4"/></svg></span><h4>Đồng nhất nhân vật</h4><p>Giữ nhân vật nhất quán giữa các cảnh</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg></span><h4>Sao chép phong cách</h4><p>Tái hiện phong cách video bạn thích</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6.5 20V9M10.5 20V5M14.5 20v-7M18.5 20V11"/></svg></span><h4>Thư viện Prompt</h4><p>Hàng trăm mẫu prompt để tham khảo</p></div><div class="cap"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5c0 4.3 2.9 7.4 7 8.8 4.1-1.4 7-4.5 7-8.8V6z"/><path d="m9.2 11.8 2 2 3.6-3.8"/></svg></span><h4>Check thương hiệu</h4><p>Soi logo, watermark trong hình ảnh</p></div></div>
+    <div class="statstrip"><div class="snum"><span class="si"><svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg></span><div class="sx"><b>2.1M+</b><span>Video đã tạo</span></div></div><div class="snum"><span class="si"><svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg></span><div class="sx"><b>12.000+</b><span>Creator tin dùng</span></div></div><div class="snum"><span class="si"><svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg></span><div class="sx"><b>4.8M+ phút</b><span>Thời gian tiết kiệm</span></div></div><div class="snum"><span class="si"><svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg></span><div class="sx"><b>48+</b><span>Quốc gia sử dụng</span></div></div><div class="snum"><span class="si"><svg viewBox="0 0 24 24" fill="url(#aiacg)"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg></span><div class="sx"><b>Hàng ngày</b><span>Nội dung mới từ cộng đồng</span></div></div></div>
   </div>
 
   <section class="blk" id="features"><div class="inner">
