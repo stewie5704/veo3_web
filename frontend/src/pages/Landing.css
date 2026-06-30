@@ -294,3 +294,24 @@
   #lp .snum{justify-content:flex-start}
 }
 @media(max-width:380px){#lp .capstrip{grid-template-columns:repeat(2,1fr)}}
+
+/* Section "Không cần..." (chốt sale) + banner đa thiết bị */
+#lp .nocards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+#lp .nocard{display:flex;flex-direction:column;gap:12px;padding:22px 20px;background:linear-gradient(180deg,#16111f,#120e1b);border:1px solid var(--line);border-radius:18px;transition:transform .26s cubic-bezier(.2,.7,.2,1),border-color .26s,box-shadow .26s}
+#lp .nocard:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:0 26px 56px -30px rgba(0,0,0,.85),0 0 30px -16px rgba(236,72,153,.42)}
+#lp .nocard .nc-ic{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;background:radial-gradient(130% 130% at 28% 18%,rgba(249,115,22,.2),rgba(168,85,247,.13));border:1px solid var(--line2)}
+#lp .nocard .nc-ic svg{width:26px;height:26px}
+#lp .nocard h4{font-size:15px;font-weight:750;letter-spacing:-.01em}
+#lp .nocard h4 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#lp .nocard p{font-size:12.5px;line-height:1.55;color:var(--text3)}
+#lp .device-banner{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:22px 26px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(115deg,rgba(249,115,22,.10),rgba(236,72,153,.08) 56%,rgba(168,85,247,.10))}
+#lp .db-left{display:flex;align-items:center;gap:16px;min-width:280px;flex:1}
+#lp .db-ic{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:rgba(0,0,0,.28);border:1px solid var(--line2)}
+#lp .db-ic svg{width:26px;height:26px}
+#lp .db-left h3{font-size:16px;font-weight:750;letter-spacing:-.01em}
+#lp .db-left p{font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.5}
+#lp .db-devices{display:flex;gap:18px;flex-wrap:wrap}
+#lp .db-dev{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text)}
+#lp .db-dev svg{width:20px;height:20px;stroke:url(#aiacg)}
+@media(max-width:900px){#lp .nocards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){#lp .nocards{grid-template-columns:1fr}#lp .db-devices{gap:12px}}

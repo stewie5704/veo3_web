@@ -89,6 +89,22 @@ const NUMS = [
 ];
 const numsHTML = NUMS.map(s => `<div class="snum"><span class="si">${SPARK}</span><div class="sx"><b>${s.n}</b><span>${s.l}</span></div></div>`).join('');
 
+// ===== Section "Không cần..." (chốt sale) + banner đa thiết bị =====
+const NOCARDS = [
+  { thing: 'biết Prompt', d: 'Gõ ý tưởng bằng tiếng Việt — AI tự viết prompt điện ảnh cho từng cảnh.', ic: `<path d="M5 7h12M5 12h8M5 17h5"/>` },
+  { thing: 'giỏi công nghệ', d: 'Giao diện gọn gàng, bấm là chạy. Không thuật ngữ, không thiết lập rối rắm.', ic: `<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/>` },
+  { thing: 'nhiều AI tốn phí', d: 'Một nền tảng lo trọn: kịch bản · giọng đọc · render · ghép phim.', ic: `<path d="m3.6 12.4 8-8.4H20a.5.5 0 0 1 .5.5v8.4l-8 8z"/><circle cx="15.4" cy="8.6" r="1.4"/>` },
+  { thing: 'cài đặt vào máy', d: 'Chạy ngay trên trình duyệt — không tải về, không ngốn ổ cứng.', ic: `<path d="M7.5 18a4 4 0 0 1 .4-8 5.5 5.5 0 0 1 10.6 1.5A3.5 3.5 0 0 1 17.5 18z"/>` },
+];
+const nocardsHTML = NOCARDS.map(c => `<div class="nocard reveal"><span class="nc-ic">${capIcon(c.ic)}</span><h4>Không cần <em>${c.thing}</em></h4><p>${c.d}</p></div>`).join('');
+const DEVS = [
+  { t: 'Điện thoại', ic: `<rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M11 18h2"/>` },
+  { t: 'Máy tính bảng', ic: `<rect x="5" y="3" width="14" height="18" rx="2.2"/><path d="M11 18h2"/>` },
+  { t: 'Laptop / PC', ic: `<rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 20h20"/>` },
+];
+const devsHTML = DEVS.map(d => `<span class="db-dev"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d.ic}</svg>${d.t}</span>`).join('');
+const GLOBE = `<svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 2.6 15.6 0 18M12 3c-2.6 2.4-2.6 15.6 0 18"/></svg>`;
+
 // Build the body HTML (same as Landing.tsx template)
 const bodyHTML = `
 <div class="shell">
@@ -192,6 +208,20 @@ const bodyHTML = `
       <div class="step reveal"><span class="n">01</span><h3>Nhập ý tưởng</h3><p>Mô tả nội dung, chọn số cảnh, thời lượng, tỉ lệ và phong cách. Thêm nhân vật cần giữ mặt nếu có.</p></div>
       <div class="step reveal"><span class="n">02</span><h3>AI viết kịch bản</h3><p>AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.</p></div>
       <div class="step reveal"><span class="n">03</span><h3>Render &amp; ghép</h3><p>Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.</p></div>
+    </div>
+  </div></section>
+
+  <section class="blk" id="why"><div class="inner">
+    <div class="eyebrow reveal">Đơn giản tới mức khó tin</div>
+    <h2 class="h2 reveal">Một cú click — ra video AI <span class="g">hoàn chỉnh</span></h2>
+    <p class="sub reveal">Một dòng ý tưởng bằng tiếng Việt. Mọi thứ rắc rối còn lại, để AI AutoCut lo trọn.</p>
+    <div class="nocards">${nocardsHTML}</div>
+    <div class="device-banner reveal">
+      <div class="db-left">
+        <span class="db-ic">${GLOBE}</span>
+        <div><h3>Chạy thẳng trên web — không cài gì cả</h3><p>Mở trình duyệt là tạo video ngay. Không tải app, không cấu hình, không tốn ổ cứng.</p></div>
+      </div>
+      <div class="db-devices">${devsHTML}</div>
     </div>
   </div></section>
 
