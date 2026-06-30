@@ -14,7 +14,7 @@ const fmtBytes = (b: number) =>
 
 export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: any) => void }) {
   const toast = useToast()
-  const [tab, setTab] = useState<'profile' | 'security' | 'api'>('profile')
+  const [tab, setTab] = useState<'profile' | 'assistants' | 'security' | 'api'>('profile')
   const [sub, setSub] = useState<any>(null)
 
   const [displayName, setDisplayName] = useState('')
@@ -83,11 +83,14 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     finally { setRefSaving(false) }
   }
 
-  const TABS = [
+  // Tab "Trợ lý AI" chỉ hiện khi user thực sự được tặng (quà kèm gói)
+  const hasGift = !!(gift?.gifted && (gift?.assistants?.length || 0) > 0)
+  const TABS: { k: 'profile' | 'assistants' | 'security' | 'api'; l: string; i: any }[] = [
     { k: 'profile', l: 'Hồ sơ', i: User },
+    ...(hasGift ? [{ k: 'assistants' as const, l: 'Trợ lý AI', i: Bot }] : []),
     { k: 'security', l: 'Bảo mật', i: Shield },
     { k: 'api', l: 'Kết nối & API Key', i: Wifi },
-  ] as const
+  ]
 
   // Plan / trial state
   const active = sub?.active
@@ -221,7 +224,6 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
 
       {/* Profile */}
       {tab === 'profile' && (
-        <>
         <div className="card">
           <div className="card-header"><User size={15} /> Thông tin hồ sơ</div>
           <div className="form-group">
@@ -258,43 +260,42 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
             {saving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu thay đổi</>}
           </button>
         </div>
+      )}
 
-        {/* ── Trợ lý AI được tặng (quà kèm gói) — bấm tên để mở ChatGPT ── */}
-        {gift?.gifted && allAssts.length > 0 && (
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={15} color="#fb923c" /> Trợ lý AI được tặng</span>
-              <span className="badge" style={{ background: 'var(--grad)', color: '#fff', border: 'none' }}>{gift.count} trợ lý</span>
-            </div>
-            <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 14 }}>
-              Quà kèm theo gói của bạn. Bấm vào <b>tên trợ lý</b> để mở trên ChatGPT (mở tab mới).
-            </div>
-            {allAssts.length > 8 && (
-              <div style={{ position: 'relative', marginBottom: 14 }}>
-                <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
-                <input className="form-input" style={{ paddingLeft: 34 }} placeholder="Tìm trợ lý..."
-                  value={asstQ} onChange={e => setAsstQ(e.target.value)} />
-              </div>
-            )}
-            <div className="gift-asst-list">
-              {asstGroups.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--text3)', padding: '18px 4px', textAlign: 'center' }}>Không tìm thấy trợ lý nào.</div>
-              ) : asstGroups.map(([cat, items]) => (
-                <div key={cat}>
-                  <div className="gift-asst-cat">{cat}</div>
-                  {items.map((a: any, i: number) => (
-                    <a key={a.id ?? `${cat}-${i}`} className="gift-asst" href={a.url} target="_blank" rel="noreferrer" title={a.name}>
-                      <span className="ai-ico"><Bot size={15} /></span>
-                      <span className="ai-name">{a.name}</span>
-                      <ExternalLink size={13} className="ai-ext" />
-                    </a>
-                  ))}
-                </div>
-              ))}
-            </div>
+      {/* Trợ lý AI được tặng (quà kèm gói) — bấm tên để mở ChatGPT (link ẩn dưới tên) */}
+      {tab === 'assistants' && hasGift && (
+        <div className="card">
+          <div className="card-header" style={{ justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={15} color="#fb923c" /> Trợ lý AI được tặng</span>
+            <span className="badge" style={{ background: 'var(--grad)', color: '#fff', border: 'none' }}>{gift.count} trợ lý</span>
           </div>
-        )}
-        </>
+          <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 14 }}>
+            Quà kèm theo gói của bạn. Bấm vào <b>tên trợ lý</b> để mở trên ChatGPT (mở tab mới).
+          </div>
+          {allAssts.length > 8 && (
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+              <input className="form-input" style={{ paddingLeft: 34 }} placeholder="Tìm trợ lý..."
+                value={asstQ} onChange={e => setAsstQ(e.target.value)} />
+            </div>
+          )}
+          <div className="gift-asst-list">
+            {asstGroups.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '18px 4px', textAlign: 'center' }}>Không tìm thấy trợ lý nào.</div>
+            ) : asstGroups.map(([cat, items]) => (
+              <div key={cat}>
+                <div className="gift-asst-cat">{cat}</div>
+                {items.map((a: any, i: number) => (
+                  <a key={a.id ?? `${cat}-${i}`} className="gift-asst" href={a.url} target="_blank" rel="noreferrer" title={a.name}>
+                    <span className="ai-ico"><Bot size={15} /></span>
+                    <span className="ai-name">{a.name}</span>
+                    <ExternalLink size={13} className="ai-ext" />
+                  </a>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Security */}
