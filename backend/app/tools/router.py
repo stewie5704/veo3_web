@@ -112,9 +112,16 @@ MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song
 CHUNK_SIZE = 20          # số cảnh mỗi chunk bung song song
 MAX_MR_CONCURRENCY = 6   # số call Gemini song song tối đa (giữ trong RPM)
+# Mỏ neo chuyển động — TRUNG TÍNH phong cách (đúng cho cả live-action lẫn anime/claymation): nhắc Veo
+# giữ chuyển động mạch lạc + phơi sáng/ánh sáng ổn định cả cảnh -> chống nhấp nháy & "thở sáng" giữa cảnh.
+_MOTION_ANCHOR = (" Smooth, coherent motion throughout; lighting and exposure stay consistent for the whole shot.")
+# Negative nâng cấp: thêm các artifact Veo 3.1 hay dính khi CÓ chuyển động (nhấp nháy/strobe/giật khung,
+# slow-motion/đổi tốc ngoài ý muốn, HDR cháy/banding/oversharpen) — đều xấu ở MỌI phong cách.
 _NEG_TAIL = (" Negative prompt: full-frame edge-to-edge, no borders/letterbox/pillarbox, no on-screen "
              "text, subtitles, captions, logos or watermark; no face distortion, warping, morphing, extra "
-             "fingers, duplicate limbs or plastic skin; a single continuous shot — no montage, cutaways, "
+             "fingers, duplicate limbs or plastic skin; no flickering, strobing, frame jitter or temporal "
+             "popping; no unintended slow-motion, speed ramps or stutter; no oversaturated HDR halos, "
+             "colour banding or oversharpening; a single continuous shot — no montage, cutaways, "
              "jump cuts, flashbacks or scene transitions; no dialogue, voiceover, narration, singing, "
              "laughter or studio-audience sounds.")
 # guardrail bằng code: loại nhãn chủng tộc/sắc tộc khỏi mô tả nhân vật
@@ -417,6 +424,7 @@ def _build_shot_prompt(present: list, scene: SceneScript, style_lock: str) -> st
     merged = " ".join(parts).rstrip()
     merged += _audio_line(scene)
     merged += _identity_neg(present)
+    merged += _MOTION_ANCHOR
     if "negative prompt:" not in merged.lower():
         merged += _NEG_TAIL
     return re.sub(r"\s+", " ", merged).strip()

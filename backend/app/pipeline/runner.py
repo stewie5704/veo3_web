@@ -597,6 +597,20 @@ def _strip_face_for_ref(prompt: str) -> str:
     return re.sub(r'(Same\s+\w[^(]{0,40}\()([^)]{5,800})(\))', _clean_block, prompt)
 
 
+# Lưới chất lượng áp LÚC RENDER cho mọi video CHƯA có khối negative (video bán hàng, job lẻ, prompt
+# người dùng tự gõ — các path không đi qua _build_shot_prompt). Mỏ neo chuyển động + dẹp artifact Veo
+# 3.1 hay dính. Trùng nội dung với _MOTION_ANCHOR/_NEG_TAIL bên tools.router (chủ đích lặp — tránh phụ
+# thuộc chéo module). KHÔNG áp cho chế độ nhân vật tự nói (cần giữ phần thoại/giọng).
+_RENDER_QUALITY_TAIL = (
+    " Smooth, coherent motion throughout; lighting and exposure stay consistent for the whole shot."
+    " Negative prompt: full-frame edge-to-edge, no borders/letterbox/pillarbox, no on-screen text, "
+    "subtitles, captions, logos or watermark; no face distortion, warping, morphing, extra fingers, "
+    "duplicate limbs or plastic skin; no flickering, strobing, frame jitter or temporal popping; no "
+    "unintended slow-motion, speed ramps or stutter; no oversaturated HDR halos, colour banding or "
+    "oversharpening; a single continuous shot — no montage, cutaways, jump cuts or scene transitions; "
+    "no dialogue, voiceover, narration, singing, laughter or studio-audience sounds.")
+
+
 async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: str,
                         aspect_ratio: str, duration_seconds: int, model_key: str,
                         out_stem: str, start_image_path: Path | None = None,
@@ -659,6 +673,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)
         prompt = _to_character_speak(prompt, dialogue)
         silent = False
+    elif "negative prompt:" not in prompt.lower():
+        prompt += _RENDER_QUALITY_TAIL   # lưới chất lượng cho path không qua _build_shot_prompt
 
     use_seed = seed if (seed is not None and seed > 0) else random.randint(1, 2 ** 31 - 1)
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
