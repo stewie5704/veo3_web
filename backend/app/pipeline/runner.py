@@ -301,7 +301,7 @@ def _resolve_variant(model_key: str, mode: str) -> str:
 
 def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: str,
                          recaptcha: str, seed: int, start_image_id: str | None,
-                         ref_ids: list[str] | None, silent: bool = True) -> dict:
+                         ref_ids: list[str] | None, silent: bool = True, voice_name: str = "") -> dict:
     req: dict = {
         "aspectRatio": aspect,
         "textInput": {"structuredPrompt": {"parts": [{"text": prompt}]}},
@@ -476,14 +476,17 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
 # ─────────────────────────────────────────────────────────────────────────────
 # One generation (shared by job + scene runners)
 # ─────────────────────────────────────────────────────────────────────────────
-def _to_character_speak(prompt: str, dialogue: str) -> str:
+def _to_character_speak(prompt: str, dialogue: str, voice_name: str = "") -> str:
     """Chế độ NHÂN VẬT TỰ NÓI (nhép miệng): gỡ phần chặn giọng + audio-negative đã chèn, rồi thêm
     câu thoại để Veo cho nhân vật nói bằng giọng native (mồm khớp) thay vì chồng TTS."""
     spoken = re.sub(r"^\s*[^:\n]{1,24}:\s*", "", dialogue or "").strip()
     p = prompt.replace(" No spoken dialogue, no voices, no narration, no singing.", "")
     p = p.replace("; no dialogue, voiceover, narration, singing, laughter or studio-audience sounds.", ".")
     if spoken:
-        p += f' The speaker faces the camera and clearly says, in Vietnamese: "{spoken}". Accurate natural lip-sync, clear speech.'
+        v_hint = ""
+        if voice_name:
+            v_hint = " using a female voice" if voice_name in ("Kore", "Aoede", "Leda") else " using a male voice"
+        p += f' The speaker faces the camera and clearly says{v_hint}, in Vietnamese: "{spoken}". Accurate natural lip-sync, clear speech.'
     return p
 
 
@@ -617,7 +620,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                         char_project_id: str | None = None,
                         seed: int | None = None,
                         extra_ref_paths: list[str] | None = None,
-                        dialogue: str = "", character_speak: bool = False) -> str:
+                        dialogue: str = "", character_speak: bool = False, voice_name: str = "") -> str:
     """Generate ONE video on Flow and download it (native 720p — 1080p is an
     opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
     from app.sessions.router import request_captcha
@@ -678,14 +681,14 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                        "keep it identical in every frame and angle.")
     silent = True
     if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)
-        prompt = _to_character_speak(prompt, dialogue)
+        prompt = _to_character_speak(prompt, dialogue, voice_name)
         silent = False
     elif "negative prompt:" not in prompt.lower():
         prompt += _RENDER_QUALITY_TAIL   # lưới chất lượng cho path không qua _build_shot_prompt
 
     use_seed = seed if (seed is not None and seed > 0) else random.randint(1, 2 ** 31 - 1)
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
-                                use_seed, start_id, ref_ids or None, silent=silent)
+                                use_seed, start_id, ref_ids or None, silent=silent, voice_name=voice_name)
 
     code, resp = await _api_post(endpoint, body, token)
     if code in (401, 403):                       # token expired mid-flight → refresh once

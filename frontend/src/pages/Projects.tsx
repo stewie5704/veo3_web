@@ -533,8 +533,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               {/* Âm thanh: chọn 1 trong 3 (component dùng chung) */}
               <div style={{ marginTop: 24 }}>
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
-                {voiceover && (
-                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh ở bước Duyệt.</div>
+                {(voiceover || audioMode === 'character_speak') && (
+                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh chi tiết ở bước Duyệt.</div>
                 )}
               </div>
             </div>
@@ -583,7 +583,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
             </div>
 
-            {voiceover && bibleChars.length > 0 && (
+            {(voiceover || audioMode === 'character_speak') && bibleChars.length > 0 && (
               <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Giọng nhân vật</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
