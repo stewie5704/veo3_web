@@ -659,10 +659,13 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     key = _apply_duration((model_key or "veo_3_1_t2v_lite_low_priority").strip(), duration_seconds)
     
     if start_id:
-        # Nếu có start_image (nối khung/I2V), luôn dùng endpoint I2V để đảm bảo liên tục.
-        # Nếu có thêm ref_ids, req["referenceImages"] vẫn được gửi để giữ nhân vật.
-        endpoint = "video:batchAsyncGenerateVideoStartImage"
+        # Nếu có start_image (nối khung/I2V), dùng I2V model.
         key = _resolve_variant(key, "i2v")
+        if voice_name:
+            # Endpoint StartImage không hỗ trợ referenceAudio, phải dùng ReferenceImages
+            endpoint = "video:batchAsyncGenerateVideoReferenceImages"
+        else:
+            endpoint = "video:batchAsyncGenerateVideoStartImage"
     elif ref_ids or voice_name:
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
