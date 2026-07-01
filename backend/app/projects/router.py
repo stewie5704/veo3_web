@@ -374,12 +374,12 @@ async def create_project(
 
     if body.auto_render:
         scene_ids = [s.id for s in scenes]
-        # 2b: nếu có bible nhân vật + chưa upload ảnh sẵn -> sinh chân dung AI trước rồi mới dispatch
-        # (ảnh neo danh tính cho MỌI cảnh => giữ mặt + đồng bộ). Chạy nền, không chặn response.
-        if body.character_bible and not body.character_ids:
+        # 2b: nếu có bible nhân vật -> sinh chân dung AI trước rồi mới dispatch
+        # (kể cả khi đã có character_ids là sản phẩm, ta vẫn cần sinh mặt AI ảo nếu thiếu)
+        if body.character_bible:
             asyncio.create_task(_prep_portraits_and_dispatch(proj.id, user.id, body.character_bible, scene_ids))
         else:
-            # Có ảnh upload sẵn (character_ids) hoặc không có bible -> dispatch ngay.
+            # Không có bible -> dispatch ngay.
             for sid in scene_ids:
                 dispatch_scene(sid, user.id)
 

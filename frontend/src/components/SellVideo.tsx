@@ -262,12 +262,31 @@ LỜI THOẠI: ...
       }
       pushLog(`📝 Kịch bản ${prompts.length} cảnh — đang đưa lên hàng chờ render...`)
 
+      const cbible = []
+      if (!kol) {
+        cbible.push({
+          name: "the person",
+          role: "người mẫu",
+          age: "25",
+          gender_presentation: "unspecified",
+          face: "Vietnamese face, natural, friendly",
+          eyes: "dark brown",
+          hair: "neatly styled",
+          skin_tone: "light brown",
+          build: "average build",
+          wardrobe_top: "casual neutral top",
+          wardrobe_bottom: "casual pants",
+          anchor: "friendly smile",
+          palette: "neutral"
+        })
+      }
+
       const proj = await projectsApi.create({
         name: `Bán hàng: ${name.trim() || 'sản phẩm'}`,
         idea: text || `Video bán hàng ${name.trim() || 'sản phẩm'}`,
         model_key: model, aspect_ratio: '9:16', duration_seconds: dur, language: lang,
         prompts, narrations, auto_render: true, chain_mode: true,
-        character_ids: ids, character_bible: [],
+        character_ids: ids, character_bible: cbible,
         audio_mode: audioMode, voiceover: audioMode === 'voiceover', voice,
       })
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
