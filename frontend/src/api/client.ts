@@ -133,13 +133,14 @@ export const toolsApi = {
   parseScript: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
     api.post('/tools/parse-script', data).then(r => r.data),
   // Đọc storyboard (ảnh grid / PDF) -> scenes (multipart). Tái dùng kết quả như parseScript.
-  parseStoryboard: (files: File[], data: { scene_count?: number; language?: string; aspect_ratio?: string; style?: string }) => {
+  parseStoryboard: (files: File[], data: { scene_count?: number; language?: string; aspect_ratio?: string; style?: string; cast?: any[] }) => {
     const fd = new FormData()
     files.forEach(f => fd.append('files', f))
     if (data.scene_count != null) fd.append('scene_count', String(data.scene_count))
     if (data.language) fd.append('language', data.language)
     if (data.aspect_ratio) fd.append('aspect_ratio', data.aspect_ratio)
     if (data.style) fd.append('style', data.style)
+    if (data.cast && data.cast.length > 0) fd.append('cast', JSON.stringify(data.cast))
     return api.post('/tools/parse-storyboard', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
   tts: (data: { text: string; voice?: string }) =>

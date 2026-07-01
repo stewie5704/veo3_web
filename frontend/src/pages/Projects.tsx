@@ -197,9 +197,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
-      const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
+      const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect, cast: Array.from(selectedChars) })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || 'Kore']))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
       setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã viết kịch bản ${n} cảnh`)
@@ -214,9 +214,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
-      const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
+      const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: Array.from(selectedChars) })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || 'Kore']))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
@@ -245,9 +245,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
-      const res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style: style || undefined })
+      const res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style: style || undefined, cast: Array.from(selectedChars) })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || voice]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã đọc storyboard ${n} cảnh`)
@@ -299,7 +299,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const baseVoices = sScenes.length ? sScenes.map(s => {
       const spk = (s.speaker || '').trim()
       const aiVoice = sBible.find((c: any) => c.name === spk)?.tts_voice || voice
-      return sCharVoices[spk] || aiVoice
+      return sCharVoices[spk] || sCharVoices['@' + spk] || sCharVoices[spk.replace('@', '')] || aiVoice
     }) : []
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
