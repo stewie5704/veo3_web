@@ -50,7 +50,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
   const charFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    toolsApi.getStyles().then(res => setStyleList(res.styles || [])).catch(() => {})
+    toolsApi.styles().then(res => setStyleList(res || [])).catch(() => {})
     charactersApi.list().then(res => setChars(res || [])).catch(() => {})
   }, [])
 
@@ -58,7 +58,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     if (!newCharName.trim() || !newCharFile) return
     setAddingChar(true)
     try {
-      await charactersApi.create(newCharName.trim(), newCharFile)
+      await charactersApi.add(newCharName.trim(), newCharFile)
       setNewCharName(''); setNewCharFile(null); setAddCharOpen(false)
       const list = await charactersApi.list()
       setChars(list || [])
@@ -97,10 +97,10 @@ export default function AddPartPanel({ project, onDone, onClose }: {
         res = { prompts: lines, narrations: new Array(lines.length).fill('') }
       } else if (mode === 'storyboard') {
         if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); setBusy(''); return }
-        res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style, cast })
+        res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style })
       } else if (mode === 'manual') {
         if (!idea.trim()) { setError('Dán kịch bản phần mới'); setBusy(''); return }
-        res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
+        res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
       } else {
         if (!idea.trim()) { setError('Nhập ý tưởng phần mới'); setBusy(''); return }
         res = await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
