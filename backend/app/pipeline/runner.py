@@ -313,11 +313,14 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
         req["startImage"] = {"mediaId": start_image_id}
     if ref_ids:
         req["referenceImages"] = [{"mediaId": m, "imageUsageType": REFERENCE_USAGE_TYPE} for m in ref_ids]
+    if voice_name:
+        req["referenceAudio"] = [{"mediaId": voice_name.lower()}]
+        
     return {
-        "mediaGenerationContext": (
-            {"batchId": str(uuid.uuid4()), "audioFailurePreference": "RETURN_SILENCED_VIDEOS"}
-            if silent else {"batchId": str(uuid.uuid4())}   # character_speak: cho Veo sinh tiếng nói
-        ),
+        "mediaGenerationContext": {
+            "batchId": str(uuid.uuid4()), 
+            "audioFailurePreference": "RETURN_SILENCED_VIDEOS"
+        },
         "clientContext": {
             "projectId": project_id,
             "tool": "PINHOLE",
