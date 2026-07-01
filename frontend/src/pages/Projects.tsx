@@ -54,12 +54,28 @@ const MODELS = [
 const ASPECTS = ['16:9', '9:16', '1:1']   // Veo chỉ hỗ trợ 3 tỉ lệ thật (4:3/3:4 bị map về ngang/dọc)
 const DURATIONS = [4, 6, 8, 10]
 const VOICES = [
-  { id: 'Kore', label: 'Kore (nữ)' },
-  { id: 'Aoede', label: 'Aoede (nữ)' },
-  { id: 'Leda', label: 'Leda (nữ)' },
-  { id: 'Puck', label: 'Puck (nam)' },
-  { id: 'Charon', label: 'Charon (nam)' },
-  { id: 'Orus', label: 'Orus (nam)' },
+  { id: 'Kore', label: 'Kore (Nữ)' },
+  { id: 'Aoede', label: 'Aoede (Nữ)' },
+  { id: 'Leda', label: 'Leda (Nữ)' },
+  { id: 'Vega', label: 'Vega (Nữ)' },
+  { id: 'Puck', label: 'Puck (Nam)' },
+  { id: 'Charon', label: 'Charon (Nam)' },
+  { id: 'Orus', label: 'Orus (Nam)' },
+  { id: 'Fenrir', label: 'Fenrir (Nam)' },
+  { id: 'Achernar', label: 'Achernar (Nam)' },
+  { id: 'Rigel', label: 'Rigel (Nam)' },
+  { id: 'Sirius', label: 'Sirius (Nam)' },
+  { id: 'Quasar', label: 'Quasar (Nam)' },
+  { id: 'Pulcherrima', label: 'Pulcherrima (Phi giới tính · Forward)' },
+  { id: 'Rasalgethi', label: 'Rasalgethi (Nam · Informative)' },
+  { id: 'Sadachbia', label: 'Sadachbia (Nam · Lively)' },
+  { id: 'Sadaltager', label: 'Sadaltager (Nam · Knowledgeable)' },
+  { id: 'Schedar', label: 'Schedar (Nam · Even)' },
+  { id: 'Sulafat', label: 'Sulafat (Nữ · Warm)' },
+  { id: 'Umbriel', label: 'Umbriel (Nam · Smooth)' },
+  { id: 'Vindemiatrix', label: 'Vindemiatrix (Nữ · Gentle)' },
+  { id: 'Zephyr', label: 'Zephyr (Nữ · Bright)' },
+  { id: 'Zubenelgenubi', label: 'Zubenelgenubi (Nam · Casual)' },
 ]
 
 type Tab = 'new' | 'batch' | 'copy' | 'sell'

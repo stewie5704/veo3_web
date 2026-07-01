@@ -301,7 +301,7 @@ def _resolve_variant(model_key: str, mode: str) -> str:
 
 def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: str,
                          recaptcha: str, seed: int, start_image_id: str | None,
-                         ref_ids: list[str] | None, silent: bool = True, voice_name: str = "") -> dict:
+                         ref_ids: list[str] | None, silent: bool = True, voice_name: str = "", dialogue: str = "") -> dict:
     req: dict = {
         "aspectRatio": aspect,
         "textInput": {"structuredPrompt": {"parts": [{"text": prompt}]}},
@@ -313,10 +313,11 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
         req["startImage"] = {"mediaId": start_image_id}
     if ref_ids:
         req["referenceImages"] = [{"mediaId": m, "imageUsageType": REFERENCE_USAGE_TYPE} for m in ref_ids]
+        
     if voice_name:
         req["referenceAudio"] = [{"mediaId": voice_name.lower()}]
-        
-    return {
+
+    body = {
         "mediaGenerationContext": {
             "batchId": str(uuid.uuid4()), 
             "audioFailurePreference": "RETURN_SILENCED_VIDEOS"
@@ -331,6 +332,7 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
         "requests": [req],
         "useV2ModelConfig": True,
     }
+    return body
 
 
 def _media_id_from_generate(resp: dict) -> str | None:
@@ -661,7 +663,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         # Nếu có thêm ref_ids, req["referenceImages"] vẫn được gửi để giữ nhân vật.
         endpoint = "video:batchAsyncGenerateVideoStartImage"
         key = _resolve_variant(key, "i2v")
-    elif ref_ids:
+    elif ref_ids or voice_name:
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
     else:
@@ -691,7 +693,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
 
     use_seed = seed if (seed is not None and seed > 0) else random.randint(1, 2 ** 31 - 1)
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
-                                use_seed, start_id, ref_ids or None, silent=silent, voice_name=voice_name)
+                                use_seed, start_id, ref_ids or None, silent=silent, voice_name=voice_name, dialogue=dialogue)
 
     code, resp = await _api_post(endpoint, body, token)
     if code in (401, 403):                       # token expired mid-flight → refresh once
@@ -1041,7 +1043,8 @@ async def run_scene_job(scene_id: str, user_id: str):
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
                     char_project_id=project_db_id, seed=sd, extra_ref_paths=extra_ref_paths,
-                    dialogue=(narration if char_speak else ""), character_speak=char_speak)
+                    dialogue=(narration if char_speak else ""), character_speak=char_speak,
+                    voice_name=(scene_voice or voice if char_speak else ""))
 
             try:
                 try:
