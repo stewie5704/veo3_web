@@ -102,8 +102,6 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [aspect, setAspect] = useState('16:9')
   const [duration, setDuration] = useState(8)
   const [language, setLanguage] = useState('vi')
-  const [audioMode, setAudioMode] = useState<AudioMode>('voiceover')
-  const [voice, setVoice] = useState('Kore')
   const [voiceLock, setVoiceLock] = useState(false)
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [loadStep, setLoadStep] = useState(0)   // bước hiển thị trong overlay "đang tạo"
