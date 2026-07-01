@@ -559,7 +559,7 @@ export default function Dashboard() {
             <Route path="/" element={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>} />
             <Route path="/projects" element={<Projects user={user} onCreated={loadProjects} />} />
             <Route path="/projects/:id" element={<ProjectDetail user={user} onUpdate={loadProjects} />} />
-            <Route path="/videos" element={<MyVideos />} />
+            <Route path="/videos" element={<MyVideos onUpdate={loadProjects} />} />
             <Route path="/tools" element={<Tools user={user} />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/affiliate" element={<Affiliate />} />

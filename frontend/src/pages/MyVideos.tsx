@@ -7,7 +7,7 @@ import { Trash2, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } fro
 
 type SortBy = 'newest' | 'oldest'
 
-export default function MyVideos() {
+export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
   const toast = useToast()
   const nav = useNavigate()
   const [projects, setProjects] = useState<any[]>([])   // mỗi item = project + scenes[]
@@ -54,6 +54,7 @@ export default function MyVideos() {
       await projectsApi.delete(id)
       setProjects(ps => ps.filter(p => p.id !== id))
       toast('Đã xoá dự án', 'success')
+      onUpdate?.()
     } catch (err: any) {
       toast(err?.response?.data?.detail || 'Xoá thất bại', 'error')
     }

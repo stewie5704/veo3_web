@@ -365,6 +365,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!confirm('Xóa dự án này?')) return
     await projectsApi.delete(id)
     setProjects(ps => ps.filter(p => p.id !== id))
+    onCreated?.()
   }
 
   return (
