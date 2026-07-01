@@ -100,6 +100,14 @@ export default function Tools({ user }: { user: any }) {
   const [imgAspect, setImgAspect] = useState('1:1')
   const [imgLoading, setImgLoading] = useState(false)
   const [imgFeed, setImgFeed] = useState<any[]>(() => loadFeed('img'))
+  
+  const [imgKol, setImgKol] = useState<File | null>(null)
+  const [imgKolPrev, setImgKolPrev] = useState<string | null>(null)
+  const [imgProd, setImgProd] = useState<File | null>(null)
+  const [imgProdPrev, setImgProdPrev] = useState<string | null>(null)
+  const imgKolRef = useRef<HTMLInputElement>(null)
+  const imgProdRef = useRef<HTMLInputElement>(null)
+  
   const imgPromptRef = useRef<HTMLTextAreaElement>(null)
 
   async function doImage() {
@@ -107,10 +115,28 @@ export default function Tools({ user }: { user: any }) {
     setError(''); setImgLoading(true)
     pushLog('Đang tạo ảnh AI...')
     try {
+      let tmpChars: string[] = []
+      const stamp = Date.now().toString(36)
+      if (imgKol || imgProd) {
+         pushLog('Đang tải ảnh tham chiếu...')
+         if (imgKol) {
+           const c = await charactersApi.add(`TmpKol_${stamp}`, imgKol)
+           tmpChars.push(c.id)
+         }
+         if (imgProd) {
+           const c = await charactersApi.add(`TmpProd_${stamp}`, imgProd)
+           tmpChars.push(c.id)
+         }
+      }
+
       // @Tên trong prompt -> backend tu resolve thanh anh giu mat (reference)
-      const res = await toolsApi.image({ prompt: imgPrompt, count: imgCount, aspect_ratio: imgAspect })
+      const res = await toolsApi.image({ prompt: imgPrompt, count: imgCount, aspect_ratio: imgAspect, char_ids: tmpChars })
       pushFeed('img', setImgFeed, (res.image_urls || []).map((url: string) => ({ url, prompt: imgPrompt })))
       pushLog(`Tạo xong ${res.image_urls.length} ảnh`)
+      
+      if (tmpChars.length) {
+         Promise.allSettled(tmpChars.map(cid => charactersApi.delete(cid)))
+      }
     } catch (e: any) { const m = e.response?.data?.detail || 'Lỗi'; setError(m); pushLog(m, 'error') }
     finally { setImgLoading(false) }
   }
@@ -447,8 +473,28 @@ export default function Tools({ user }: { user: any }) {
           <div className="tool-composer">
             <div className="card" style={{ margin: 0 }}>
               <div className="card-header"><Image size={15} /> Tạo ảnh <small style={{ color: 'var(--green)' }}>Miễn phí · Ultra</small></div>
+              
+              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Ảnh nhân vật <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
+                  <label className="img-add" title="Ảnh nhân vật / người mẫu (tùy chọn)">
+                    {imgKolPrev ? <img src={imgKolPrev} alt="" /> : <Plus size={22} />}
+                    <input ref={imgKolRef} type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0] || null; setImgKol(f); setImgKolPrev(f ? URL.createObjectURL(f) : null) }} />
+                  </label>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Ảnh sản phẩm <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
+                  <label className="img-add" title="Ảnh sản phẩm (tùy chọn)">
+                    {imgProdPrev ? <img src={imgProdPrev} alt="" /> : <Plus size={22} />}
+                    <input ref={imgProdRef} type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0] || null; setImgProd(f); setImgProdPrev(f ? URL.createObjectURL(f) : null) }} />
+                  </label>
+                </div>
+              </div>
+
               <textarea ref={imgPromptRef} className="form-textarea" rows={2} style={{ marginBottom: 10, minHeight: 'auto' }}
-                placeholder="Mô tả ảnh... (bấm chip @nhân vật để chèn giữ mặt)" value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
+                placeholder="Mô tả ảnh... (bấm chip @nhân vật hoặc tải ảnh tham chiếu lên)" value={imgPrompt} onChange={e => setImgPrompt(e.target.value)} />
               {chars.length > 0 && (
                 <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
                   {chars.map(c => (
