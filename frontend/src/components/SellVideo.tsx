@@ -79,8 +79,18 @@ export default function SellVideo() {
     if (!sellIds.length) return
     const entries = await Promise.all(sellIds.map(id => projectsApi.get(id).then(p => [id, p] as const).catch(() => [id, null] as const)))
     const map: Record<string, any> = {}
-    for (const [id, p] of entries) if (p) map[id] = p
+    const validIds: string[] = []
+    for (const [id, p] of entries) {
+      if (p) {
+        map[id] = p
+        validIds.push(id)
+      }
+    }
     setSellData(map)
+    if (validIds.length !== sellIds.length) {
+      setSellIds(validIds)
+      saveIds(validIds)
+    }
   }
   useEffect(() => { loadSell() }, [sellIds])
   useEffect(() => {
