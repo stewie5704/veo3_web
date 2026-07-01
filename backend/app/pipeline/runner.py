@@ -963,6 +963,7 @@ async def run_scene_job(scene_id: str, user_id: str):
             gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
             proj_stopped = bool(getattr(proj, "stopped", False)) if proj else False
             proj_seed = int(getattr(proj, "seed", 0) or 0)
+            proj_i2v_fix = bool(getattr(proj, "i2v_fix", False)) if proj else False
             # Ảnh nhân vật RIÊNG của project -> reference giữ mặt cho MỌI cảnh (không cần @mention).
             # Veo cap 3 ref: ưu tiên nhân vật CÓ MẶT trong cảnh (tên xuất hiện ở prompt/thoại),
             # rồi mới tới còn lại -> mỗi cảnh đính đúng nhân vật của nó khi dự án có >3 người.
@@ -1045,6 +1046,28 @@ async def run_scene_job(scene_id: str, user_id: str):
                 await _update_scene(status=SceneStatus.failed, error_msg="⏸ Đã dừng")
                 return
             await _update_scene(status=SceneStatus.processing)
+
+            # I2V Fix: Sinh ảnh mồi trước nếu chưa có, để Veo lấy làm start frame (giữ chi tiết sản phẩm 100%)
+            if proj_i2v_fix and not start_image_file and char_ref_files:
+                try:
+                    log.info("scene %s: I2V fix enabled, pre-generating start image...", scene.id)
+                    gen_files = await generate_images_flow(
+                        user_id=user_id, cookies=cookies, project_id=project_id,
+                        prompt=scene.prompt, count=1, aspect_ratio=scene.aspect_ratio,
+                        out_dir=UPLOAD_PATH, out_prefix=f"i2v_{scene.id[:8]}",
+                        reference_image_paths=extra_ref_paths
+                    )
+                    if gen_files:
+                        start_image_file = gen_files[0]
+                        async with AsyncSessionLocal() as db_update:
+                            s = await db_update.get(Scene, scene.id)
+                            if s:
+                                s.start_image = start_image_file
+                                await db_update.commit()
+                        log.info("scene %s: I2V start image generated -> %s", scene.id, start_image_file)
+                except Exception as e:
+                    log.warning("scene %s: I2V fix image generation failed, falling back to T2V. Error: %s", scene.id, e)
+
             start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
 
             char_speak = audio_mode == "character_speak"   # Veo cho nhân vật tự nói (nhép miệng)

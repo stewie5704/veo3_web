@@ -46,6 +46,7 @@ class Project(Base):
     # auto-merge result
     merged_file: Mapped[str | None] = mapped_column(String(300), nullable=True)
     hd: Mapped[bool] = mapped_column(Boolean, default=False)   # all scenes upscaled to 1080p
+    i2v_fix: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

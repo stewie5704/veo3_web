@@ -116,6 +116,7 @@ export default function SellVideo() {
   const [model, setModel] = useState(GEN_MODELS[0].key)
   const [loading, setLoading] = useState(false)
   const [optOpen, setOptOpen] = useState(false)   // tùy chọn kiểu Flow: mặc định thu gọn, bấm mới bung
+  const [i2vFix, setI2vFix] = useState(true)
   const optRef = useRef<HTMLDivElement>(null)
 
   // Đóng popover tùy chọn khi bấm ra ngoài / nhấn Esc
@@ -302,6 +303,7 @@ LỜI THOẠI: ...
         prompts, narrations, auto_render: true, chain_mode: true,
         character_ids: ids, character_bible: cbible,
         audio_mode: audioMode, voiceover: audioMode === 'voiceover', voice,
+        i2v_fix: i2vFix,
       })
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
@@ -524,6 +526,12 @@ LỜI THOẠI: ...
                 </select>
                 <Chev />
               </div>
+            </div>
+            <div className="cmp-ctrl" style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={i2vFix} onChange={e => setI2vFix(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
+                Giữ chi tiết sản phẩm (AI tạo ảnh tĩnh trước khi quay)
+              </label>
             </div>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 14 }}>nối khung · giữ người·giọng·sản phẩm · tự ghép</div>

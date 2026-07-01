@@ -192,6 +192,7 @@ class CreateProjectRequest(BaseModel):
     voice: str = "Kore"             # giọng mặc định (fallback)
     voices: list[str] = []          # giọng RIÊNG theo từng cảnh (song song prompts; "" = dùng mặc định)
     character_bible: list[dict] = [] # hồ sơ nhân vật (từ autoprompt) -> sinh chân dung AI giữ mặt mọi cảnh
+    i2v_fix: bool = False           # Tự sinh ảnh sản phẩm trước để giữ chi tiết (I2V)
 
 
 class AddScenesRequest(BaseModel):
@@ -253,6 +254,7 @@ class ProjectResponse(BaseModel):
     character_bible: list = []   # dàn nhân vật đã khóa -> gửi lại làm cast khi thêm phần
     created_at: datetime
     updated_at: datetime
+    i2v_fix: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -344,6 +346,7 @@ async def create_project(
         voiceover=(body.audio_mode or "voiceover") == "voiceover",
         voice=body.voice or "Kore",
         character_bible=json.dumps(body.character_bible, ensure_ascii=False) if body.character_bible else None,
+        i2v_fix=body.i2v_fix,
     )
     db.add(proj)
     await db.flush()

@@ -53,6 +53,7 @@ def _lightweight_migrate(conn):
         ("users", "email_verify_sent_at", "TIMESTAMP"),
         ("projects", "character_bible", "TEXT"),
         ("commissions", "level", "INTEGER DEFAULT 1"),
+        ("projects", "i2v_fix", "BOOLEAN DEFAULT FALSE"),
     ]
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
