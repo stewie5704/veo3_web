@@ -665,7 +665,7 @@ async def autoprompt(
 
 NHIỆM VỤ: từ Ý TƯỞNG trong <YTUONG>, trả về MỘT object JSON DUY NHẤT: summary, suggested_style, style_lock, characters[], scenes[] (ĐÚNG {n} cảnh, tỉ lệ {body.aspect_ratio}, mỗi cảnh ~8 giây = một cú máy).
 
-NGÔN NGỮ (bắt buộc): mọi mô tả + style_lock + prompt + thông số máy = TIẾNG ANH. CHỈ "beat" và "dialogue" = {lang_label}. NHÂN VẬT phải KHỚP ngôn ngữ đã chọn: diện mạo + quốc tịch hợp {lang_label} (tiếng Việt → người Việt Nam, nét Á Đông: gương mặt/da/tóc người Việt) và NÓI 100% {lang_label} — TRỪ KHI ý tưởng nêu rõ nhân vật người nước khác.
+NGÔN NGỮ (BẮT BUỘC): Các trường "beat", "image", "action", "dialogue" PHẢI viết bằng {lang_label}. TOÀN BỘ CÁC TRƯỜNG CÒN LẠI (bao gồm summary, suggested_style, style_lock, toàn bộ thông tin characters, shot, lens, camera_move, lighting, mood, audio, prompt) BẮT BUỘC viết bằng TIẾNG ANH. Đây là quy định sống còn. NHÂN VẬT phải KHỚP ngôn ngữ đã chọn: diện mạo + quốc tịch hợp {lang_label} (tiếng Việt → người Việt Nam, nét Á Đông: gương mặt/da/tóc người Việt) và NÓI 100% {lang_label} — TRỪ KHI ý tưởng nêu rõ nhân vật người nước khác.
 
 (1) characters[] — HỒ SƠ NHÂN VẬT khoá để cùng một người trông GIỐNG HỆT ở mọi cảnh (KHÔNG ảnh tham chiếu, đồng bộ hoàn toàn bằng mô tả). Liệt kê nhân vật TÁI XUẤT HIỆN theo thứ tự, KHÔNG gán id. Mỗi nhân vật là object với CÁC TRƯỜNG TÁCH RỜI (tiếng Anh, cụ thể & tái lập được): name, role, age (số cho người lớn / giai đoạn cho trẻ), gender_presentation, face, eyes, hair, skin_tone (sắc độ TRUNG TÍNH — KHÔNG nhãn chủng tộc/quốc tịch), build ("height=175cm; build=lean-athletic"), wardrobe_top, wardrobe_bottom, footwear, headwear, accessories, distinguishing_marks (BẮT BUỘC — sẹo/nốt ruồi/kính/tàn nhang), anchor (1 chi tiết DUY NHẤT dễ nhớ nhất — vd "silver locket"/"round glasses"/"scar above brow" — sẽ DẪN ĐẦU nhận dạng ở mọi cảnh), palette (2-3 màu chủ đạo), voice, tts_voice (giọng đọc — CHỌN 1: Kore/Aoede/Leda cho NỮ, Puck/Charon/Orus cho NAM, KHỚP giới tính; nhân vật khác nhau nên giọng khác nhau). MỖI nhân vật một bộ trang phục cố định.
 
@@ -727,7 +727,7 @@ async def parse_script(
 
     system = f"""Đây là KỊCH BẢN người dùng tự viết (trong <KICHBAN>) cho video tỉ lệ {body.aspect_ratio}, camera cố định. KHÔNG bịa thêm cốt truyện. Trả về MỘT object JSON DUY NHẤT: summary, suggested_style, style_lock, characters[], scenes[].
 
-NGÔN NGỮ (bắt buộc): mọi mô tả + style_lock + prompt + thông số máy = TIẾNG ANH. CHỈ "beat" và "dialogue" = {lang_label} và GIỮ NGUYÊN VĂN của người dùng.
+NGÔN NGỮ (BẮT BUỘC): Các trường "beat", "image", "action", "dialogue" PHẢI viết bằng {lang_label} (đối với dialogue phải GIỮ NGUYÊN VĂN của người dùng). TOÀN BỘ CÁC TRƯỜNG CÒN LẠI (bao gồm summary, suggested_style, style_lock, toàn bộ thông tin characters, shot, lens, camera_move, lighting, mood, audio, prompt) BẮT BUỘC viết bằng TIẾNG ANH. Tuyệt đối không lẫn lộn ngôn ngữ.
 
 (1) characters[] — HỒ SƠ NHÂN VẬT khoá để cùng một người trông GIỐNG HỆT ở mọi cảnh (KHÔNG ảnh tham chiếu). QUY TẮC TÊN: cast = ĐÚNG nhân vật có tên trong kịch bản; GIỮ NGUYÊN tên y như người dùng (đưa vào "name"); KHÔNG đổi/dịch tên; KHÔNG bịa nhân vật. Kịch bản đã tả ngoại hình thì BÁM SÁT; phần thiếu mới suy luận hợp lý và CỐ ĐỊNH. Các TRƯỜNG TÁCH RỜI (English): name, role, age, gender_presentation, face, eyes, hair, skin_tone (TRUNG TÍNH — không nhãn chủng tộc), build ("height=…cm; build=…"), wardrobe_top, wardrobe_bottom, footwear, headwear, accessories, distinguishing_marks (BẮT BUỘC), anchor (1 chi tiết DUY NHẤT dễ nhớ nhất — sẽ DẪN ĐẦU nhận dạng mọi cảnh), palette, voice, tts_voice (giọng đọc — Kore/Aoede/Leda cho NỮ, Puck/Charon/Orus cho NAM, KHỚP giới tính; nhân vật khác nhau giọng khác nhau). MỖI nhân vật một bộ trang phục cố định. KHÔNG gán id; liệt kê theo thứ tự XUẤT HIỆN.
 
@@ -802,7 +802,7 @@ async def parse_storyboard(
 {count_note}
 
 Trả về MỘT object JSON DUY NHẤT: summary, suggested_style, style_lock, characters[], scenes[].
-NGÔN NGỮ: mọi mô tả + style_lock + prompt + thông số máy = TIẾNG ANH. CHỈ "beat" và "dialogue" = {lang_label}; nếu trong khung có lời thoại viết sẵn thì GIỮ NGUYÊN VĂN.
+NGÔN NGỮ (BẮT BUỘC): Các trường "beat", "image", "action", "dialogue" PHẢI viết bằng {lang_label} (nếu trong khung có thoại thì giữ NGUYÊN VĂN). TOÀN BỘ CÁC TRƯỜNG CÒN LẠI (bao gồm summary, suggested_style, style_lock, toàn bộ thông tin characters, shot, lens, camera_move, lighting, mood, audio, prompt) BẮT BUỘC viết bằng TIẾNG ANH. Tuyệt đối không lẫn lộn ngôn ngữ.
 
 (1) characters[] — HỒ SƠ NHÂN VẬT khoá để 1 người trông GIỐNG HỆT mọi cảnh. Suy từ nét vẽ + ghi chú; phần thiếu suy luận hợp lý & CỐ ĐỊNH. Các TRƯỜNG TÁCH RỜI (English): name, role, age, gender_presentation, face, eyes, hair, skin_tone (TRUNG TÍNH — không nhãn chủng tộc), build ("height=…cm; build=…"), wardrobe_top, wardrobe_bottom, footwear, headwear, accessories, distinguishing_marks (BẮT BUỘC), anchor (1 chi tiết DUY NHẤT dễ nhớ nhất, DẪN ĐẦU nhận dạng), palette, voice, tts_voice (Kore/Aoede/Leda=NỮ, Puck/Charon/Orus=NAM, khớp giới). KHÔNG gán id; liệt kê theo thứ tự XUẤT HIỆN.
 
