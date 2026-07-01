@@ -742,7 +742,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
             <div style={{ marginTop: 18 }}>
               <AudioPicker value={bAudioMode} onChange={setBAudioMode} />
-              {bAudioMode === 'voiceover' && (
+              {(bAudioMode === 'voiceover' || bAudioMode === 'character_speak') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>Giọng đọc:</span>
                   <div className="selwrap" style={{ width: 170 }}>
