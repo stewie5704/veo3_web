@@ -417,7 +417,7 @@ LỜI THOẠI: ...
             <div className="cmp-ctrl">
               <div className="cmp-label">Giọng đọc</div>
               <div className="selwrap">
-                <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)} disabled={audioMode !== 'voiceover'}>
+                <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)} disabled={audioMode === 'off'}>
                   {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}
                 </select>
                 <Chev />

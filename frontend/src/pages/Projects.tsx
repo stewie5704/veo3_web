@@ -94,8 +94,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [styleList, setStyleList] = useState<{ id: string; name: string }[]>([])  // style packs từ server
   // Âm thanh: 'voiceover' (TTS đọc thoại ghép) | 'character_speak' (Veo cho nhân vật tự nói, nhép miệng) | 'off'
   const [audioMode, setAudioMode] = useState<'voiceover' | 'character_speak' | 'off'>('voiceover')
-  const voiceover = audioMode === 'voiceover'   // picker giọng TTS chỉ hiện ở chế độ này
-  const voice = 'Kore'                               // giọng mặc định (fallback) cho cảnh không rõ ai nói
+  const voiceover = audioMode === 'voiceover'
+  const [voice, setVoice] = useState('Kore')
   const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
   // Thêm nhân vật inline (giữ mặt) trong wizard
@@ -533,8 +533,16 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               {/* Âm thanh: chọn 1 trong 3 (component dùng chung) */}
               <div style={{ marginTop: 24 }}>
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
-                {(voiceover || audioMode === 'character_speak') && (
-                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>Giọng <strong>tự gán theo nhân vật</strong> (theo giới tính) — chỉnh chi tiết ở bước Duyệt.</div>
+                {(audioMode === 'voiceover' || audioMode === 'character_speak') && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>Giọng đọc:</span>
+                    <div className="selwrap" style={{ width: 170 }}>
+                      <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
+                        {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                      </select>
+                      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
