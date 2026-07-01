@@ -663,7 +663,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     if ref_ids or voice_name:
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
-        req.pop("startImage", None) # StartImage không được phép đi cùng
+        start_id = None # StartImage không được phép đi cùng
     elif start_id:
         endpoint = "video:batchAsyncGenerateVideoStartImage"
         key = _resolve_variant(key, "i2v")
