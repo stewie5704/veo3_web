@@ -102,6 +102,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [aspect, setAspect] = useState('16:9')
   const [duration, setDuration] = useState(8)
   const [language, setLanguage] = useState('vi')
+  const [audioMode, setAudioMode] = useState<AudioMode>('voiceover')
+  const [voice, setVoice] = useState('Kore')
+  const [voiceLock, setVoiceLock] = useState(false)
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [loadStep, setLoadStep] = useState(0)   // bước hiển thị trong overlay "đang tạo"
   const [prompts, setPrompts] = useState<string[]>([])
@@ -199,7 +202,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, voiceLock ? voice : (c.tts_voice || 'Kore')]))
       setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã viết kịch bản ${n} cảnh`)
@@ -216,7 +219,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, voiceLock ? voice : (c.tts_voice || 'Kore')]))
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
@@ -552,13 +555,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
                 {(audioMode === 'voiceover' || audioMode === 'character_speak') && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>Giọng đọc:</span>
-                    <div className="selwrap" style={{ width: 170 }}>
-                      <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
-                        {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                      </select>
-                      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                      <input type="checkbox" checked={voiceLock} onChange={e => setVoiceLock(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--accent)' }} />
+                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>Gán cứng giọng đọc:</span>
+                    </label>
+                    {voiceLock ? (
+                      <div className="selwrap" style={{ width: 170 }}>
+                        <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
+                          {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                        </select>
+                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>Tự chọn giọng theo nhân vật</span>
+                    )}
                   </div>
                 )}
               </div>
