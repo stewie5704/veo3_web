@@ -657,18 +657,16 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
 
     aspect = ASPECT_MAP.get(aspect_ratio, "VIDEO_ASPECT_RATIO_LANDSCAPE")
     key = _apply_duration((model_key or "veo_3_1_t2v_lite_low_priority").strip(), duration_seconds)
-    
-    if start_id:
-        # Nếu có start_image (nối khung/I2V), dùng I2V model.
-        key = _resolve_variant(key, "i2v")
-        if voice_name:
-            # Endpoint StartImage không hỗ trợ referenceAudio, phải dùng ReferenceImages
-            endpoint = "video:batchAsyncGenerateVideoReferenceImages"
-        else:
-            endpoint = "video:batchAsyncGenerateVideoStartImage"
-    elif ref_ids or voice_name:
+    # Quyết định endpoint và dọn dẹp payload dựa trên endpoint để tránh lỗi HTTP 400.
+    # Endpoint StartImage KHÔNG hỗ trợ referenceImages và referenceAudio.
+    # Do đó, nếu người dùng cần giữ mặt (ref_ids) hoặc cần giọng nói (voice_name), ta ưu tiên dùng ReferenceImages (và hy sinh nối khung start_image).
+    if ref_ids or voice_name:
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
+        req.pop("startImage", None) # StartImage không được phép đi cùng
+    elif start_id:
+        endpoint = "video:batchAsyncGenerateVideoStartImage"
+        key = _resolve_variant(key, "i2v")
     else:
         endpoint = "video:batchAsyncGenerateVideoText"
 
