@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { projectsApi, videosApi, extensionApi } from '../api/client'
+import { projectsApi, videosApi, extensionApi, removeDeletedSellId } from '../api/client'
 import { useToast } from '../components/Toast'
 import DownloadMenu from '../components/DownloadMenu'
 import { Trash2, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } from 'lucide-react'
@@ -52,6 +52,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
     if (!confirm('Xoá dự án này?')) return
     try {
       await projectsApi.delete(id)
+      removeDeletedSellId(id)
       setProjects(ps => ps.filter(p => p.id !== id))
       toast('Đã xoá dự án', 'success')
       onUpdate?.()

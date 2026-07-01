@@ -100,10 +100,9 @@ export default function SellVideo() {
     return () => clearInterval(t)
   }, [sellData, sellIds])
 
-  const [product, setProduct] = useState<File | null>(null)
-  const [productPrev, setProductPrev] = useState<string | null>(null)
-  const [kol, setKol] = useState<File | null>(null)
-  const [kolPrev, setKolPrev] = useState<string | null>(null)
+  type RefPair = { id: string; product: File | null; kol: File | null; productPrev: string | null; kolPrev: string | null; name: string }
+  const [pairs, setPairs] = useState<RefPair[]>([{ id: '1', product: null, kol: null, productPrev: null, kolPrev: null, name: 'Cặp 1' }])
+
   const [name, setName] = useState('')
   const [box, setBox] = useState('')
   const [copied, setCopied] = useState(false)
@@ -117,8 +116,6 @@ export default function SellVideo() {
   const [model, setModel] = useState(GEN_MODELS[0].key)
   const [loading, setLoading] = useState(false)
   const [optOpen, setOptOpen] = useState(false)   // tùy chọn kiểu Flow: mặc định thu gọn, bấm mới bung
-  const prodRef = useRef<HTMLInputElement>(null)
-  const kolRef = useRef<HTMLInputElement>(null)
   const optRef = useRef<HTMLDivElement>(null)
 
   // Đóng popover tùy chọn khi bấm ra ngoài / nhấn Esc
@@ -215,7 +212,8 @@ LỜI THOẠI: ...
   }
 
   async function doSell() {
-    if (!product) { setError('Cần ảnh sản phẩm'); return }
+    const hasProduct = pairs.some(p => p.product)
+    if (!hasProduct) { setError('Cần ít nhất 1 ảnh sản phẩm'); return }
     const text = box.trim()
 
     // Tự quyết: dán sẵn prompt/kịch bản -> dùng luôn (không Gemini); ý tưởng/kịch bản tiếng Việt -> AI tạo prompt
@@ -241,21 +239,37 @@ LỜI THOẠI: ...
     setError(''); setLoading(true)
     try {
       pushLog(`🛍️ Video bán hàng: đang upload ảnh${direct ? ` + đọc ${nScenes} cảnh có sẵn` : ` + viết kịch bản ${sceneCount} cảnh`}...`)
-      // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt (ảnh quyết định diện mạo + giới tính).
-      // Hậu tố thời gian để KHÔNG đụng lỗi "đã tồn tại" khi tạo nhiều video (kho chung chặn trùng tên); dọn lại sau khi tạo.
+      // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt.
       const stamp = Date.now().toString(36).slice(-5)
-      const prodTag = ((name.trim() || 'SanPham').replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 16)) || 'SanPham'
-      const prodChar = await charactersApi.add(`${prodTag}_${stamp}`, product)
-      const ids: string[] = [prodChar.id]
-      let kolChar: any = null
-      if (kol) { kolChar = await charactersApi.add(`KOL_${stamp}`, kol); ids.push(kolChar.id) }
+      const ids: string[] = []
+      const charRefsForAI = []
+      const charsToDelete: string[] = []
+
+      for (let i = 0; i < pairs.length; i++) {
+        const p = pairs[i]
+        const pName = p.name.trim() || `Cap${i+1}`
+        const pTag = pName.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 16)
+        if (p.product) {
+          const pChar = await charactersApi.add(`SP_${pTag}_${stamp}`, p.product)
+          ids.push(pChar.id)
+          charsToDelete.push(pChar.id)
+          charRefsForAI.push(`@SP_${pTag}_${stamp}`)
+        }
+        if (p.kol) {
+          const kChar = await charactersApi.add(`KOL_${pTag}_${stamp}`, p.kol)
+          ids.push(kChar.id)
+          charsToDelete.push(kChar.id)
+          charRefsForAI.push(`@KOL_${pTag}_${stamp}`)
+        }
+      }
 
       if (!direct) {
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
-        const sres = await toolsApi.sellScript({ product: name.trim(), scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: !!kol, brief: text })
+        // Truyền tên các cặp để AI nhắc đến trong kịch bản (nếu có nhiều nhân vật/sản phẩm)
+        const briefWithChars = `${text}\n\nLưu ý dùng tên nhân vật và sản phẩm này trong kịch bản: ${charRefsForAI.join(', ')}`
+        const sres = await toolsApi.sellScript({ product: name.trim() || 'sản phẩm', scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: pairs.some(p => p.kol), brief: briefWithChars })
         const scns: any[] = sres.scenes || []
-        // Lưới an toàn: AI thỉnh thoảng quên chèn khoá sản phẩm -> tự bù như nhánh dán sẵn,
-        // để MỌI cảnh đều neo đúng sản phẩm theo ảnh ref (đồng bộ xuyên cảnh).
+        // Lưới an toàn: AI thỉnh thoảng quên chèn khoá sản phẩm -> tự bù như nhánh dán sẵn
         prompts = scns.map(s => { const p = s.prompt || ''; return p && !/reference image/i.test(p) ? `${p} — ${PRODUCT_LOCK}` : p })
         narrations = scns.map(s => s.narration || '')
         if (!prompts.length) throw new Error('AI chưa viết được kịch bản, thử lại.')
@@ -263,7 +277,7 @@ LỜI THOẠI: ...
       pushLog(`📝 Kịch bản ${prompts.length} cảnh — đang đưa lên hàng chờ render...`)
 
       const cbible = []
-      if (!kol) {
+      if (!pairs.some(p => p.kol)) {
         cbible.push({
           name: "the person",
           role: "người mẫu",
@@ -293,10 +307,9 @@ LỜI THOẠI: ...
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
       setSellIds(next); saveIds(next)
       // Dự án đã CLONE ảnh sản phẩm/KOL thành bản riêng -> xoá nhân vật tạm khỏi kho chung cho gọn (lỗi cũng kệ)
-      Promise.allSettled([prodChar.id, ...(kolChar ? [kolChar.id] : [])].map(cid => charactersApi.delete(cid)))
-      setProduct(null); setProductPrev(null); setKol(null); setKolPrev(null); setBox('')
-      if (prodRef.current) prodRef.current.value = ''
-      if (kolRef.current) kolRef.current.value = ''
+      Promise.allSettled(charsToDelete.map(cid => charactersApi.delete(cid)))
+      setPairs([{ id: Date.now().toString(), product: null, kol: null, productPrev: null, kolPrev: null, name: 'Cặp 1' }])
+      setBox('')
     } catch (e: any) {
       const m = e?.response?.data?.detail || e?.message || 'Tạo video bán hàng thất bại'
       setError(m); pushLog(`❌ ${m}`, 'error')
@@ -369,25 +382,55 @@ LỜI THOẠI: ...
         <div className="card fx-card" style={{ margin: 0 }}>
           {error && <div className="alert alert-error" style={{ marginBottom: 12 }}><AlertCircle size={15} /> {error}</div>}
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
-              <label className="img-add" title="Ảnh sản phẩm (bắt buộc)">
-                {productPrev ? <img src={productPrev} alt="" /> : <Plus size={22} />}
-                <input ref={prodRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0] || null; setProduct(f); setProductPrev(f ? URL.createObjectURL(f) : null) }} />
-              </label>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Ảnh Nhân Vật & Sản Phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPairs([...pairs, { id: Date.now().toString(), product: null, kol: null, productPrev: null, kolPrev: null, name: `Cặp ${pairs.length + 1}` }])}>
+                <Plus size={14} /> Thêm ảnh SP + NV
+              </button>
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
-              <label className="img-add" title="Ảnh KOL / người mẫu (tùy chọn)">
-                {kolPrev ? <img src={kolPrev} alt="" /> : <Plus size={22} />}
-                <input ref={kolRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0] || null; setKol(f); setKolPrev(f ? URL.createObjectURL(f) : null) }} />
-              </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {pairs.map((pair, idx) => (
+                <div key={pair.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Sản phẩm <span style={{ color: 'var(--accent2)' }}>*</span></div>
+                    <label className="img-add" title="Ảnh sản phẩm">
+                      {pair.productPrev ? <img src={pair.productPrev} alt="" /> : <Plus size={22} />}
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => { 
+                          const f = e.target.files?.[0] || null; 
+                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, product: f, productPrev: f ? URL.createObjectURL(f) : null } : p))
+                        }} />
+                    </label>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>KOL <span style={{ fontWeight: 400 }}>(tùy chọn)</span></div>
+                    <label className="img-add" title="Ảnh KOL / người mẫu">
+                      {pair.kolPrev ? <img src={pair.kolPrev} alt="" /> : <Plus size={22} />}
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => { 
+                          const f = e.target.files?.[0] || null; 
+                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, kol: f, kolPrev: f ? URL.createObjectURL(f) : null } : p))
+                        }} />
+                    </label>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 600 }}>Tên gợi nhớ</div>
+                    <input className="form-input" style={{ width: '100%', marginBottom: 6 }} placeholder="VD: Áo Thun Đen"
+                      value={pair.name} onChange={e => setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, name: e.target.value } : p))} />
+                    {pairs.length > 1 && (
+                      <button className="btn btn-ghost btn-sm" style={{ color: '#fca5a5', padding: '4px 8px' }} onClick={() => setPairs(ps => ps.filter(p => p.id !== pair.id))}>Xóa cặp này</button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            <input className="form-input" style={{ flex: 1, minWidth: 200, alignSelf: 'center' }} placeholder="Sản phẩm là gì? (vd: áo sweater oversize) — giúp viết sát hơn"
-              value={name} onChange={e => setName(e.target.value)} />
+            
+            <div style={{ marginTop: 12 }}>
+              <input className="form-input" style={{ width: '100%' }} placeholder="Tên chủ đề chung (vd: Áo sweater mùa đông) — giúp viết sát hơn"
+                value={name} onChange={e => setName(e.target.value)} />
+            </div>
           </div>
 
           {/* 1 ô đa năng: ý tưởng / kịch bản / prompt */}
@@ -487,7 +530,7 @@ LỜI THOẠI: ...
             </div>
             )}
           </div>
-          <button className="cmp-cta" style={{ flex: 'none', justifyContent: 'center', padding: '0 20px', height: 44, whiteSpace: 'nowrap' }} onClick={doSell} disabled={loading || !product}>
+          <button className="cmp-cta" style={{ flex: 'none', justifyContent: 'center', padding: '0 20px', height: 44, whiteSpace: 'nowrap' }} onClick={doSell} disabled={loading || pairs.length === 0}>
             {loading ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : <><ShoppingBag size={14} /> Tạo video</>}
           </button>
           </div>

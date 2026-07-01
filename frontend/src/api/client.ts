@@ -21,6 +21,20 @@ api.interceptors.response.use(
 
 export default api
 
+// Helper to clean up deleted projects from local storage
+export function removeDeletedSellId(id: string) {
+  try {
+    const raw = localStorage.getItem('aiac_sell_ids')
+    if (raw) {
+      const ids = JSON.parse(raw)
+      if (Array.isArray(ids)) {
+        localStorage.setItem('aiac_sell_ids', JSON.stringify(ids.filter(x => x !== id)))
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+
 // Download a protected video through the API (sends the Bearer header, unlike a bare
 // <a download>), as a blob → triggers the browser save dialog. `path` is relative to /api/v1.
 export async function downloadVideoFile(path: string, filename: string) {

@@ -83,10 +83,10 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     return parts.join(' ') + '\n' + idea
   }
 
-  // 1 BƯỚC: viết kịch bản -> tạo + render THẲNG (bỏ bước duyệt prompt, như kịch bản đầu).
-  async function run() {
+  // 1 BƯỚC: viết kịch bản -> chuyển sang bước Duyệt kịch bản
+  async function preview() {
     setError(''); setBusy('gen')
-    const cast = project.character_bible || []   // KHÓA nhân vật đã có -> phần này dùng lại y nguyên
+    const cast = project.character_bible || []
     let res: any
 
     try {
@@ -121,9 +121,9 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     setBusy('create')
     try {
       await projectsApi.addScenes(project.id, {
-        idea: idea.trim(), prompts: basePrompts, narrations: baseNarr,
+        idea: idea.trim(), prompts: valid.map(p => p.trim()), narrations: baseNarr.map(n => n.trim()),
         model_key: model, duration_seconds: duration, audio_mode: audioMode,
-        character_bible: res.characters || [], auto_render: true,
+        character_bible: [], auto_render: true,
         character_ids: Array.from(selectedChars)
       })
       onDone()
@@ -278,10 +278,10 @@ export default function AddPartPanel({ project, onDone, onClose }: {
             </div>
           )}
 
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={run} disabled={!!busy || (mode === 'storyboard' ? !sbFiles.length : !idea.trim())}>
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={preview} disabled={!!busy || (mode === 'storyboard' ? !sbFiles.length : !idea.trim())}>
             {busy === 'gen' ? <><Loader2 size={14} className="spin" /> Đang viết kịch bản...</>
-              : busy === 'create' ? <><Loader2 size={14} className="spin" /> Đang thêm & render...</>
-              : (mode === 'manual' || mode === 'storyboard' || mode === 'prompts' ? 'Phân tích & tạo →' : 'AI viết tiếp & tạo →')}
+              : busy === 'create' ? <><Loader2 size={14} className="spin" /> Đang thêm...</>
+              : (mode === 'manual' || mode === 'storyboard' || mode === 'prompts' ? 'Phân tích & Thêm phần mới →' : 'AI viết & Thêm phần mới →')}
           </button>
       </div>
     </div>

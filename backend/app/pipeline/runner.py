@@ -488,6 +488,7 @@ def _to_character_speak(prompt: str, dialogue: str, voice_name: str = "") -> str
     p = prompt.replace(" No spoken dialogue, no voices, no narration, no singing.", "")
     p = p.replace("; no dialogue, voiceover, narration, singing, laughter or studio-audience sounds.", ".")
     if spoken:
+        spoken = spoken.replace('"', "'")
         v_hint = ""
         if voice_name:
             v_hint = " using a female voice" if voice_name in ("Kore", "Aoede", "Leda") else " using a male voice"
@@ -674,7 +675,11 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     # Strip mô tả mặt/mắt/da chi tiết: có ẢNH rồi thì text chi tiết chỉ gây xung đột + kích filter.
     if ref_ids:
         prompt = _strip_face_for_ref(prompt)
-        prompt += " Keep each person's face, hairstyle and outfit identical to the provided reference image(s)."
+        # Nếu có khoá sản phẩm, đừng ép 'outfit identical' vì Veo sẽ hiểu nhầm ảnh sản phẩm là ảnh quần áo!
+        if re.search(r"\bproducts?\b", prompt, re.I):
+            prompt += " Keep the person's face identical to the provided reference image(s)."
+        else:
+            prompt += " Keep each person's face, hairstyle and outfit identical to the provided reference image(s)."
         # Có sản phẩm trong cảnh (video bán hàng) -> khoá luôn diện mạo SẢN PHẨM theo ảnh ref, xuyên MỌI
         # cảnh (giống cách giữ mặt nhân vật). Chỉ thêm khi prompt nhắc 'product' => không đụng dự án kể chuyện.
         # MASTER product lock: chỉ thêm khi cảnh có 'product' và CHƯA bị khoá (dedup theo 'exact same item'
@@ -689,6 +694,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     if character_speak:   # NHÂN VẬT TỰ NÓI: đưa thoại vào prompt + cho Veo sinh tiếng (nhép miệng)
         prompt = _to_character_speak(prompt, dialogue, voice_name)
         silent = False
+        if not dialogue or not dialogue.strip():
+            voice_name = ""  # Do not send referenceAudio if no dialogue
     elif "negative prompt:" not in prompt.lower():
         prompt += _RENDER_QUALITY_TAIL   # lưới chất lượng cho path không qua _build_shot_prompt
 

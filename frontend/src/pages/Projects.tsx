@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { projectsApi, toolsApi, charactersApi } from '../api/client'
+import { projectsApi, toolsApi, charactersApi, removeDeletedSellId } from '../api/client'
 import { pushLog } from './Dashboard'
 import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket, List } from 'lucide-react'
 import SellVideo from '../components/SellVideo'
@@ -318,8 +318,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const baseNarr = sScenes.length
       ? sScenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
       : sNarr
-    // giọng riêng theo nhân vật nói trong mỗi cảnh (fallback giọng mặc định)
-    const baseVoices = sScenes.length ? sScenes.map(s => sCharVoices[(s.speaker || '').trim()] || voice) : []
+    // giọng riêng theo nhân vật nói trong mỗi cảnh
+    const baseVoices = sScenes.length ? sScenes.map(s => {
+      const spk = (s.speaker || '').trim()
+      const aiVoice = sBible.find((c: any) => c.name === spk)?.tts_voice || voice
+      return voiceLock ? (sCharVoices[spk] || aiVoice) : aiVoice
+    }) : []
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
@@ -385,6 +389,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     e.stopPropagation()
     if (!confirm('Xóa dự án này?')) return
     await projectsApi.delete(id)
+    removeDeletedSellId(id)
     setProjects(ps => ps.filter(p => p.id !== id))
     onCreated?.()
   }
@@ -575,17 +580,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
                       <input type="checkbox" checked={voiceLock} onChange={e => setVoiceLock(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--accent)' }} />
-                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>Gán cứng giọng đọc:</span>
+                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>Gán giọng nói cụ thể:</span>
                     </label>
                     {voiceLock ? (
-                      <div className="selwrap" style={{ width: 170 }}>
-                        <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)}>
-                          {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                        </select>
-                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>Sẽ chọn giọng cho từng nhân vật ở bước Duyệt kịch bản</span>
                     ) : (
-                      <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>Tự chọn giọng theo nhân vật</span>
+                      <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>AI tự chọn giọng theo giới tính & đồng bộ</span>
                     )}
                   </div>
                 )}
@@ -651,15 +651,15 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
             </div>
 
-            {(voiceover || audioMode === 'character_speak') && bibleChars.length > 0 && (
+            {(voiceover || audioMode === 'character_speak') && voiceLock && bibleChars.length > 0 && (
               <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Giọng nhân vật</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Gán giọng nói cho nhân vật</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                  {bibleChars.map((c: any) => (
-                    <div key={c.char_key || c.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{c.name || c.char_key}</span>
+                  {Array.from(new Set([...bibleChars.map((c: any) => c.name || c.char_key), ...Array.from(selectedChars), ...scenes.map(s => s.speaker).filter(Boolean)])).map(cName => (
+                    <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</span>
                       <div className="selwrap" style={{ width: 150 }}>
-                        <select className="cmp-sel" value={charVoices[c.name] || c.tts_voice || voice} onChange={e => setCharVoices(v => ({ ...v, [c.name]: e.target.value }))}>
+                        <select className="cmp-sel" value={charVoices[cName] || bibleChars.find((c: any) => c.name === cName)?.tts_voice || voice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
                           {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
                         </select>
                         <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { projectsApi, mediaApi, charactersApi } from '../api/client'
+import { projectsApi, mediaApi, charactersApi, removeDeletedSellId } from '../api/client'
 import { pushLog } from './Dashboard'
 import {
   Pencil, RefreshCw, Play, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
@@ -299,7 +299,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (!id) return
     if (!confirm('Xoá dự án này? Không thể hoàn tác.')) return
     try {
-      await projectsApi.delete(id); onUpdate?.(); nav('/projects')
+      await projectsApi.delete(id)
+      removeDeletedSellId(id)
+      onUpdate?.(); nav('/projects')
     } catch (e: any) {
       notify(e?.response?.data?.detail || 'Xoá thất bại', 'error')
     }
