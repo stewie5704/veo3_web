@@ -971,8 +971,12 @@ async def run_scene_job(scene_id: str, user_id: str):
                 return len(nm) >= 3 and re.search(rf"(?<!\w){re.escape(nm)}(?!\w)", _hay) is not None
 
             present = [c for c in all_chars if _present(c.name)]
-            others = [c for c in all_chars if c not in present]
-            char_ref_files = [c.image_file for c in (present + others)]
+            if present:
+                # Nếu cảnh có nhắc đích danh nhân vật/sản phẩm, CHỈ dùng những ref đó (tránh Veo trộn lẫn mặt/trang phục của người khác).
+                char_ref_files = [c.image_file for c in present]
+            else:
+                # Nếu không nhắc đích danh, đành gởi tất cả (tối đa 3) để Veo tự dùng.
+                char_ref_files = [c.image_file for c in all_chars]
 
         extra_ref_paths = [str(CHAR_PATH / f) for f in char_ref_files]
         base_seed = proj_seed or _stable_seed(project_db_id)
