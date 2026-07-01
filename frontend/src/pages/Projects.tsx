@@ -102,7 +102,6 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [aspect, setAspect] = useState('16:9')
   const [duration, setDuration] = useState(8)
   const [language, setLanguage] = useState('vi')
-  const [voiceLock, setVoiceLock] = useState(false)
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [loadStep, setLoadStep] = useState(0)   // bước hiển thị trong overlay "đang tạo"
   const [prompts, setPrompts] = useState<string[]>([])
@@ -194,51 +193,41 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
   // AI viết kịch bản
-  async function genPrompts(directCreate = true) {
+  async function genPrompts() {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, voiceLock ? voice : (c.tts_voice || 'Kore')]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || 'Kore']))
       setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã viết kịch bản ${n} cảnh`)
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-      }
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setLoadingPrompts(false) }
   }
 
   // Tự nhập kịch bản
-  async function parseScript(directCreate = true) {
+  async function parseScript() {
     if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, voiceLock ? voice : (c.tts_voice || 'Kore')]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || 'Kore']))
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-      }
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
   }
 
   // Dán Prompts
-  async function parsePromptsLocally(directCreate = true) {
+  async function parsePromptsLocally() {
     if (!idea.trim()) { setError('Dán prompts của bạn trước'); return }
     const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
     if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); return }
@@ -246,38 +235,26 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const n = lines.length
     pushLog(`Đã đọc ${n} prompts`)
     
-    if (directCreate) {
-      const cost = modelObjNew.cost * n
-      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { return }
-      await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
-    } else {
-      setPrompts(lines)
-      setNarrations(new Array(n).fill(''))
-      setScenes([])
-      setStep('review')
-    }
+    const cost = modelObjNew.cost * n
+    if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { return }
+    await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
   }
 
   // Đọc storyboard
-  async function readStoryboard(directCreate = true) {
+  async function readStoryboard() {
     if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
       const res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style: style || undefined })
       const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, c.tts_voice || voice]))
+      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || c.tts_voice || voice]))
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã đọc storyboard ${n} cảnh`)
       if (!n) { setError('Không đọc được khung nào từ storyboard — thử ảnh rõ hơn.'); setLoadingPrompts(false); return }
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-      }
+      const cost = modelObjNew.cost * n
+      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi đọc storyboard'); setLoadingPrompts(false) }
   }
 
@@ -322,7 +299,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const baseVoices = sScenes.length ? sScenes.map(s => {
       const spk = (s.speaker || '').trim()
       const aiVoice = sBible.find((c: any) => c.name === spk)?.tts_voice || voice
-      return voiceLock ? (sCharVoices[spk] || aiVoice) : aiVoice
+      return sCharVoices[spk] || aiVoice
     }) : []
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
@@ -433,8 +410,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
-          {step === 'setup' && (<>
-            <div className="cmp-body">
+          <div className="cmp-body">
               <div className="cmp-titlerow">
                 <span className="cmp-tlabel">Tên dự án</span>
                 <input className="cmp-titlein" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
@@ -576,17 +552,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               {/* Âm thanh: chọn 1 trong 3 (component dùng chung) */}
               <div style={{ marginTop: 24 }}>
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
-                {(audioMode === 'voiceover' || audioMode === 'character_speak') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
-                      <input type="checkbox" checked={voiceLock} onChange={e => setVoiceLock(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--accent)' }} />
-                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>Gán giọng nói cụ thể:</span>
-                    </label>
-                    {voiceLock ? (
-                      <span style={{ fontSize: 12, color: 'var(--accent2)', fontWeight: 500 }}>Sẽ chọn giọng cho từng nhân vật ở bước Duyệt kịch bản</span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>AI tự chọn giọng theo giới tính & đồng bộ</span>
-                    )}
+                {(audioMode === 'voiceover' || audioMode === 'character_speak') && selectedChars.size > 0 && (
+                  <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Gán giọng nói cho nhân vật đã chọn</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                      {Array.from(selectedChars).map(cName => (
+                        <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>@{cName}</span>
+                          <div className="selwrap" style={{ width: 150 }}>
+                            <select className="cmp-sel" value={charVoices[cName] || voice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
+                              {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
+                            </select>
+                            <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -599,22 +580,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <span className={modelObjNew.cost === 0 ? 'free' : ''}>{modelObjNew.cost === 0 ? 'FREE' : `${modelObjNew.cost * sceneCount} 💎`}</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="cmp-ghost" style={{ marginRight: 8 }}
-                onClick={() => {
-                  if (mode === 'storyboard') readStoryboard(false)
-                  else if (mode === 'manual') parseScript(false)
-                  else if (mode === 'prompts') parsePromptsLocally(false)
-                  else genPrompts(false)
-                }}
-                disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
-                Duyệt & sửa (Giọng/Kịch bản)
-              </button>
               <button className="cmp-cta"
                 onClick={() => {
-                  if (mode === 'storyboard') readStoryboard(true)
-                  else if (mode === 'manual') parseScript(true)
-                  else if (mode === 'prompts') parsePromptsLocally(true)
-                  else genPrompts(true)
+                  if (mode === 'storyboard') readStoryboard()
+                  else if (mode === 'manual') parseScript()
+                  else if (mode === 'prompts') parsePromptsLocally()
+                  else genPrompts()
                 }}
                 disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
                 {loadingPrompts || creating
@@ -622,127 +593,6 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : mode === 'prompts' ? 'Tạo phim từ Prompts →' : 'AI viết & tạo phim →'}</>}
               </button>
             </div>
-          </>)}
-
-          {/* ─── BƯỚC 2: DUYỆT KỊCH BẢN ─── */}
-          {step === 'review' && (<>
-            <div className="cmp-body">
-            {/* Banner ước tính */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '14px 16px', marginBottom: 16,
-              background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 10 }}>
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Độ dài video</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent3)' }}>~{fmtLen(reviewLenSec)}</div>
-              </div>
-              <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Số cảnh</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{reviewN} × {duration}s</div>
-              </div>
-              <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Chi phí</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: reviewCost === 0 ? 'var(--green)' : 'var(--yellow)' }}>{reviewCost === 0 ? 'FREE' : `${reviewCost} 💎`}</div>
-              </div>
-              <div style={{ flex: 1 }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right', lineHeight: 1.5 }}>
-                {modelObjNew.label} · {aspect}
-                {selectedChars.size > 0 && <><br />🔒 khoá {selectedChars.size} mặt</>}
-              </div>
-            </div>
-
-            {(voiceover || audioMode === 'character_speak') && voiceLock && bibleChars.length > 0 && (
-              <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Gán giọng nói cho nhân vật</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                  {Array.from(new Set([...bibleChars.map((c: any) => c.name || c.char_key), ...Array.from(selectedChars), ...scenes.map(s => s.speaker).filter(Boolean)])).map(cName => (
-                    <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</span>
-                      <div className="selwrap" style={{ width: 150 }}>
-                        <select className="cmp-sel" value={charVoices[cName] || bibleChars.find((c: any) => c.name === cName)?.tts_voice || voice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
-                          {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
-                        </select>
-                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
-              {loadingPrompts
-                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--accent2)' }}>
-                    <Loader2 size={13} className="spin" /> 🪄 AI đang viết kịch bản {sceneCount} cảnh — vài giây...
-                  </span>
-                : <>📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:</>}
-            </div>
-            <div style={{ maxHeight: 440, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {loadingPrompts ? Array.from({ length: Math.min(sceneCount, 8) }).map((_, i) => (
-                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                  <div className="skel" style={{ height: 14, width: 96, marginBottom: 10 }} />
-                  <div className="skel" style={{ height: 28, width: '100%', marginBottom: 8 }} />
-                  <div className="skel" style={{ height: 28, width: '85%' }} />
-                </div>
-              )) : scenes.length > 0 ? scenes.map((s, i) => (
-                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
-                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * duration)}–{fmtTC((i + 1) * duration)}</span>
-                    {s.beat && <span style={{ fontSize: 11.5, color: 'var(--accent3)', fontWeight: 600 }}>· {s.beat}</span>}
-                    <button onClick={() => delScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
-                  </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
-                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.image} onChange={e => updateScene(i, 'image', e.target.value)} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Hành động</div>
-                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.action} onChange={e => updateScene(i, 'action', e.target.value)} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🔊 Lời thoại</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 120px' }} placeholder="Người nói" value={s.speaker} onChange={e => updateScene(i, 'speaker', e.target.value)} />
-                    <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
-                  </div>
-                  <details style={{ marginTop: 8 }}>
-                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Mô tả cảnh — sửa nếu cần</summary>
-                    <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
-                  </details>
-                </div>
-              )) : prompts.map((p, i) => (
-                <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
-                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>{duration}s</span>
-                  </div>
-                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: narrations[i] !== undefined ? 6 : 0 }} value={p}
-                    placeholder="Mô tả cảnh"
-                    onChange={e => { const np = [...prompts]; np[i] = e.target.value; setPrompts(np) }} />
-                  {narrations[i] !== undefined && (
-                    <input className="form-input" style={{ fontSize: 12 }} value={narrations[i]}
-                      placeholder="🔊 Lời thoại / narration"
-                      onChange={e => { const nn = [...narrations]; nn[i] = e.target.value; setNarrations(nn) }} />
-                  )}
-                </div>
-              ))}
-            </div>
-            {scenes.length > 0 && (
-              <button className="cmp-ghost" onClick={addScene} style={{ width: '100%', borderStyle: 'dashed' }}>+ Thêm cảnh</button>
-            )}
-            </div>
-            <div className="cmp-actionbar">
-              <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
-              <div style={{ flex: 1 }} />
-              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
-              <button className="cmp-cta" onClick={() => {
-                const n = reviewN
-                const msg = reviewCost === 0
-                  ? `Tạo video ${n} cảnh bằng model Miễn phí — KHÔNG tốn credit (0 💎). Tiếp tục?`
-                  : `Tạo video ${n} cảnh — tốn khoảng ${reviewCost} 💎. Tiếp tục?`
-                if (!window.confirm(msg)) return
-                createNew(true)
-              }} disabled={creating || loadingPrompts}>
-                {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
-              </button>
-            </div>
-          </>)}
         </div>
       )}
 
