@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { projectsApi, toolsApi, charactersApi } from '../api/client'
 import { pushLog } from './Dashboard'
-import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket } from 'lucide-react'
+import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket, List } from 'lucide-react'
 import SellVideo from '../components/SellVideo'
 
 // Các bước hiển thị khi đang phân tích + tạo (cho cảm giác đang chạy, đỡ thấy lâu)
@@ -77,7 +77,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // NEW tab
   const [step, setStep] = useState<'setup' | 'review'>('setup')  // wizard: thiết lập -> duyệt kịch bản
-  const [mode, setMode] = useState<'ai' | 'manual' | 'storyboard'>('ai')   // AI viết | Tự nhập kịch bản | Đọc storyboard
+  const [mode, setMode] = useState<'ai' | 'manual' | 'storyboard' | 'prompts'>('ai')   // AI viết | Tự nhập kịch bản | Đọc storyboard | Dán Prompts
   const [name, setName] = useState('')
   const [idea, setIdea] = useState('')
   const [sceneCount, setSceneCount] = useState(6)
@@ -209,6 +209,21 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
       await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
+  }
+
+  // Dán Prompts: 1 dòng = 1 prompt = 1 cảnh. TẠO + RENDER thẳng.
+  async function parsePromptsLocally() {
+    if (!idea.trim()) { setError('Dán prompts của bạn trước'); return }
+    const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); return }
+    
+    const n = lines.length
+    pushLog(`Đã đọc ${n} prompts`)
+    
+    const cost = modelObjNew.cost * n
+    if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { return }
+    
+    await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
   }
 
   // Đọc storyboard (ảnh grid / PDF) -> trích cảnh -> TẠO + RENDER thẳng (số cảnh = số khung, để AI tự đếm).
@@ -385,6 +400,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <div className="cmp-tabs" style={{ marginBottom: 14 }}>
                 <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
                 <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
+                <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> Dán Prompts</button>
                 <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
               </div>
 
@@ -418,9 +434,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               ) : (
                 <div className="cmp-herowrap">
                   <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
-                  <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
+                  <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' || mode === 'prompts' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
                     placeholder={mode === 'manual'
                       ? 'Dán kịch bản của bạn (kèm lời thoại + tên nhân vật)...\nVD:\nCảnh 1: Mẹ ngồi gục ở quầy spa, mệt mỏi.\nLời thoại (Mẹ): "Cả ngày không có khách nào..."\nCảnh 2: Con trai bước vào...'
+                      : mode === 'prompts'
+                      ? 'Dán danh sách prompt của bạn (1 dòng = 1 prompt = 1 cảnh)...\nVD:\nA cinematic shot of a mountain at sunset\nA person walking in the snow\n...'
                       : 'Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát...'} />
                 </div>
               )}
@@ -529,11 +547,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
               <div style={{ flex: 1 }} />
               <button className="cmp-cta"
-                onClick={mode === 'storyboard' ? readStoryboard : mode === 'manual' ? parseScript : genPrompts}
-                disabled={loadingPrompts || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
-                {loadingPrompts
-                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? 'Đang đọc storyboard...' : mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang viết & tạo...'}</>
-                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : 'AI viết & tạo phim →'}</>}
+                onClick={mode === 'storyboard' ? readStoryboard : mode === 'manual' ? parseScript : mode === 'prompts' ? parsePromptsLocally : genPrompts}
+                disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
+                {loadingPrompts || creating
+                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? 'Đang đọc storyboard...' : mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang tạo...'}</>
+                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : mode === 'prompts' ? 'Tạo phim từ Prompts →' : 'AI viết & tạo phim →'}</>}
               </button>
             </div>
           </>)}

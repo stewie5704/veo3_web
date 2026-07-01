@@ -642,20 +642,22 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     ref_ids = ref_ids[:3]
 
     start_id = None
-    # refs (giữ mặt) ưu tiên hơn start-frame: cùng dùng endpoint riêng, tránh xung đột r2v+startImage
-    if start_image_path and not ref_ids:
+    if start_image_path:
         start_id = await _upload_image(token, project_id, start_image_path)
         if not start_id:
             raise RuntimeError("Upload ảnh gốc (I2V) thất bại")
 
     aspect = ASPECT_MAP.get(aspect_ratio, "VIDEO_ASPECT_RATIO_LANDSCAPE")
     key = _apply_duration((model_key or "veo_3_1_t2v_lite_low_priority").strip(), duration_seconds)
-    if ref_ids:
-        endpoint = "video:batchAsyncGenerateVideoReferenceImages"
-        key = _resolve_variant(key, "r2v")
-    elif start_id:
+    
+    if start_id:
+        # Nếu có start_image (nối khung/I2V), luôn dùng endpoint I2V để đảm bảo liên tục.
+        # Nếu có thêm ref_ids, req["referenceImages"] vẫn được gửi để giữ nhân vật.
         endpoint = "video:batchAsyncGenerateVideoStartImage"
         key = _resolve_variant(key, "i2v")
+    elif ref_ids:
+        endpoint = "video:batchAsyncGenerateVideoReferenceImages"
+        key = _resolve_variant(key, "r2v")
     else:
         endpoint = "video:batchAsyncGenerateVideoText"
 
