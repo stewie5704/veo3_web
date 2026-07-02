@@ -111,7 +111,7 @@ MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-redu
 MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song
 CHUNK_SIZE = 20          # số cảnh mỗi chunk bung song song
-MAX_MR_CONCURRENCY = 6   # số call Gemini song song tối đa (giữ trong RPM)
+MAX_MR_CONCURRENCY = 3   # số call Gemini song song tối đa (giữ trong RPM)
 # Mỏ neo chuyển động — TRUNG TÍNH phong cách (đúng cho cả live-action lẫn anime/claymation): nhắc Veo
 # giữ chuyển động mạch lạc + phơi sáng/ánh sáng ổn định cả cảnh -> chống nhấp nháy & "thở sáng" giữa cảnh.
 _MOTION_ANCHOR = (" Smooth, coherent motion throughout; lighting and exposure stay consistent for the whole shot.")
@@ -222,7 +222,7 @@ def _gemini_json(api_key: str, prompt: str, max_tokens: int = 8192) -> dict:
 
 
 # Vision: ưu tiên flash (đọc tài liệu/ảnh tốt hơn lite), 2.0-flash, cuối là lite (đỡ khi flash hết quota).
-GEMINI_VISION_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite")
+GEMINI_VISION_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash")
 
 
 def _gemini_vision_json(api_key: str, prompt: str, media: list[tuple[str, bytes]],
