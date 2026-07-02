@@ -320,12 +320,39 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const baseNarr = sScenes.length
       ? sScenes.map(s => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
       : sNarr
-    // giọng riêng theo nhân vật nói trong mỗi cảnh
-    const baseVoices = sScenes.length ? sScenes.map(s => {
-      const spk = (s.speaker || '').trim()
-      const aiVoice = sBible.find((c: any) => c.name === spk)?.tts_voice || voice
-      return sCharVoices[spk] || sCharVoices['@' + spk] || sCharVoices[spk.replace('@', '')] || aiVoice
-    }) : []
+
+    // === FIX gán giọng theo nhân vật ===
+    // Gom tất cả tên nhân vật đã gán giọng (user override hoặc từ bible)
+    const knownCharNames = Array.from(new Set([
+      ...Object.keys(sCharVoices || {}),
+      ...sBible.map((c: any) => c.name || '').filter(Boolean),
+      ...Array.from(selectedChars || [])
+    ]))
+    function pickVoiceForScene(s: any, narration: string): string {
+      const spk = (s?.speaker || '').trim()
+      // Ưu tiên speaker field
+      let v = sCharVoices[spk] || sCharVoices['@' + spk] || sCharVoices[spk.replace('@', '')]
+      if (v) return v
+      const aiV = sBible.find((c: any) => c.name === spk)?.tts_voice
+      if (aiV) return aiV
+      // Fallback: quét narration "Tên: ..." hoặc @Tên để tìm nhân vật nói
+      const nar = (narration || '').toLowerCase()
+      for (const nm of knownCharNames) {
+        const n = nm.toLowerCase().replace(/^@/, '')
+        if (nar.includes(n + ':') || nar.includes('@' + n) || nar.includes(n)) {
+          const vv = sCharVoices[nm] || sCharVoices['@' + nm] || sCharVoices[n] || sCharVoices[nm.replace('@', '')]
+          if (vv) return vv
+          const found = sBible.find((c: any) => (c.name || '').toLowerCase() === n)?.tts_voice
+          if (found) return found
+        }
+      }
+      return voice // fallback project default
+    }
+    // giọng riêng theo nhân vật nói trong mỗi cảnh (dùng baseNarr để quét nếu cần)
+    const baseVoices = (sScenes.length ? sScenes : basePrompts.map((_, i) => ({}))).map((s, i) => {
+      const nar = (baseNarr[i] || sNarr[i] || '')
+      return pickVoiceForScene(s, nar)
+    })
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars

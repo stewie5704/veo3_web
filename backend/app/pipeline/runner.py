@@ -491,7 +491,8 @@ def _to_character_speak(prompt: str, dialogue: str, voice_name: str = "") -> str
         spoken = spoken.replace('"', "'")
         v_hint = ""
         if voice_name:
-            v_hint = " using a female voice" if voice_name in ("Kore", "Aoede", "Leda") else " using a male voice"
+            # Gợi ý cụ thể hơn để Veo cố gắng khớp giọng (nếu hỗ trợ). Prebuilt tên như Kore/Puck...
+            v_hint = f" using the {voice_name} voice"
         p += f' The speaker faces the camera and clearly says{v_hint}, in Vietnamese: "{spoken}". Accurate natural lip-sync, clear speech.'
     return p
 
