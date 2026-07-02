@@ -676,14 +676,19 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     # Strip mô tả mặt/mắt/da chi tiết: có ẢNH rồi thì text chi tiết chỉ gây xung đột + kích filter.
     if ref_ids:
         prompt = _strip_face_for_ref(prompt)
-        # Video bán hàng: phân biệt rõ product vs face (KOL) để Veo không nhầm ảnh.
-        # Dựa vào tên file ref (nếu có SP_/Product/KOL) hoặc prompt có "product" + có nhiều ref.
+        # === SELL VIDEO FULL LOCK (Product + KOL) ===
         ref_names = ' '.join([str(p) for p in (extra_ref_paths or [])])
         is_sell_style = bool(re.search(r'\b(SP_|Product|KOL)\b', ref_names, re.I) or
                              (re.search(r'\bproduct\b', prompt, re.I) and len(ref_ids) >= 1))
         if is_sell_style:
-            prompt += (" Use the EXACT product shown in the product reference image(s) and the EXACT person/face "
-                       "shown in the KOL/person reference image(s). Keep the person's face, hairstyle, skin tone and clothing identical across all frames to the KOL reference. ")
+            prompt += (
+                " SELL MODE - STRICT VISUAL LOCK: "
+                "The product MUST be the EXACT same item as shown in the product reference image(s) — identical colour, material, finish, "
+                "surface pattern, logo, on-pack text (exact wording, font, placement), label, shape, proportions. "
+                "NEVER change, recolour, restyle, relabel, resize, swap, distort, morph, regenerate or add/remove anything on the product. "
+                "The person (KOL) MUST be 100% identical in face, hairstyle, skin tone, body, clothing and appearance to the KOL reference image(s) in EVERY single frame and camera angle. "
+                "Use the exact same person and exact same product from the provided reference images only. "
+            )
         # Nếu có khoá sản phẩm, đừng ép 'outfit identical' vì Veo sẽ hiểu nhầm ảnh sản phẩm là ảnh quần áo!
         if re.search(r"\bproducts?\b", prompt, re.I):
             prompt += " Keep the person's face identical to the provided reference image(s)."
@@ -989,11 +994,16 @@ async def run_scene_job(scene_id: str, user_id: str):
 
             present = [c for c in all_chars if _present(c.name)]
             if present:
-                # Nếu cảnh có nhắc đích danh nhân vật/sản phẩm, CHỈ dùng những ref đó (tránh Veo trộn lẫn mặt/trang phục của người khác).
                 char_ref_files = [c.image_file for c in present]
             else:
-                # Nếu không nhắc đích danh, đành gởi tất cả (tối đa 3) để Veo tự dùng.
                 char_ref_files = [c.image_file for c in all_chars]
+
+            # === Ưu tiên cho Sell Video: Đưa Product trước, KOL sau để Veo phân biệt rõ ===
+            if any('product' in (c.name or '').lower() or 'kol' in (c.name or '').lower() for c in all_chars):
+                product_refs = [c.image_file for c in all_chars if 'product' in (c.name or '').lower()]
+                kol_refs = [c.image_file for c in all_chars if 'kol' in (c.name or '').lower()]
+                other_refs = [c.image_file for c in all_chars if 'product' not in (c.name or '').lower() and 'kol' not in (c.name or '').lower()]
+                char_ref_files = (product_refs + kol_refs + other_refs)[:3]
 
         extra_ref_paths = [str(CHAR_PATH / f) for f in char_ref_files]
         base_seed = proj_seed or _stable_seed(project_db_id)

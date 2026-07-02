@@ -114,7 +114,8 @@ export default function SellVideo() {
   const [sceneCount, setSceneCount] = useState(5)
   const [dur, setDur] = useState(8)
   const [lang, setLang] = useState('vi')
-  const [voice, setVoice] = useState('Kore')
+  const [voice, setVoice] = useState('Kore')          // Giọng fallback
+  const [kolVoice, setKolVoice] = useState('Kore')    // Giọng riêng cho KOL (người xuất hiện trong video)
   const [audioMode, setAudioMode] = useState<'voiceover' | 'character_speak' | 'off'>('voiceover')
   const [model, setModel] = useState(GEN_MODELS[0].key)
   const [loading, setLoading] = useState(false)
@@ -219,6 +220,16 @@ LỜI THOẠI: ...
         }
         return { prompt, narration: s.narration }
       })
+  }
+
+  async function rerenderSell(id: string) {
+    try {
+      pushLog(`🔄 Đang tạo lại toàn bộ cảnh cho video bán hàng...`)
+      await projectsApi.rerenderBatch(id)
+      // Poll sẽ tự refresh
+    } catch (e: any) {
+      setError('Tạo lại thất bại: ' + (e?.response?.data?.detail || e.message))
+    }
   }
 
   async function doSell() {
@@ -327,8 +338,10 @@ LỜI THOẠI: ...
         model_key: model, aspect_ratio: '9:16', duration_seconds: dur, language: lang,
         prompts, narrations, auto_render: true, chain_mode: true,
         character_ids: ids, character_bible: cbible,
-        audio_mode: audioMode, voiceover: audioMode === 'voiceover', voice,
+        audio_mode: audioMode, voiceover: audioMode === 'voiceover', voice: kolVoice || voice,
         i2v_fix: i2vFix,
+        // Bắt buộc cho sell: giữ đồng bộ
+        style: 'realistic',
       })
       pushLog(`✅ Đã đưa "${proj.name}" vào hàng chờ — đang render & sẽ tự ghép thành 1 video.`)
       const next = [proj.id, ...sellIds.filter(x => x !== proj.id)]
@@ -373,6 +386,9 @@ LỜI THOẠI: ...
             {p.merged_file
               ? <DownloadMenu base={`/projects/${id}/download-merged`} filename="video_ban_hang.mp4" />
               : <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{done}/{total} cảnh xong</span>}
+            <button className="btn btn-ghost btn-sm" onClick={() => rerenderSell(id)} title="Tạo lại toàn bộ (dùng cùng ảnh ref)">
+              🔄 Tạo lại
+            </button>
             <button className="btn btn-ghost btn-sm" title="Mở dự án (xem từng cảnh)" onClick={() => nav(`/projects/${id}`)} style={{ marginLeft: 'auto' }}>
               <ExternalLink size={12} /> Mở
             </button>
@@ -383,9 +399,10 @@ LỜI THOẠI: ...
   }
 
   const modelShort = GEN_MODELS.find(m => m.key === model)?.short || ''
+  const kolVoiceLabel = VOICES.find(v => v.v === kolVoice)?.label || ''
   const voiceLabel = VOICES.find(v => v.v === voice)?.label || ''
   const sceneLabel = SELL_SCENES.find(s => s.v === scene)?.label || ''
-  const audioLabel = audioMode === 'voiceover' ? voiceLabel : audioMode === 'character_speak' ? 'NV tự nói' : 'Không tiếng'
+  const audioLabel = audioMode === 'voiceover' ? kolVoiceLabel : audioMode === 'character_speak' ? 'NV tự nói' : 'Không tiếng'
   const langLabel = lang === 'vi' ? '🇻🇳 Việt' : '🇺🇸 English'
 
   return (
@@ -479,7 +496,7 @@ LỜI THOẠI: ...
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div ref={optRef} style={{ position: 'relative', flex: 1, minWidth: 0 }}>
             <button type="button" className="sell-optbar" onClick={() => setOptOpen(o => !o)} aria-expanded={optOpen} title="Tùy chọn video">
-              <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · {audioLabel} · {langLabel} · {sceneLabel}</span>
+              <span className="sum"><SlidersHorizontal size={14} /><b>{modelShort}</b> · {sceneCount} cảnh · {dur}s · KOL:{kolVoiceLabel} · {audioLabel} · {langLabel} · {sceneLabel}</span>
               <ChevronUp size={16} style={{ flex: 'none', color: 'var(--text3)', transition: 'transform .15s', transform: optOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {optOpen && (
@@ -534,7 +551,16 @@ LỜI THOẠI: ...
               </div>
             </div>
             <div className="cmp-ctrl">
-              <div className="cmp-label">Giọng đọc</div>
+              <div className="cmp-label">Giọng KOL (người chính)</div>
+              <div className="selwrap">
+                <select className="cmp-sel" value={kolVoice} onChange={e => { setKolVoice(e.target.value); setVoice(e.target.value) }} disabled={audioMode === 'off'}>
+                  {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}
+                </select>
+                <Chev />
+              </div>
+            </div>
+            <div className="cmp-ctrl">
+              <div className="cmp-label">Giọng đọc fallback</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={voice} onChange={e => setVoice(e.target.value)} disabled={audioMode === 'off'}>
                   {VOICES.map(v => <option key={v.v} value={v.v}>{v.label}</option>)}

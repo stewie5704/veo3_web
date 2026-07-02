@@ -1068,11 +1068,12 @@ async def sell_script(body: SellScriptRequest, user: User = Depends(get_current_
 
 Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.{brief_block}
 
-QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI VÀ SẢN PHẨM (ĐỒNG BỘ MẶT + SẢN PHẨM):
-- Dùng ĐÚNG người trong ẢNH THAM CHIẾU KOL. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100%). Chỉ gọi "the person" / "they".
-- Sản phẩm phải 100% giống ảnh reference: "the exact product from the @Product (or product) reference image".
-- BẮT BUỘC chèn: keep the product the EXACT same item as the reference image — ... (full lock) + "Keep the person's face, hairstyle and appearance identical to the KOL reference image in every single frame".
-- KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man".
+QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI VÀ SẢN PHẨM (ĐỒNG BỘ MẶT + SẢN PHẨM - BẮT BUỘC):
+- Sử dụng CHÍNH XÁC 100% người trong ảnh tham chiếu KOL và sản phẩm trong ảnh tham chiếu Product.
+- Trong prompt PHẢI nhắc rõ: "the exact product from the @Product reference image(s)" và "the person exactly as shown in the @KOL reference image(s)".
+- Luôn chèn đầy đủ Product Lock: "keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; NEVER recolour, restyle, relabel, resize, swap, distort, morph or regenerate it...".
+- Luôn chèn KOL Lock: "Keep the person's face, hairstyle, skin tone, body proportions and clothing 100% identical to the KOL reference image in EVERY frame and angle".
+- TUYỆT ĐỐI KHÔNG tả ngoại hình, giới tính, tuổi tác bằng text. KHÔNG bịa người mới.
 
 QUY TẮC NHỊP THOẠI (chống cụt/ngắt đột ngột — tham khảo cách người thật nói chuyện): mỗi cảnh dài ~{dur} giây. LỜI THOẠI phải nói VỪA HẾT trong ~{dur} giây ở tốc độ trò chuyện TỰ NHIÊN (có nhịp thở, KHÔNG đọc gấp) ≈ {lo}–{hi} từ/cảnh. Ưu tiên NGẮN hơn để chừa nhịp, KHÔNG để dài quá bị cắt giữa chừng. Mỗi câu TRỌN VẸN, ngắt nghỉ tự nhiên như người thật. Lời thoại 100% {lang_label}, KHÔNG pha ngôn ngữ khác.
 
