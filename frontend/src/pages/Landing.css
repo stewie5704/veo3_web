@@ -315,3 +315,14 @@
 #lp .db-dev svg{width:20px;height:20px;stroke:url(#aiacg)}
 @media(max-width:900px){#lp .nocards{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){#lp .nocards{grid-template-columns:1fr}#lp .db-devices{gap:12px}}
+
+/* Feature span2 inner text + shots */
+#lp .fcard.span2 .fc-text { flex: 1; min-width: 0; }
+#lp .fcard.span2 .fc-text h3 { margin-top: 0; }
+#lp .fc-shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#lp .fc-shots img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+@media(max-width:720px){ #lp .fcard.span2 { grid-template-columns: 1fr; } }
+
+/* Small polish for video samples inside React build */
+#lp .svid video { width: 100%; display: block; background: #000; }
+#lp .svid img.ph { display: block; }

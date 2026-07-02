@@ -14,11 +14,16 @@ param(
 
 $VPS = "root@74.81.54.150"
 
-# Build landing tĩnh (aiautocut.com): sinh landing/index.html từ build.js + landing/samples/ + Landing.css.
+# Build landing tĩnh (aiautocut.com): React + Vite Static Export → ../landing/index.html + assets/
+# Dùng npm run build:landing (xem frontend/vite.config.ts + package.json)
 Write-Host ""
-Write-Host "==> [0/2] Build landing tinh..." -ForegroundColor Cyan
-node landing/build.js
+Write-Host "==> [0/2] Build landing (React Vite export)..." -ForegroundColor Cyan
+Push-Location frontend
+$env:BUILD_LANDING = "1"
+npm run build:landing
 if ($LASTEXITCODE -ne 0) { Write-Host "   (build landing loi - van tiep tuc voi index.html cu)" -ForegroundColor Yellow }
+Pop-Location
+# Giữ samples/ (đã được preserve bằng emptyOutDir:false)
 
 Write-Host ""
 Write-Host "==> [1/2] Commit + push (local)..." -ForegroundColor Cyan

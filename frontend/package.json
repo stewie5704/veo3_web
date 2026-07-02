@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:landing": "node -e \"const fs=require('fs'),p=require('path');const ad=p.resolve(__dirname,'../landing/assets'); try{ if(fs.existsSync(ad)) fs.readdirSync(ad).forEach(f=>{const fp=p.join(ad,f); if(!f.includes('samples')) fs.unlinkSync(fp);}) }catch(e){};\" && vite build --mode landing --outDir ../landing --config vite.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
