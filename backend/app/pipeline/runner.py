@@ -314,7 +314,10 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
     if ref_ids:
         req["referenceImages"] = [{"mediaId": m, "imageUsageType": REFERENCE_USAGE_TYPE} for m in ref_ids]
         
-    if voice_name:
+    # referenceAudio chỉ dành cho custom voice sample (UUID mediaId).
+    # Với prebuilt voices (Kore, Puck...) → KHÔNG gửi, chỉ dùng text hint trong prompt.
+    # Gửi tên prebuilt làm mediaId thường gây "Failed to enqueue generation".
+    if voice_name and len(voice_name) > 20:   # rough check cho UUID-style mediaId
         req["referenceAudio"] = [{"mediaId": voice_name.lower()}]
 
     body = {
@@ -748,8 +751,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
             ms = ((items[0].get("mediaMetadata") or {}).get("mediaStatus") or {})
             reasons = [str(r).upper() for r in (ms.get("failureReasons") or [])]
             emsg = ((ms.get("error") or {}).get("message") or "")
-            log.error("Generation FAILED (user %s, key %s) reasons=%s err=%s — item: %s",
-                      user_id, key, reasons, emsg, str(items[0])[:1500])
+            log.error("Generation FAILED (user %s, key %s) reasons=%s err=%s — full_item: %s",
+                      user_id, key, reasons, emsg, str(items[0]))
             if any("PROMINENT" in r for r in reasons) or "PROMINENT_PEOPLE" in emsg.upper():
                 raise _ProminentBlocked()   # caller đổi seed retry (thường dương-tính-giả)
             raise RuntimeError(f"Render thất bại: {emsg or (', '.join(reasons)) or status}")
