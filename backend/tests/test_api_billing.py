@@ -41,7 +41,10 @@ async def test_video_create_allowed_with_plan(client, make_user, monkeypatch):
     assert me.json()["active"] is True
 
 
-async def test_checkout_creates_pending_order(client, make_user):
+async def test_checkout_creates_pending_order(client, make_user, monkeypatch):
+    async def mock_create_payment_url(payment, user=None):
+        return {"method": "payos", "checkout_url": "http://fake"}
+    monkeypatch.setattr("app.billing.gateway.create_payment_url", mock_create_payment_url)
     u = await make_user()
     r = await client.post("/api/v1/billing/checkout", json={"plan": "m1"}, headers=u["headers"])
     assert r.status_code == 200, r.text
