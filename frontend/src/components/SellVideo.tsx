@@ -267,14 +267,14 @@ LỜI THOẠI: ...
         const pTag = pName.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 12) || `Item${i+1}`
         if (p.product) {
           // Tên ngắn "Product" để prompt dễ nhắc + _present() match chính xác
-          const prodName = pairs.length > 1 ? `Product_${pTag}` : 'Product'
+          const prodName = pairs.length > 1 ? `Product_${pTag}_${stamp}` : `Product_${stamp}`
           const pChar = await charactersApi.add(prodName, p.product)
           ids.push(pChar.id)
           charsToDelete.push(pChar.id)
           charRefsForAI.push(`@${prodName}`)
         }
         if (p.kol) {
-          const kolName = pairs.length > 1 ? `KOL_${pTag}` : 'KOL'
+          const kolName = pairs.length > 1 ? `KOL_${pTag}_${stamp}` : `KOL_${stamp}`
           const kChar = await charactersApi.add(kolName, p.kol)
           ids.push(kChar.id)
           charsToDelete.push(kChar.id)
@@ -285,7 +285,7 @@ LỜI THOẠI: ...
       if (!direct) {
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
         // Truyền tên các cặp để AI nhắc đến trong kịch bản (nếu có nhiều nhân vật/sản phẩm)
-        const briefWithChars = `${text}\n\nLưu ý dùng tên nhân vật và sản phẩm này trong kịch bản: ${charRefsForAI.join(', ')}. Trong prompt HÌNH ẢNH phải nhắc rõ "the product from the @Product reference image" và "the person from the @KOL reference image" (nếu có).`
+        const briefWithChars = `${text}\n\nLưu ý dùng tên nhân vật và sản phẩm này trong kịch bản: ${charRefsForAI.join(', ')}. Trong prompt HÌNH ẢNH phải nhắc rõ "the product from the ${charRefsForAI.find(c => /product/i.test(c)) || '@Product'} reference image" và "the person from the ${charRefsForAI.find(c => /kol/i.test(c)) || '@KOL'} reference image" (nếu có).`
         const sres = await toolsApi.sellScript({ product: name.trim() || 'sản phẩm', scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: pairs.some(p => p.kol), brief: briefWithChars })
         const scns: any[] = sres.scenes || []
         prompts = scns.map(s => { const p = s.prompt || ''; return p && !/reference image/i.test(p) ? `${p} — ${PRODUCT_LOCK}` : p })
@@ -299,13 +299,13 @@ LỜI THOẠI: ...
       function enforceRefLocks(p: string): string {
         let out = (p || '').trim()
         const lower = out.toLowerCase()
-        const hasProd = charRefsForAI.some(r => /product/i.test(r))
-        const hasKol = charRefsForAI.some(r => /kol/i.test(r))
+        const prodMatch = charRefsForAI.find(r => /product/i.test(r))
+        const kolMatch = charRefsForAI.find(r => /kol/i.test(r))
 
-        if (hasProd && !/product.*@?product|the product from the .*reference/i.test(lower)) {
-          out = out.replace(/keep the product the EXACT/i, 'the exact product from the @Product reference image — keep the product the EXACT')
+        if (prodMatch && !/product.*@?product|the product from the .*reference/i.test(lower)) {
+          out = out.replace(/keep the product the EXACT/i, `the exact product from the ${prodMatch} reference image — keep the product the EXACT`)
         }
-        if (hasKol && !/keep the person's face|the person from the .*reference|@kol/i.test(lower)) {
+        if (kolMatch && !/keep the person's face|the person from the .*reference|@kol/i.test(lower)) {
           out += ' ' + KOL_FACE_LOCK
         }
         if (!/exact same item/i.test(lower)) {
