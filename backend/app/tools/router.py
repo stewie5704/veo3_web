@@ -501,11 +501,11 @@ def _reduce_scenes(raw, bible: dict, name_index: dict, style_lock: str, parse_mo
                 log.warning("bỏ tham chiếu nhân vật không khớp: %r", ref)
         sp_raw = str(s.get("speaker", "") or "").strip()
         sp_key = _resolve_ref(sp_raw, bible, name_index)
-        # giữ NGUYÊN tên người dùng: chỉ thay bằng tên bible khi speaker là khoá CHAR_*
-        if sp_key and re.fullmatch(r"CHAR_\d+", sp_raw):
+        # LUÔN LUÔN dùng tên chuẩn từ bible nếu map được, để frontend match chính xác giọng nói (sCharVoices)
+        if sp_key and sp_key in bible:
             speaker_name = bible[sp_key].name or sp_raw
         else:
-            speaker_name = sp_raw or (bible[sp_key].name if sp_key else "")
+            speaker_name = sp_raw
         sc = SceneScript(
             beat=str(s.get("beat", "") or ""), image=str(s.get("image", "") or ""),
             action=str(s.get("action", "") or ""), speaker=speaker_name,
