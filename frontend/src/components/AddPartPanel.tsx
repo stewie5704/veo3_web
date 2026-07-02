@@ -24,6 +24,8 @@ const AUDIO = [
 export default function AddPartPanel({ project, onDone, onClose }: {
   project: any; onDone: () => void; onClose: () => void
 }) {
+  const isSellVideo = (project.name || '').startsWith('Bán hàng:')
+
   const nextPart = Math.max(1, ...(project.scenes || []).map((s: any) => s.part || 1)) + 1
   const charNames: string[] = (project.characters || []).map((c: any) => c.name)
 
@@ -76,12 +78,27 @@ export default function AddPartPanel({ project, onDone, onClose }: {
 
   // Ngữ cảnh nối tiếp: nhắc AI giữ nhân vật + bám phần trước (giữ mạch truyện).
   function continuationIdea() {
+    if (isSellVideo) {
+      const parts: string[] = ['Đây là CẢNH TIẾP THEO của video quảng cáo/bán hàng.']
+      if (charNames.length) parts.push(`Giữ NGUYÊN các đối tượng (nhân vật/sản phẩm) đã có: ${charNames.map(n => '@' + n).join(', ')}.`)
+      if (project.idea) parts.push(`Sản phẩm / Bối cảnh gốc: ${project.idea}.`)
+      parts.push('Yêu cầu cho đoạn tiếp theo:')
+      return parts.join(' ') + '\n' + idea
+    }
     const parts: string[] = ['Đây là PHẦN TIẾP THEO của câu chuyện.']
     if (charNames.length) parts.push(`Giữ NGUYÊN các nhân vật đã có: ${charNames.map(n => '@' + n).join(', ')} (cùng ngoại hình).`)
     if (project.idea) parts.push(`Bối cảnh/nội dung phần trước: ${project.idea}.`)
     parts.push('Yêu cầu nội dung cho PHẦN MỚI này:')
     return parts.join(' ') + '\n' + idea
   }
+
+  const [copied, setCopied] = useState(false)
+  const STRUCT_RE = /(?:^|\n)[^\p{L}\n]{0,4}(?:c[ảa]nh|scene|đoạn|phân đoạn)\s*\d+|h[ìi]nh ảnh\s*[:\-]|lời thoại\s*(?:\([^)]*\))?\s*[:\-]|prompt\s*[:\-]|narration\s*[:\-]/iu
+  const hasStructure = (t: string) => STRUCT_RE.test(t)
+  const looksVietnamese = (t: string) => { const m = t.match(/[ăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/gi); return !!m && m.length >= 2 }
+  const PROMPT_HINTS = /\b(shot|camera|close[- ]?up|wide|angle|the person|they|product|background|lighting|handheld|cinematic|vertical|9:?16|frame|lens|footage|scene|holds?|wearing|showcase|reference image)\b/i
+  const isPromptish = (t: string) => !looksVietnamese(t) && (PROMPT_HINTS.test(t) || t.split(/\n{2,}/).filter(s => s.trim()).length > 1)
+
 
   // 1 BƯỚC: viết kịch bản -> chuyển sang bước Duyệt kịch bản
   async function preview() {
@@ -90,22 +107,32 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     let res: any
 
     try {
-      if (mode === 'prompts') {
-        if (!idea.trim()) { setError('Dán prompts của bạn trước'); setBusy(''); return }
-        const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-        if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); setBusy(''); return }
-        res = { prompts: lines, narrations: new Array(lines.length).fill('') }
-      } else if (mode === 'storyboard') {
-        if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); setBusy(''); return }
-        res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style })
-      } else if (mode === 'manual') {
-        if (!idea.trim()) { setError('Dán kịch bản phần mới'); setBusy(''); return }
-        res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
+      if (isSellVideo) {
+        if (!idea.trim()) { setError('Nhập ý tưởng hoặc dán kịch bản'); setBusy(''); return }
+        if (hasStructure(idea) || isPromptish(idea)) {
+          res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
+        } else {
+          res = await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
+        }
       } else {
-        if (!idea.trim()) { setError('Nhập ý tưởng phần mới'); setBusy(''); return }
-        res = await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
+        if (mode === 'prompts') {
+          if (!idea.trim()) { setError('Dán prompts của bạn trước'); setBusy(''); return }
+          const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+          if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); setBusy(''); return }
+          res = { prompts: lines, narrations: new Array(lines.length).fill('') }
+        } else if (mode === 'storyboard') {
+          if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); setBusy(''); return }
+          res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style })
+        } else if (mode === 'manual') {
+          if (!idea.trim()) { setError('Dán kịch bản phần mới'); setBusy(''); return }
+          res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
+        } else {
+          if (!idea.trim()) { setError('Nhập ý tưởng phần mới'); setBusy(''); return }
+          res = await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
+        }
       }
     } catch (e: any) { setError(e.response?.data?.detail || 'Tạo kịch bản thất bại'); setBusy(''); return }
+
 
     const scns: any[] = res.scenes || []
     const basePrompts: string[] = scns.length ? scns.map((s: any) => s.prompt || s.image || '') : (res.prompts || [])
@@ -144,19 +171,39 @@ export default function AddPartPanel({ project, onDone, onClose }: {
         {error && <div className="alert alert-error" style={{ marginBottom: 14 }}>{error}</div>}
 
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>
-            Nối tiếp dự án — <strong>giữ nguyên {charNames.length} nhân vật</strong>
-            {charNames.length > 0 && <> ({charNames.map(n => '@' + n).join(', ')})</>} để ghép phim liền mạch.
+            Nối tiếp dự án — {isSellVideo ? <strong>giữ nguyên các nhân vật & sản phẩm</strong> : <strong>giữ nguyên {charNames.length} nhân vật</strong>}
+            {(!isSellVideo && charNames.length > 0) && <> ({charNames.map(n => '@' + n).join(', ')})</>} để ghép phim liền mạch.
             <em>Tỉ lệ {project.aspect_ratio} sẽ được khoá cứng cho phần mới.</em>
           </div>
 
-          <div className="cmp-tabs" style={{ marginBottom: 12 }}>
-            <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
-            <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
-            <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> Dán Prompts</button>
-            <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
-          </div>
+          {!isSellVideo && (
+            <div className="cmp-tabs" style={{ marginBottom: 12 }}>
+              <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
+              <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
+              <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> Dán Prompts</button>
+              <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
+            </div>
+          )}
 
-          {mode === 'storyboard' ? (
+          {isSellVideo ? (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
+                <label className="form-label" style={{ margin: 0 }}>Ý tưởng · kịch bản · hoặc prompt</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setIdea('Cận cảnh chi tiết sản phẩm, nhấn mạnh độ bền và kết thúc bằng lời kêu gọi mua hàng chốt sale.')} title="Điền nhanh một ý tưởng mẫu"><Sparkles size={12} /> Gợi ý</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                    const txt = `Viết PHẦN TIẾP THEO cho kịch bản video bán hàng affiliate, dọc 9:16, kiểu UGC quay tay, gồm ${sceneCount} cảnh.\n\nQUY TẮC:\n- Giữ NGUYÊN sản phẩm và KOL (gọi là "the exact product from the @Product reference image" và "the person from the @KOL reference image").\n- BẮT BUỘC chèn: keep the product the EXACT same... và Keep the person's face 100% identical...\n- Hình ảnh viết TIẾNG ANH, Lời thoại viết TIẾNG VIỆT.`
+                    navigator.clipboard.writeText(txt)
+                    setCopied(true); setTimeout(() => setCopied(false), 2000)
+                  }} title="Copy câu lệnh để dán vào trợ lý GPT">
+                    {copied ? 'Đã chép' : 'Lệnh cho GPT'}
+                  </button>
+                </div>
+              </div>
+              <textarea className="form-textarea" rows={5} style={{ width: '100%' }} value={idea} onChange={e => setIdea(e.target.value)} disabled={busy !== ''}
+                placeholder={'Gõ ý tưởng diễn biến tiếp theo → AI tự viết kịch bản.\nHoặc dán prompt / kịch bản có sẵn → dùng luôn.\n\nVD: Mở đầu quay sát logo sản phẩm, sau đó nhân vật dùng thử và khen nức nở...'} />
+            </div>
+          ) : mode === 'storyboard' ? (
             <div style={{ marginBottom: 14 }}>
               <label htmlFor="sb-input" style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -185,7 +232,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
             </div>
           ) : (
             <textarea className="form-textarea" style={{ minHeight: mode === 'manual' ? 150 : 90, marginBottom: 14 }}
-              value={idea} onChange={e => setIdea(e.target.value)}
+              value={idea} onChange={e => setIdea(e.target.value)} disabled={busy !== ''}
               placeholder={mode === 'prompts' ? 'Dán danh sách prompt của bạn (1 dòng = 1 prompt = 1 cảnh)...\nVD:\nA cinematic shot of a mountain at sunset\nA person walking in the snow\n...'
                 : mode === 'manual' ? 'Dán kịch bản phần tiếp theo (kèm lời thoại + tên nhân vật)...'
                 : 'Phần này diễn biến tiếp thế nào? (VD: Mẹ và Nam mở rộng spa, gặp khó khăn mới...)'} />
