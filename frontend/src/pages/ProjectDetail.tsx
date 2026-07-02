@@ -184,17 +184,21 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
-  async function doRerenderBatch(part: number | null) {
+  async function doRerenderBatch(part: number | null, failed_only: boolean = false) {
     if (!id) return
     const all: any[] = project?.scenes || []
-    const scope = part == null ? all : all.filter((s: any) => (s.part || 1) === part)
+    let scope = part == null ? all : all.filter((s: any) => (s.part || 1) === part)
+    if (failed_only) {
+      scope = scope.filter((s: any) => s.status === 'failed')
+    }
     const n = scope.filter((s: any) => s.status !== 'processing').length
-    if (n === 0) { notify('Không có cảnh nào để tạo lại (cảnh đang render được bỏ qua).'); return }
+    if (n === 0) { notify(failed_only ? 'Không có cảnh bị lỗi nào.' : 'Không có cảnh nào để tạo lại (cảnh đang render được bỏ qua).'); return }
     const label = part == null ? 'TOÀN BỘ dự án' : `Phần ${part}`
-    if (!window.confirm(`Tạo lại ${n} cảnh của ${label}? Mỗi cảnh tốn credit/Gem như render thường. Tiếp tục?`)) return
+    const msg = failed_only ? `Tạo lại ${n} cảnh bị lỗi của ${label}?` : `Tạo lại ${n} cảnh của ${label}? Mỗi cảnh tốn credit/Gem như render thường. Tiếp tục?`
+    if (!window.confirm(msg)) return
     try {
-      const r = await projectsApi.rerenderBatch(id, part)
-      notify(`Đang tạo lại ${r.rerendered} cảnh — áp ảnh giữ mặt / kịch bản mới.`)
+      const r = await projectsApi.rerenderBatch(id, part, failed_only)
+      notify(`Đang tạo lại ${r.rerendered} cảnh...`)
       load(true)
     } catch (e: any) {
       notify(e?.response?.data?.detail || 'Tạo lại hàng loạt thất bại', 'error')
@@ -579,6 +583,12 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               <Play size={13} /> Tiếp tục
             </button>
           ) : null}
+          {totalCount > 0 && project?.scenes?.some((s: any) => s.status === 'failed') && (
+            <button className="btn btn-ghost btn-sm" onClick={() => doRerenderBatch(null, true)}
+              title="Tạo lại các cảnh bị lỗi">
+              <RefreshCw size={13} style={{ color: 'var(--red)' }} /> Tạo lại lỗi
+            </button>
+          )}
           {totalCount > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={() => doRerenderBatch(null)}
               title="Tạo lại TẤT CẢ cảnh (áp ảnh giữ mặt / kịch bản mới cho cả cảnh đã xong)">
@@ -804,7 +814,14 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 Phần {selectedPart}</span>
                       <span className="badge badge-done">{done}/{ps.length} cảnh</span>
-                      <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
+                      {ps.some(s => s.status === 'failed') && (
+                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
+                          onClick={() => doRerenderBatch(selectedPart, true)}
+                          title="Tạo lại các cảnh bị lỗi của phần này">
+                          <RefreshCw size={13} style={{ color: 'var(--red)' }} /> Tạo lại lỗi
+                        </button>
+                      )}
+                      <button className="btn btn-ghost btn-sm" style={{ marginLeft: ps.some(s => s.status === 'failed') ? 0 : 'auto' }}
                         onClick={() => doRerenderBatch(selectedPart)}
                         title="Tạo lại tất cả cảnh của phần này (áp ảnh giữ mặt / kịch bản mới)">
                         <RefreshCw size={13} /> Tạo lại phần

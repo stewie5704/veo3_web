@@ -582,6 +582,7 @@ async def resume_project(
 async def rerender_batch(
     project_id: str,
     part: int | None = None,
+    failed_only: bool = False,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -596,6 +597,8 @@ async def rerender_batch(
         Scene.project_id == project_id, Scene.status != SceneStatus.processing).order_by(Scene.index))
     # lọc theo phần ở Python để khớp cảnh cũ có part=None (=1), như frontend (s.part || 1)
     todo = [s for s in res.scalars().all() if part is None or (getattr(s, "part", 1) or 1) == part]
+    if failed_only:
+        todo = [s for s in todo if s.status == SceneStatus.failed]
     if not todo:
         return {"ok": True, "rerendered": 0}
     proj.stopped = False
