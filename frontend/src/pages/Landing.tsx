@@ -32,10 +32,6 @@ const Star = () => (
   </svg>
 )
 
-// Spark icon (gradient via currentColor trong CSS)
-const Spark = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l1.7 5.8L20 11l-6.3 2.2L12 21l-1.7-7.8L4 11l6.3-2.2z"/></svg>
-)
 
 // Sample videos (giữ nguyên từ build.js + samples thực tế)
 const SAMPLES = [
@@ -56,26 +52,6 @@ const TESTIMONIALS = [
   { name: 'Anh Tuấn', role: 'Affiliate Marketer', col: '#8B5CF6', text: 'Tăng hiệu quả affiliate lên 300% nhờ video AI. Tiết kiệm cả tuần quay dựng mỗi tháng.' },
   { name: 'Hải Yến', role: 'Giảng viên Online', col: '#3B82F6', text: 'Công cụ quá mạnh cho ai làm coaching như mình. Tạo nội dung khoá học nhanh gấp 5 lần trước đây.' },
   { name: 'Trần Bình', role: 'CEO – BizUp', col: '#EC4899', text: 'Tiết kiệm chi phí sản xuất video đáng kể cho doanh nghiệp. Đáng đầu tư nhất trong năm qua.' },
-]
-
-// Capabilities under hero
-const CAPABILITIES = [
-  { t: 'Text to Video', d: 'Biến văn bản thành video sống động', ic: <><path d="M5 7h12M5 12h8M5 17h5"/><path d="m15 11 6 3.5-6 3.5z"/></> },
-  { t: 'Image to Video', d: 'Biến hình ảnh thành video chuyên nghiệp', ic: <><rect x="3" y="4.5" width="18" height="15" rx="2.2"/><circle cx="8.4" cy="10" r="1.7"/><path d="m4 17 5-4 4 3 3-2 4 3"/></> },
-  { t: 'Kịch bản (Story)', d: 'Tạo video dạng câu chuyện cuốn hút', ic: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/></> },
-  { t: 'Đồng nhất nhân vật', d: 'Giữ nhân vật nhất quán giữa các cảnh', ic: <><circle cx="9" cy="9" r="2.6"/><path d="M4 19a5 5 0 0 1 10 0"/><path d="M15.6 7.3a2.6 2.6 0 0 1 0 4.5"/><path d="M16.2 14.6a5 5 0 0 1 3.8 4.4"/></> },
-  { t: 'Sao chép phong cách', d: 'Tái hiện phong cách video bạn thích', ic: <><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></> },
-  { t: 'Thư viện Prompt', d: 'Hàng trăm mẫu prompt để tham khảo', ic: <><path d="M4 20h16"/><path d="M6.5 20V9M10.5 20V5M14.5 20v-7M18.5 20V11"/></> },
-  { t: 'Check thương hiệu', d: 'Soi logo, watermark trong hình ảnh', ic: <><path d="M12 3.5 5 6v5c0 4.3 2.9 7.4 7 8.8 4.1-1.4 7-4.5 7-8.8V6z"/><path d="m9.2 11.8 2 2 3.6-3.8"/></> },
-]
-
-// Numbers strip
-const STATS = [
-  { n: '2.1M+', l: 'Video đã tạo' },
-  { n: '12.000+', l: 'Creator tin dùng' },
-  { n: '4.8M+ phút', l: 'Thời gian tiết kiệm' },
-  { n: '48+', l: 'Quốc gia sử dụng' },
-  { n: 'Hàng ngày', l: 'Nội dung mới từ cộng đồng' },
 ]
 
 // "Không cần" cards
@@ -275,27 +251,23 @@ export default function Landing() {
           </section>
         </div>
 
-        {/* CAPABILITIES + STATS */}
-        <div className="inner caps-wrap reveal">
-          <div className="capstrip">
-            {CAPABILITIES.map((c, i) => (
-              <div key={i} className="cap">
-                <span className="ci"><GradIcon>{c.ic}</GradIcon></span>
-                <h4>{c.t}</h4>
-                <p>{c.d}</p>
-              </div>
-            ))}
-          </div>
+        {/* SAMPLES */}
+        <section className="blk" id="samples">
+          <div className="inner">
+            <div className="eyebrow reveal">Video mẫu</div>
+            <h2 className="h2 reveal">Video từ cộng đồng</h2>
+            <p className="sub reveal">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p>
 
-          <div className="statstrip">
-            {STATS.map((s, i) => (
-              <div key={i} className="snum">
-                <span className="si"><Spark /></span>
-                <div className="sx"><b>{s.n}</b><span>{s.l}</span></div>
+            <div className="samples reveal">
+              <div className="srow srow-v">
+                {SAMPLES.slice(0, 5).map((s, i) => renderSample(s, i))}
               </div>
-            ))}
+              <div className="srow srow-h">
+                {SAMPLES.slice(5).map((s, i) => renderSample(s, i + 5))}
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* FEATURES */}
         <section className="blk" id="features">
@@ -398,23 +370,6 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* SAMPLES */}
-        <section className="blk" id="samples">
-          <div className="inner">
-            <div className="eyebrow reveal">Video mẫu</div>
-            <h2 className="h2 reveal">Video từ cộng đồng</h2>
-            <p className="sub reveal">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p>
-
-            <div className="samples reveal">
-              <div className="srow srow-v">
-                {SAMPLES.slice(0, 5).map((s, i) => renderSample(s, i))}
-              </div>
-              <div className="srow srow-h">
-                {SAMPLES.slice(5).map((s, i) => renderSample(s, i + 5))}
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* TESTIMONIALS */}
         <section className="blk" id="testimonials">
