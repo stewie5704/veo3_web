@@ -1068,7 +1068,11 @@ async def sell_script(body: SellScriptRequest, user: User = Depends(get_current_
 
 Sản phẩm: "{product}". Bối cảnh: {sc}. Tông: {to}.{brief_block}
 
-QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI: dùng ĐÚNG người trong ẢNH THAM CHIẾU. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100% diện mạo + giới tính). Trong prompt CHỈ gọi "the person" / "they". KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man"/"a girl"/"young".
+QUY TẮC TỐI QUAN TRỌNG VỀ NGƯỜI VÀ SẢN PHẨM (ĐỒNG BỘ MẶT + SẢN PHẨM):
+- Dùng ĐÚNG người trong ẢNH THAM CHIẾU KOL. TUYỆT ĐỐI KHÔNG mô tả giới tính, tuổi, khuôn mặt, tóc, vóc dáng, ngoại hình (ẢNH quyết định 100%). Chỉ gọi "the person" / "they".
+- Sản phẩm phải 100% giống ảnh reference: "the exact product from the @Product (or product) reference image".
+- BẮT BUỘC chèn: keep the product the EXACT same item as the reference image — ... (full lock) + "Keep the person's face, hairstyle and appearance identical to the KOL reference image in every single frame".
+- KHÔNG bịa người mới, KHÔNG viết "a woman"/"a man".
 
 QUY TẮC NHỊP THOẠI (chống cụt/ngắt đột ngột — tham khảo cách người thật nói chuyện): mỗi cảnh dài ~{dur} giây. LỜI THOẠI phải nói VỪA HẾT trong ~{dur} giây ở tốc độ trò chuyện TỰ NHIÊN (có nhịp thở, KHÔNG đọc gấp) ≈ {lo}–{hi} từ/cảnh. Ưu tiên NGẮN hơn để chừa nhịp, KHÔNG để dài quá bị cắt giữa chừng. Mỗi câu TRỌN VẸN, ngắt nghỉ tự nhiên như người thật. Lời thoại 100% {lang_label}, KHÔNG pha ngôn ngữ khác.
 

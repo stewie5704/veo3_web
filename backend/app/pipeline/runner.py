@@ -675,6 +675,14 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     # Strip mô tả mặt/mắt/da chi tiết: có ẢNH rồi thì text chi tiết chỉ gây xung đột + kích filter.
     if ref_ids:
         prompt = _strip_face_for_ref(prompt)
+        # Video bán hàng: phân biệt rõ product vs face (KOL) để Veo không nhầm ảnh.
+        # Dựa vào tên file ref (nếu có SP_/Product/KOL) hoặc prompt có "product" + có nhiều ref.
+        ref_names = ' '.join([str(p) for p in (extra_ref_paths or [])])
+        is_sell_style = bool(re.search(r'\b(SP_|Product|KOL)\b', ref_names, re.I) or
+                             (re.search(r'\bproduct\b', prompt, re.I) and len(ref_ids) >= 1))
+        if is_sell_style:
+            prompt += (" Use the EXACT product shown in the product reference image(s) and the EXACT person/face "
+                       "shown in the KOL/person reference image(s). Keep the person's face, hairstyle, skin tone and clothing identical across all frames to the KOL reference. ")
         # Nếu có khoá sản phẩm, đừng ép 'outfit identical' vì Veo sẽ hiểu nhầm ảnh sản phẩm là ảnh quần áo!
         if re.search(r"\bproducts?\b", prompt, re.I):
             prompt += " Keep the person's face identical to the provided reference image(s)."

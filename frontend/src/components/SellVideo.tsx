@@ -57,6 +57,9 @@ const TONE_EN: Record<string, string> = { ugc: 'casual handheld UGC style', youn
 // Cụm khoá sản phẩm tự chèn vào mỗi prompt -> Veo giữ đúng sản phẩm trong ảnh ref
 const PRODUCT_LOCK = 'keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; never recolour, restyle, relabel, resize, swap, distort, morph or regenerate it, and never add or remove any text or logo; product in sharp focus, true-to-life colour; UGC handheld, real skin, natural light, vertical 9:16'
 
+// Khoá mạnh cho mặt KOL/người mẫu (song song product lock)
+const KOL_FACE_LOCK = 'Keep the person\'s face, hairstyle, skin, body, clothing and overall appearance 100% identical to the provided KOL reference image in every frame. Do not change age, gender presentation, facial features or outfit.'
+
 // --- Tự nhận dạng nội dung dán vào ---
 const VN_RE = /[ăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/gi
 const looksVietnamese = (t: string) => { const m = t.match(VN_RE); return !!m && m.length >= 2 }
@@ -139,9 +142,11 @@ export default function SellVideo() {
     const langLabel = lang === 'vi' ? 'tiếng Việt' : 'tiếng Anh'
     return `Viết kịch bản video bán hàng affiliate (TikTok Shop), dọc 9:16, kiểu UGC quay tay, gồm ${sceneCount} cảnh NỐI TIẾP nhau cho sản phẩm: "${prod}". Bối cảnh: ${SCENE_VI[scene]}. Tông: ${TONE_VI[tone]}.
 
-QUY TẮC:
-- Phần HÌNH ẢNH viết bằng TIẾNG ANH cho AI Veo. Chỉ gọi nhân vật là "the person"/"they", TUYỆT ĐỐI không tả giới tính/tuổi/khuôn mặt/ngoại hình (ảnh quyết định 100%). Luôn kèm cụm: keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; never recolour, restyle, relabel, swap, distort, morph or regenerate it.
-- Phần LỜI THOẠI viết ${langLabel}, tự nhiên, ~1 câu mỗi cảnh, nối mạch để bán hàng.
+QUY TẮC (RẤT QUAN TRỌNG ĐỂ GIỮ MẶT + SẢN PHẨM ĐỒNG BỘ):
+- Phần HÌNH ẢNH viết bằng TIẾNG ANH. Chỉ gọi "the person"/"they". TUYỆT ĐỐI KHÔNG tả ngoại hình.
+- BẮT BUỘC nhắc: "the exact product from the @Product reference image" + "the person from the @KOL reference image".
+- Luôn chèn đầy đủ: keep the product the EXACT same... + "Keep the person's face, hairstyle and appearance 100% identical to the KOL reference image in every frame".
+- Phần LỜI THOẠI viết ${langLabel}, tự nhiên, ~1 câu mỗi cảnh.
 
 Xuất ĐÚNG định dạng sau, KHÔNG thêm chữ nào khác:
 
@@ -208,6 +213,10 @@ LỜI THOẠI: ...
         let prompt = s.prompt
         if (!prompt && s.narration) prompt = `The person presents and shows the product to camera, ${SCENE_EN[scene] || 'on a street'}, ${TONE_EN[tone] || 'casual UGC'}`
         if (prompt && !/reference image/i.test(prompt)) prompt = `${prompt} — ${PRODUCT_LOCK}`
+        // Thêm khoá mặt KOL song song (enforceRefLocks sẽ làm mạnh hơn khi có @KOL)
+        if (prompt && !/Keep the person's face/i.test(prompt)) {
+          prompt += ' ' + KOL_FACE_LOCK
+        }
         return { prompt, narration: s.narration }
       })
   }
@@ -228,11 +237,16 @@ LỜI THOẠI: ...
       } else {
         const blocks = text.split(/\n{2,}/).map(s => s.trim()).filter(Boolean)
         const list = blocks.length ? blocks : [text]
-        prompts = list.map(p => /reference image/i.test(p) ? p : `${p} — ${PRODUCT_LOCK}`)
+        prompts = list.map(p => {
+          let pp = /reference image/i.test(p) ? p : `${p} — ${PRODUCT_LOCK}`
+          if (!/Keep the person's face/i.test(pp)) pp += ' ' + KOL_FACE_LOCK
+          return pp
+        })
         narrations = []
       }
       if (!prompts.length) { setError('Chưa đọc được nội dung — thử lại hoặc dùng định dạng "Cảnh / HÌNH ẢNH / LỜI THOẠI".'); return }
     }
+
     const nScenes = direct ? prompts.length : sceneCount
     const cost = (MODEL_COST[model] || 0) * nScenes
     if (cost > 0 && !window.confirm(`Tạo ${nScenes} cảnh bằng model trả phí — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
@@ -241,60 +255,71 @@ LỜI THOẠI: ...
     try {
       pushLog(`🛍️ Video bán hàng: đang upload ảnh${direct ? ` + đọc ${nScenes} cảnh có sẵn` : ` + viết kịch bản ${sceneCount} cảnh`}...`)
       // Lưu sản phẩm (+ KOL) thành nhân vật -> ref MỌI cảnh = giữ ĐÚNG sản phẩm/mặt.
+      // Dùng tên ngắn dễ nhúng vào prompt ("Product", "KOL") để resolver ref hoạt động tốt hơn.
       const stamp = Date.now().toString(36).slice(-5)
       const ids: string[] = []
-      const charRefsForAI = []
+      const charRefsForAI: string[] = []
       const charsToDelete: string[] = []
 
       for (let i = 0; i < pairs.length; i++) {
         const p = pairs[i]
         const pName = p.name.trim() || `Cap${i+1}`
-        const pTag = pName.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 16)
+        const pTag = pName.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 12) || `Item${i+1}`
         if (p.product) {
-          const pChar = await charactersApi.add(`SP_${pTag}_${stamp}`, p.product)
+          // Tên ngắn "Product" để prompt dễ nhắc + _present() match chính xác
+          const prodName = pairs.length > 1 ? `Product_${pTag}` : 'Product'
+          const pChar = await charactersApi.add(prodName, p.product)
           ids.push(pChar.id)
           charsToDelete.push(pChar.id)
-          charRefsForAI.push(`@SP_${pTag}_${stamp}`)
+          charRefsForAI.push(`@${prodName}`)
         }
         if (p.kol) {
-          const kChar = await charactersApi.add(`KOL_${pTag}_${stamp}`, p.kol)
+          const kolName = pairs.length > 1 ? `KOL_${pTag}` : 'KOL'
+          const kChar = await charactersApi.add(kolName, p.kol)
           ids.push(kChar.id)
           charsToDelete.push(kChar.id)
-          charRefsForAI.push(`@KOL_${pTag}_${stamp}`)
+          charRefsForAI.push(`@${kolName}`)
         }
       }
 
       if (!direct) {
         // AI tự viết kịch bản + tạo prompt, BÁM ý tưởng/kịch bản trong ô (nếu có)
         // Truyền tên các cặp để AI nhắc đến trong kịch bản (nếu có nhiều nhân vật/sản phẩm)
-        const briefWithChars = `${text}\n\nLưu ý dùng tên nhân vật và sản phẩm này trong kịch bản: ${charRefsForAI.join(', ')}`
+        const briefWithChars = `${text}\n\nLưu ý dùng tên nhân vật và sản phẩm này trong kịch bản: ${charRefsForAI.join(', ')}. Trong prompt HÌNH ẢNH phải nhắc rõ "the product from the @Product reference image" và "the person from the @KOL reference image" (nếu có).`
         const sres = await toolsApi.sellScript({ product: name.trim() || 'sản phẩm', scene, tone, scene_count: sceneCount, language: lang, duration: dur, has_kol: pairs.some(p => p.kol), brief: briefWithChars })
         const scns: any[] = sres.scenes || []
-        // Lưới an toàn: AI thỉnh thoảng quên chèn khoá sản phẩm -> tự bù như nhánh dán sẵn
         prompts = scns.map(s => { const p = s.prompt || ''; return p && !/reference image/i.test(p) ? `${p} — ${PRODUCT_LOCK}` : p })
         narrations = scns.map(s => s.narration || '')
         if (!prompts.length) throw new Error('AI chưa viết được kịch bản, thử lại.')
       }
+
+      // === FIX ĐỒNG BỘ MẶT KOL + SẢN PHẨM (QUAN TRỌNG) ===
+      // Sau khi có charRefsForAI, ép tên @Product/@KOL vào prompt + khoá kép.
+      // Điều này giúp runner chọn đúng ref ảnh (theo _present) và Veo hiểu rõ "ảnh nào là cái gì".
+      function enforceRefLocks(p: string): string {
+        let out = (p || '').trim()
+        const lower = out.toLowerCase()
+        const hasProd = charRefsForAI.some(r => /product/i.test(r))
+        const hasKol = charRefsForAI.some(r => /kol/i.test(r))
+
+        if (hasProd && !/product.*@?product|the product from the .*reference/i.test(lower)) {
+          out = out.replace(/keep the product the EXACT/i, 'the exact product from the @Product reference image — keep the product the EXACT')
+        }
+        if (hasKol && !/keep the person's face|the person from the .*reference|@kol/i.test(lower)) {
+          out += ' ' + KOL_FACE_LOCK
+        }
+        if (!/exact same item/i.test(lower)) {
+          out = (out ? out + ' — ' : '') + PRODUCT_LOCK
+        }
+        return out
+      }
+      prompts = prompts.map(enforceRefLocks)
+
       pushLog(`📝 Kịch bản ${prompts.length} cảnh — đang đưa lên hàng chờ render...`)
 
-      const cbible = []
-      if (!pairs.some(p => p.kol)) {
-        cbible.push({
-          name: "the person",
-          role: "người mẫu",
-          age: "25",
-          gender_presentation: "unspecified",
-          face: "Vietnamese face, natural, friendly",
-          eyes: "dark brown",
-          hair: "neatly styled",
-          skin_tone: "light brown",
-          build: "average build",
-          wardrobe_top: "casual neutral top",
-          wardrobe_bottom: "casual pants",
-          anchor: "friendly smile",
-          palette: "neutral"
-        })
-      }
+      // Luôn gửi [] cho sell video: ảnh product + KOL (nếu có) quyết định 100% diện mạo.
+      // Không dùng bible text để tránh xung đột với ảnh ref.
+      const cbible: any[] = []
 
       const proj = await projectsApi.create({
         name: `Bán hàng: ${name.trim() || 'sản phẩm'}`,
