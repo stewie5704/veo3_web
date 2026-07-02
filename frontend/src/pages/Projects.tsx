@@ -193,7 +193,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
   // AI viết kịch bản
-  async function genPrompts() {
+  async function genPrompts(directCreate = true) {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
@@ -204,14 +204,19 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã viết kịch bản ${n} cảnh`)
-      const cost = modelObjNew.cost * n
+      if (directCreate) {
+        const cost = modelObjNew.cost * n
       if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
       await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+      } else {
+        setStep('review')
+        setLoadingPrompts(false)
+      }
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setLoadingPrompts(false) }
   }
 
   // Tự nhập kịch bản
-  async function parseScript() {
+  async function parseScript(directCreate = true) {
     if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
@@ -222,14 +227,19 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
-      const cost = modelObjNew.cost * n
+      if (directCreate) {
+        const cost = modelObjNew.cost * n
       if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
       await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+      } else {
+        setStep('review')
+        setLoadingPrompts(false)
+      }
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
   }
 
   // Dán Prompts
-  async function parsePromptsLocally() {
+  async function parsePromptsLocally(directCreate = true) {
     if (!idea.trim()) { setError('Dán prompts của bạn trước'); return }
     const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
     if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); return }
@@ -237,13 +247,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const n = lines.length
     pushLog(`Đã đọc ${n} prompts`)
     
-    const cost = modelObjNew.cost * n
+    if (directCreate) {
+        const cost = modelObjNew.cost * n
     if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { return }
     await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
+      } else {
+        setPrompts(lines)
+        setNarrations(new Array(n).fill(''))
+        setScenes([])
+        setStep('review')
+      }
   }
 
   // Đọc storyboard
-  async function readStoryboard() {
+  async function readStoryboard(directCreate = true) {
     if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); return }
     setError(''); setLoadingPrompts(true)
     try {
@@ -255,9 +272,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã đọc storyboard ${n} cảnh`)
       if (!n) { setError('Không đọc được khung nào từ storyboard — thử ảnh rõ hơn.'); setLoadingPrompts(false); return }
-      const cost = modelObjNew.cost * n
+      if (directCreate) {
+        const cost = modelObjNew.cost * n
       if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
       await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+      } else {
+        setStep('review')
+        setLoadingPrompts(false)
+      }
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi đọc storyboard'); setLoadingPrompts(false) }
   }
 
@@ -413,6 +435,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
+          {step === 'setup' && (<>
           <div className="cmp-body">
               <div className="cmp-titlerow">
                 <span className="cmp-tlabel">Tên dự án</span>
@@ -583,12 +606,25 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <span className={modelObjNew.cost === 0 ? 'free' : ''}>{modelObjNew.cost === 0 ? 'FREE' : `${modelObjNew.cost * sceneCount} 💎`}</span>
               </div>
               <div style={{ flex: 1 }} />
+              
+              {mode !== 'prompts' && (
+                <button className="cmp-ghost" style={{ marginRight: 8 }}
+                  onClick={() => {
+                    if (mode === 'storyboard') readStoryboard(false)
+                    else if (mode === 'manual') parseScript(false)
+                    else genPrompts(false)
+                  }}
+                  disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
+                  Kiểm tra kịch bản chi tiết
+                </button>
+              )}
+
               <button className="cmp-cta"
                 onClick={() => {
-                  if (mode === 'storyboard') readStoryboard()
-                  else if (mode === 'manual') parseScript()
-                  else if (mode === 'prompts') parsePromptsLocally()
-                  else genPrompts()
+                  if (mode === 'storyboard') readStoryboard(true)
+                  else if (mode === 'manual') parseScript(true)
+                  else if (mode === 'prompts') parsePromptsLocally(true)
+                  else genPrompts(true)
                 }}
                 disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
                 {loadingPrompts || creating
@@ -596,6 +632,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : mode === 'prompts' ? 'Tạo phim từ Prompts →' : 'AI viết & tạo phim →'}</>}
               </button>
             </div>
+          </>)}
+
+          
         </div>
       )}
 
