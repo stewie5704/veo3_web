@@ -43,13 +43,11 @@ async def gift_assistants_if_eligible(
     if not all_assistants:
         return []
 
-    # Determine how many have already been distributed globally
-    total_result = await db.execute(select(AssistantGift))
-    total_gifted = sum(g.count for g in total_result.scalars().all())
-
-    start = total_gifted
-    end = min(start + count, len(all_assistants))
-    to_gift = all_assistants[start:end]
+    # Mỗi user sẽ có một pool độc lập. Ta chọn ngẫu nhiên `count` trợ lí từ kho.
+    import random
+    to_gift_pool = list(all_assistants)
+    random.shuffle(to_gift_pool)
+    to_gift = to_gift_pool[:count]
 
     gift = AssistantGift(
         user_id=user_id,

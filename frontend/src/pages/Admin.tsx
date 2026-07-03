@@ -196,12 +196,9 @@ export default function Admin() {
                     <>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
                         <span style={{ fontSize: 30, fontWeight: 900, color: '#fbbf24', letterSpacing: '-0.02em' }}>{pool.gifted}</span>
-                        <span style={{ fontSize: 13, color: 'var(--text3)' }}>/ {pool.pool_total} đã tặng</span>
+                        <span style={{ fontSize: 13, color: 'var(--text3)' }}>lượt trợ lí đã phát</span>
                       </div>
-                      <div style={{ height: 7, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 8 }}>
-                        <div style={{ height: '100%', width: `${pool.pool_total ? (pool.gifted / pool.pool_total) * 100 : 0}%`, borderRadius: 99, background: 'linear-gradient(90deg,#fbbf24,#f59e0b)' }} />
-                      </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{pool.recipients} người đã nhận quà</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{pool.recipients} người đã nhận quà • Kho gốc có {pool.pool_total} mẫu</div>
                     </>
                   ) : <div style={{ color: 'var(--text3)', fontSize: 13 }}>—</div>}
                 </div>
