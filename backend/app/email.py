@@ -24,7 +24,10 @@ async def send_email(to: str, subject: str, html: str) -> bool:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(
                 RESEND_URL,
-                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                },
                 json={"from": settings.email_from, "to": [to], "subject": subject, "html": html},
             )
         if r.status_code >= 300:
