@@ -607,7 +607,7 @@ def _strip_face_for_ref(prompt: str) -> str:
                 keep.append(p.strip())
         return prefix + "; ".join(keep) + suffix if keep else prefix.rstrip(" (") + suffix.lstrip(")")
 
-    return re.sub(r'(Same\s+\w[^(]{0,40}\()([^)]{5,800})(\))', _clean_block, prompt)
+    return re.sub(r'(Same\s+@?\w[^(]{0,40}\()([^)]{5,800})(\))', _clean_block, prompt)
 
 
 # Lưới chất lượng áp LÚC RENDER cho mọi video CHƯA có khối negative (video bán hàng, job lẻ, prompt
@@ -664,8 +664,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     key = _apply_duration((model_key or "veo_3_1_t2v_lite_low_priority").strip(), duration_seconds)
     # Quyết định endpoint và dọn dẹp payload dựa trên endpoint để tránh lỗi HTTP 400.
     # Endpoint StartImage KHÔNG hỗ trợ referenceImages và referenceAudio.
-    # Do đó, nếu người dùng cần giữ mặt (ref_ids) hoặc cần giọng nói (voice_name), ta ưu tiên dùng ReferenceImages (và hy sinh nối khung start_image).
-    if ref_ids or voice_name:
+    # Do đó, nếu người dùng cần giữ mặt (ref_ids) hoặc cần giọng nói (voice_name có UUID), ta ưu tiên dùng ReferenceImages (và hy sinh nối khung start_image).
+    has_ref_audio = bool(voice_name and len(voice_name) > 20)
+    if ref_ids or has_ref_audio:
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
         start_id = None # StartImage không được phép đi cùng

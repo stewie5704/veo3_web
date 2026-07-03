@@ -425,6 +425,8 @@ def _describe_for_prompt(c: CharacterBible, trimmed: bool = False, has_ref: bool
     if c.distinguishing_marks and not has_ref: inner.append(f"distinguishing marks: {c.distinguishing_marks}")
     if c.palette: inner.append(f"signature palette {c.palette}")
     nm = c.name or c.char_key
+    if nm and not nm.startswith("@"):
+        nm = f"@{nm}"
     return (f"{nm} (" + "; ".join(inner) + ")") if inner else nm
 
 
