@@ -46,15 +46,15 @@ async def migrate():
                 await db.execute(sql)
                 await db.commit()
                 col = sql.split("ADD COLUMN")[1].strip().split()[0]
-                print(f"  ✅ {col}")
+                print(f"  OK {col}")
             except Exception as e:
                 if "duplicate column" in str(e).lower():
                     col = sql.split("ADD COLUMN")[1].strip().split()[0]
-                    print(f"  ⏭  {col} (đã có)")
+                    print(f"  SKIP {col} (da co)")
                 else:
-                    print(f"  ❌ {sql[:60]} → {e}")
+                    print(f"  ERROR {sql[:60]} -> {e}")
 
-    print("\n✅ Migration xong!")
+    print("\nMigration xong!")
 
 
 if __name__ == "__main__":
