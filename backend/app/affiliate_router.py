@@ -74,6 +74,20 @@ async def affiliate_me(user: User = Depends(get_current_user), db: AsyncSession 
     )).scalars().all()
 
     bal = int(user.wallet_balance or 0)
+    f1_rows = (await db.execute(
+        select(User.username, User.email, User.created_at, User.plan)
+        .where(User.referred_by == user.id)
+        .order_by(desc(User.created_at))
+        .limit(100)
+    )).all()
+
+    f2_rows = (await db.execute(
+        select(User.username, User.email, User.created_at, User.plan)
+        .where(User.referred_by.in_(select(User.id).where(User.referred_by == user.id)))
+        .order_by(desc(User.created_at))
+        .limit(100)
+    )).all()
+
     return {
         "referral_code": user.referral_code,
         "link": f"{settings.frontend_url}/register?ref={user.referral_code}",
@@ -99,6 +113,16 @@ async def affiliate_me(user: User = Depends(get_current_user), db: AsyncSession 
             "amount": t.amount, "kind": t.kind, "status": t.status, "note": t.note,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         } for t in txn_rows],
+        "f1_users": [{
+            "username": r.username, "email": r.email,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "paid": r.plan != "free"
+        } for r in f1_rows],
+        "f2_users": [{
+            "username": r.username, "email": r.email,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "paid": r.plan != "free"
+        } for r in f2_rows],
     }
 
 

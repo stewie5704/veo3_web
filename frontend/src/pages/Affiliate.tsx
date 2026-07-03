@@ -27,6 +27,7 @@ export default function Affiliate() {
   const [topupAmount, setTopupAmount] = useState(200000)
   const [method, setMethod] = useState<'payos' | 'binance'>('payos')
   const [order, setOrder] = useState<PaymentOrder | null>(null)
+  const [listTab, setListTab] = useState<'f1' | 'f2'>('f1')
   const copyRef = useRef<HTMLInputElement>(null)
 
   function load() { affiliateApi.me().then(setD).catch(() => {}) }
@@ -307,6 +308,39 @@ export default function Affiliate() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Referral List (F1 / F2) ── */}
+      <div className="card">
+        <div className="card-header" style={{ display: 'flex', gap: 20, marginBottom: 12 }}>
+          <div onClick={() => setListTab('f1')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: listTab === 'f1' ? '#34d399' : 'var(--text3)' }}>
+            <Share2 size={15} /> Danh sách F1 ({(d.f1_users || []).length})
+          </div>
+          <div onClick={() => setListTab('f2')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: listTab === 'f2' ? '#c084fc' : 'var(--text3)' }}>
+            <Share2 size={15} /> Danh sách F2 ({(d.f2_users || []).length})
+          </div>
+        </div>
+        
+        {(() => {
+          const users = listTab === 'f1' ? (d.f1_users || []) : (d.f2_users || [])
+          if (users.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13, padding: '10px 0' }}>Chưa có ai đăng ký</div>
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+              {users.map((u: any, i: number) => (
+                <div key={i} style={{ padding: '12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 700, color: 'var(--text2)' }}>
+                    {u.username[0]?.toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.username}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                  </div>
+                  {u.paid && <Crown size={14} color="#fbbf24" style={{ flexShrink: 0 }} />}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {order && (
