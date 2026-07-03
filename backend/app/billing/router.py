@@ -186,6 +186,42 @@ async def my_assistants(
     return {"gifted": True, "count": gift.count, "assistants": json.loads(gift.assistants_json)}
 
 
+class BuyStorageReq(BaseModel):
+    gb: int
+
+
+@router.post("/buy-storage")
+async def buy_storage(
+    body: BuyStorageReq,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import update
+    from app.billing.models import WalletTxn
+    
+    if body.gb < 1:
+        raise HTTPException(400, "Vui lòng nhập số GB hợp lệ")
+        
+    cost = body.gb * 10000  # 10k VND = 1T / 1GB
+    
+    res = await db.execute(
+        update(User).where(User.id == user.id, User.wallet_balance >= cost)
+        .values(
+            wallet_balance=User.wallet_balance - cost,
+            extra_storage_gb=User.extra_storage_gb + body.gb
+        )
+    )
+    if res.rowcount != 1:
+        raise HTTPException(400, "Số dư T coin không đủ. Vui lòng nạp thêm T coin vào ví.")
+        
+    db.add(WalletTxn(
+        user_id=user.id, amount=-cost, kind="buy_storage", status="done",
+        note=f"Mua thêm {body.gb} GB dung lượng lưu trữ",
+    ))
+    await db.commit()
+    return {"ok": True, "extra_storage_gb": user.extra_storage_gb + body.gb}
+
+
 @router.post("/webhook/{provider}")
 async def webhook(provider: str, request: Request, db: AsyncSession = Depends(get_db)):
     """Gateway → here after payment. Backup path; the in-app poller also syncs."""

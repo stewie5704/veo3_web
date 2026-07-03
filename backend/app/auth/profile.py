@@ -31,7 +31,8 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.get("/me")
-async def get_me(user: User = Depends(get_current_user)):
+async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    used = await _sub.storage_used(db, user.id)
     return {
         "id": user.id, "email": user.email, "username": user.username,
         "display_name": user.display_name, "is_admin": user.is_admin,
@@ -40,6 +41,9 @@ async def get_me(user: User = Depends(get_current_user)):
         "plan": user.plan, "plan_active": _sub.is_active(user),
         "plan_expires_at": user.plan_expires_at.isoformat() if user.plan_expires_at else None,
         "created_at": user.created_at,
+        "extra_storage_gb": getattr(user, "extra_storage_gb", 0),
+        "storage_limit": _sub.storage_limit(user),
+        "storage_used": used,
     }
 
 

@@ -153,6 +153,49 @@ export default function Billing() {
         )
       })()}
 
+      {/* ── Buy Storage ── */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-header"><Shield size={15} /> Mua thêm dung lượng lưu trữ (Vĩnh viễn)</div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, color: 'var(--text2)', flex: 1, minWidth: 200 }}>
+            Dung lượng mua thêm sẽ không bao giờ hết hạn. Giá: <b style={{ color: '#fbbf24' }}>1 T coin / 1 GB</b> (tương đương 10.000đ).
+            {sub && sub.extra_storage_gb > 0 && <div style={{ marginTop: 4, color: '#34d399' }}>Đã mua thêm: {sub.extra_storage_gb} GB</div>}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input 
+              type="number" 
+              min={1} 
+              id="storage-gb" 
+              defaultValue={1} 
+              className="form-input" 
+              style={{ width: 80, textAlign: 'center' }} 
+            />
+            <span style={{ fontSize: 13, color: 'var(--text3)' }}>GB</span>
+            <button 
+              className="btn btn-primary btn-sm" 
+              disabled={busy === 'storage'}
+              onClick={async () => {
+                const el = document.getElementById('storage-gb') as HTMLInputElement
+                const gb = parseInt(el.value || '0', 10)
+                if (gb < 1) return toast('Số GB không hợp lệ', 'error')
+                setBusy('storage')
+                try {
+                  const r = await billingApi.buyStorage(gb)
+                  toast(`Mua thành công ${gb} GB dung lượng`, 'success')
+                  load()
+                } catch (e: any) {
+                  toast(e.response?.data?.detail || 'Không đủ T coin trong ví, hãy nạp thêm', 'error')
+                } finally {
+                  setBusy(null)
+                }
+              }}
+            >
+              {busy === 'storage' ? <Loader2 size={13} className="spin" /> : 'Mua ngay'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Payment method selector ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text3)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10 }}>

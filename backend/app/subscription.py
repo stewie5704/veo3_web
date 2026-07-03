@@ -85,8 +85,10 @@ def can_generate(user) -> bool:
 
 
 def storage_limit(user) -> int:
-    """Hạn mức lưu trữ (bytes): 1GB nếu có gói còn hạn, ngược lại 150MB."""
-    return STORAGE_PAID if is_active(user) else STORAGE_FREE
+    """Hạn mức lưu trữ (bytes): 1GB nếu có gói còn hạn, ngược lại 150MB. Cổn thêm extra_storage_gb mua thêm."""
+    base = STORAGE_PAID if is_active(user) else STORAGE_FREE
+    extra = getattr(user, "extra_storage_gb", 0) * 1024 * 1024 * 1024
+    return base + extra
 
 
 async def storage_used(db, user_id: str) -> int:
@@ -143,6 +145,6 @@ async def ensure_storage(db, user) -> None:
     used = await storage_used(db, user.id)
     if used >= limit:
         mb = limit // (1024 * 1024)
-        nxt = "Nâng gói để có 1GB." if not is_active(user) else "Xóa bớt video cũ để giải phóng."
+        nxt = "Nâng gói hoặc mua thêm dung lượng để tiếp tục." if not is_active(user) else "Xóa bớt video cũ hoặc mua thêm dung lượng để giải phóng."
         raise HTTPException(status_code=402,
                             detail=f"Đã đầy dung lượng lưu trữ ({mb}MB). {nxt}")

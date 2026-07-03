@@ -44,6 +44,7 @@ class UpdateUserRequest(BaseModel):
     is_affiliate: bool | None = None
     affiliate_rate: int | None = None
     buyer_discount_rate: int | None = None
+    extra_storage_gb: int | None = None
 
 
 @router.get("/stats")
@@ -169,6 +170,7 @@ async def list_users(
             "google_connected": u.google_connected, "has_gemini_key": u.has_gemini_key,
             "referral_code": u.referral_code, "affiliate_rate": u.affiliate_rate,
             "buyer_discount_rate": getattr(u, "buyer_discount_rate", 0),
+            "extra_storage_gb": getattr(u, "extra_storage_gb", 0),
             "clips": clips, "images": getattr(u, "images_generated", 0) or 0,
             "storage_bytes": storage,
             "plan": u.plan, "plan_active": subscription.is_active(u),
@@ -208,6 +210,8 @@ async def update_user(
         user.affiliate_rate_locked = True   # admin đặt tay -> khóa bậc, không auto lên theo tu tiên
     if body.buyer_discount_rate is not None:
         user.buyer_discount_rate = max(0, min(100, body.buyer_discount_rate))
+    if body.extra_storage_gb is not None:
+        user.extra_storage_gb = max(0, body.extra_storage_gb)
     if body.grant_plan:
         try:
             subscription.activate(user, body.grant_plan)

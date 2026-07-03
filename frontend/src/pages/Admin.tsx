@@ -298,7 +298,20 @@ export default function Admin() {
                       </div>
                     </td>
                     <td style={{ padding: '10px 12px', color: 'var(--text2)', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtBytes(u.storage_bytes)}
+                      <div>{fmtBytes(u.storage_bytes)}</div>
+                      <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }} title="Dung lượng mua thêm/được tặng (GB)">
+                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>+GB:</span>
+                        <input
+                          type="number" min={0} defaultValue={u.extra_storage_gb || 0}
+                          style={{ width: 40, fontSize: 11, padding: '2px 4px', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 }}
+                          onBlur={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            if (val !== (u.extra_storage_gb || 0)) {
+                              patch(u.id, { extra_storage_gb: val });
+                            }
+                          }}
+                        />
+                      </div>
                     </td>
                     <td style={{ padding: '10px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>
                       <span style={{ color: 'var(--text)' }}>{u.clips}</span> clip

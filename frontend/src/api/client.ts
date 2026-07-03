@@ -239,6 +239,7 @@ export const billingApi = {
   cancelOrder: (orderId: string) =>
     api.post(`/billing/order/${orderId}/cancel`).then(r => r.data),
   myAssistants: () => api.get('/billing/assistants').then(r => r.data),
+  buyStorage: (gb: number) => api.post('/billing/buy-storage', { gb }).then(r => r.data),
 }
 
 export const extensionApi = {
