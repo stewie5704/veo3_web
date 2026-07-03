@@ -181,8 +181,7 @@ export const charactersApi = {
     fd.append('project_id', projectId)
     return api.post('/characters/', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
-  generateAIPortraits: (characters: any[]) =>
-    api.post('/characters/generate-ai-portraits', characters).then(r => r.data),
+  generateAIPortraits: (characters: any[], overwrite: boolean = false) => api.post(`/characters/generate-ai-portraits?overwrite=${overwrite}`, characters).then(r => r.data),
   delete: (id: string) => api.delete(`/characters/${id}`).then(r => r.data),
 }
 

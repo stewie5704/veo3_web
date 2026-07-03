@@ -51,15 +51,16 @@ def build_portrait_prompt(c: dict, style_desc: str = "", nationality: str = "") 
         bits.append("distinguishing marks: " + g("distinguishing_marks"))
     desc = ", ".join(bits)
     # Look theo style dự án; mặc định (không chọn style) = ẢNH THẬT, KHÔNG 3D.
-    look = style_desc.strip() or (
-        "Photorealistic real photograph, natural skin texture, shot on DSLR 85mm, soft studio light. "
-        "NOT 3D, NOT CGI, NOT illustration, NOT cartoon.")
+    look = style_desc.strip() or "3D Pixar animation style, highly detailed, vibrant colors, cinematic lighting, 8k resolution."
     nat = nationality.strip()
     who = f" of a {nat} person" if nat else ""
     nat_lock = f" Ethnicity: {nat}, authentic {nat} facial features (East Asian)." if nat else ""
-    return ("Character reference portrait" + who + ", single subject, front-facing, head and shoulders, neutral "
-            "studio lighting, plain light-grey background. " + (desc + ". " if desc else "") +
-            "Consistent wardrobe." + nat_lock + " Style: " + look + " No text, no watermark, no logo.")
+    
+    sheet_layout = ("CHARACTER MODEL SHEET. A detailed character turnaround sheet featuring a front view, side view, and back view. "
+                    "On the right side, show four distinct facial expressions: Happy, Surprised, Thinking, and Laughing. "
+                    "Clean light-grey background. Text labels like 'FRONT VIEW', 'SIDE VIEW', 'BACK VIEW', 'HAPPY' are allowed.")
+    return (sheet_layout + " " + who + ". " + (desc + ". " if desc else "") +
+            "Consistent wardrobe, identical facial structure across all views. " + nat_lock + " Style: " + look + " No watermark, no logo.")
 
 
 _portrait_inflight: set[str] = set()   # project_id đang sinh chân dung -> single-flight, chống tạo Character trùng

@@ -112,6 +112,7 @@ async def delete_character(
 @router.post("/generate-ai-portraits", response_model=list[CharacterResponse])
 async def generate_ai_portraits(
     characters: list[dict],
+    overwrite: bool = False,
     user: User = Depends(get_current_user),
 ):
     """Tự động sinh ảnh chân dung cho danh sách nhân vật (dùng Nano Banana Pro flow) và lưu vào kho chung."""
@@ -133,17 +134,28 @@ async def generate_ai_portraits(
         try:
             files = await generate_images_flow(
                 user_id=user.id, cookies=cookies, project_id=gproj,
-                prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="1:1",
+                prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="16:9",
                 out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
             if files:
                 async with AsyncSessionLocal() as db:
-                    # Chặn trùng tên trong kho chung
+                    # Chặn trùng tên trong kho chung nếu không overwrite
                     existing = await db.execute(select(Character).where(Character.user_id == user.id, Character.name == name, Character.project_id.is_(None)))
-                    if existing.scalar_one_or_none():
+                    char = existing.scalar_one_or_none()
+                    
+                    if char and not overwrite:
                         return # Đã tồn tại, bỏ qua
                     
-                    char = Character(user_id=user.id, name=name, image_file=files[0], project_id=None)
-                    db.add(char)
+                    if char and overwrite:
+                        # Ghi đè file ảnh cũ
+                        if char.image_file:
+                            p = CHAR_PATH / char.image_file
+                            if p.exists():
+                                p.unlink()
+                        char.image_file = files[0]
+                    else:
+                        char = Character(user_id=user.id, name=name, image_file=files[0], project_id=None)
+                        db.add(char)
+                        
                     await db.commit()
                     await db.refresh(char)
                     results.append(_char_resp(char))

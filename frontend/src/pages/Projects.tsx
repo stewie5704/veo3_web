@@ -745,25 +745,49 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                           <img 
                             src={chars.find(x => x.id === cId)?.image_url} 
                             alt={cName} 
-                            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} 
+                            style={{ width: 80, height: 45, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)' }} 
                           />
                         )}
 
-                        <div className="selwrap" style={{ width: 160 }}>
-                          <select className="cmp-sel" value={cId || ''} onChange={e => {
-                            const val = e.target.value
-                            if (val === 'UPLOAD') {
-                              document.getElementById(`char-upload-${cName}`)?.click()
-                            } else {
-                              setCharIdsMap(m => ({ ...m, [cName]: val }))
-                            }
-                          }}>
-                            <option value="">-- AI tự vẽ chân dung --</option>
-                            {chars.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
-                            <option value="UPLOAD">+ Upload ảnh mới...</option>
-                          </select>
-                          <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div className="selwrap" style={{ width: 160 }}>
+                            <select className="cmp-sel" value={cId || ''} onChange={e => {
+                              const val = e.target.value
+                              if (val === 'UPLOAD') {
+                                document.getElementById(`char-upload-${cName}`)?.click()
+                              } else {
+                                setCharIdsMap(m => ({ ...m, [cName]: val }))
+                              }
+                            }}>
+                              <option value="">-- AI tự vẽ chân dung --</option>
+                              {chars.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
+                              <option value="UPLOAD">+ Upload ảnh mới...</option>
+                            </select>
+                            <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                          </div>
+                          
+                          <button 
+                            className="cmp-ghost" 
+                            style={{ fontSize: 11, padding: '4px 8px', minHeight: 24, alignSelf: 'flex-start' }}
+                            onClick={async () => {
+                              // Regenerate
+                              const btn = document.getElementById(`regen-btn-${cName}`)
+                              if (btn) btn.innerHTML = '⏳ Đang vẽ...'
+                              try {
+                                await charactersApi.generateAIPortraits([c], true)
+                                await charactersApi.list().then(setChars)
+                              } catch(e) {
+                                alert('Lỗi tạo ảnh')
+                              } finally {
+                                if (btn) btn.innerHTML = '✨ Vẽ lại ảnh AI'
+                              }
+                            }}
+                            id={`regen-btn-${cName}`}
+                          >
+                            ✨ Vẽ lại ảnh AI
+                          </button>
                         </div>
+                        
                         <input type="file" id={`char-upload-${cName}`} style={{ display: 'none' }} accept="image/*" onChange={async e => {
                           const file = e.target.files?.[0]
                           if (!file) return
