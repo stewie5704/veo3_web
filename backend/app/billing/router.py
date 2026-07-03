@@ -97,11 +97,20 @@ async def checkout(
     if body.method not in ("payos", "binance"):
         raise HTTPException(400, "Phương thức thanh toán không hợp lệ")
 
+    amount = int(plan["price"])
+    if user.referred_by:
+        from sqlalchemy import select
+        res = await db.execute(select(Payment).where(Payment.user_id == user.id, Payment.status == "paid"))
+        if res.first() is None:
+            referrer = await db.get(User, user.referred_by)
+            if referrer and getattr(referrer, "buyer_discount_rate", 0) > 0:
+                amount = int(amount * (100 - referrer.buyer_discount_rate) / 100)
+
     expires_at = _utcnow_naive() + timedelta(seconds=ORDER_TTL_SECONDS)
     pay = Payment(
         user_id=user.id,
         plan=body.plan,
-        amount=int(plan["price"]),
+        amount=amount,
         currency=plan["currency"],
         gateway=body.method,
         expires_at=expires_at,

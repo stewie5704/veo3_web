@@ -12,7 +12,7 @@ param(
   [switch]$BackendOnly
 )
 
-$VPS = "root@74.81.54.150"
+$VPS = "root@180.93.43.43"
 
 # Build landing tĩnh (aiautocut.com): React + Vite Static Export → ../landing/index.html + assets/
 # Dùng npm run build:landing (xem frontend/vite.config.ts + package.json)

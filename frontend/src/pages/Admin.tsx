@@ -92,6 +92,12 @@ export default function Admin() {
       toast('Đã đặt % hoa hồng', 'success'); loadAffiliates(); affSearchRun()
     } catch { toast('Lỗi', 'error') }
   }
+  async function setBuyerRate(id: string, rate: number) {
+    try {
+      await adminApi.updateUser(id, { buyer_discount_rate: Math.max(0, Math.min(100, rate)) })
+      toast('Đã đặt % giảm giá', 'success'); loadAffiliates(); affSearchRun()
+    } catch { toast('Lỗi', 'error') }
+  }
   async function approveW(id: string) {
     try { await adminApi.approveWithdrawal(id); toast('Đã duyệt — nhớ chuyển khoản cho CTV', 'success'); loadWithdrawals() }
     catch { toast('Lỗi', 'error') }
@@ -456,11 +462,15 @@ export default function Admin() {
                         </td>
                         <td style={{ padding: '9px 12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Percent size={11} color="var(--text3)" />
+                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>Hoa hồng:</span>
                             <input type="number" defaultValue={u.affiliate_rate ?? 10} min={0} max={100}
                               onBlur={e => { const v = +e.target.value; if (v !== (u.affiliate_rate ?? 10)) setRate(u.id, v) }}
                               style={{ width: 56, padding: '3px 6px', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--text)', fontSize: 12.5 }} />
-                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>% (Enter/blur để lưu)</span>
+                            <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 8 }}>Giảm mua:</span>
+                            <input type="number" defaultValue={u.buyer_discount_rate ?? 0} min={0} max={100}
+                              onBlur={e => { const v = +e.target.value; if (v !== (u.buyer_discount_rate ?? 0)) setBuyerRate(u.id, v) }}
+                              style={{ width: 56, padding: '3px 6px', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--text)', fontSize: 12.5 }} />
+                            <span style={{ fontSize: 11, color: 'var(--text3)' }}>% (Enter/blur)</span>
                           </div>
                         </td>
                       </tr>
@@ -481,7 +491,7 @@ export default function Admin() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Affiliate', 'Link giới thiệu', 'Đã giới thiệu', 'Hoa hồng (%)', 'Đã trả', 'Còn nợ'].map(h => (
+                    {['Affiliate', 'Link giới thiệu', 'Đã giới thiệu', 'Hoa hồng (%)', 'Giảm mua (%)', 'Đã trả', 'Còn nợ'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text3)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                     ))}
                   </tr>
@@ -504,6 +514,14 @@ export default function Admin() {
                           <Percent size={11} color="var(--text3)" />
                           <input type="number" defaultValue={a.rate} min={0} max={100}
                             onBlur={e => { const v = +e.target.value; if (v !== a.rate) setRate(a.id, v) }}
+                            style={{ width: 52, padding: '2px 6px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }} />
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Percent size={11} color="var(--text3)" />
+                          <input type="number" defaultValue={a.buyer_discount_rate || 0} min={0} max={100}
+                            onBlur={e => { const v = +e.target.value; if (v !== (a.buyer_discount_rate || 0)) setBuyerRate(a.id, v) }}
                             style={{ width: 52, padding: '2px 6px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }} />
                         </div>
                       </td>

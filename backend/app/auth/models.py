@@ -42,6 +42,7 @@ class User(Base):
     is_affiliate: Mapped[bool] = mapped_column(Boolean, default=True)   # mọi user đều là affiliate
     affiliate_rate: Mapped[int] = mapped_column(Integer, default=10)    # commission %, dùng khi locked
     affiliate_rate_locked: Mapped[bool] = mapped_column(Boolean, default=False)  # admin đặt tay -> khóa, không auto lên bậc
+    buyer_discount_rate: Mapped[int] = mapped_column(Integer, default=0) # discount % cho người đăng ký dưới mã này
     wallet_balance: Mapped[int] = mapped_column(Integer, default=0)     # số dư ví (VND); hiển thị T coin = /10000
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=False)    # tự gia hạn gói từ ví
 

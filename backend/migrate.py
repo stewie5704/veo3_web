@@ -28,6 +28,7 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(300)",
     "ALTER TABLE users ADD COLUMN plan VARCHAR(20) DEFAULT 'free'",
     "ALTER TABLE users ADD COLUMN plan_expires_at DATETIME",
+    "ALTER TABLE users ADD COLUMN buyer_discount_rate INTEGER DEFAULT 0",
     # projects table
     "ALTER TABLE projects ADD COLUMN chain_mode BOOLEAN DEFAULT 0",
     "ALTER TABLE projects ADD COLUMN merged_file VARCHAR(300)",

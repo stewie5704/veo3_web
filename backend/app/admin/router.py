@@ -43,6 +43,7 @@ class UpdateUserRequest(BaseModel):
     set_plan: str | None = None     # plan id or 'free' → SET directly (manual up/down-grade / cancel)
     is_affiliate: bool | None = None
     affiliate_rate: int | None = None
+    buyer_discount_rate: int | None = None
 
 
 @router.get("/stats")
@@ -167,6 +168,7 @@ async def list_users(
             "is_active": u.is_active, "is_admin": u.is_admin, "is_banned": u.is_banned,
             "google_connected": u.google_connected, "has_gemini_key": u.has_gemini_key,
             "referral_code": u.referral_code, "affiliate_rate": u.affiliate_rate,
+            "buyer_discount_rate": getattr(u, "buyer_discount_rate", 0),
             "clips": clips, "images": getattr(u, "images_generated", 0) or 0,
             "storage_bytes": storage,
             "plan": u.plan, "plan_active": subscription.is_active(u),
@@ -204,6 +206,8 @@ async def update_user(
     if body.affiliate_rate is not None:
         user.affiliate_rate = max(0, min(100, body.affiliate_rate))
         user.affiliate_rate_locked = True   # admin đặt tay -> khóa bậc, không auto lên theo tu tiên
+    if body.buyer_discount_rate is not None:
+        user.buyer_discount_rate = max(0, min(100, body.buyer_discount_rate))
     if body.grant_plan:
         try:
             subscription.activate(user, body.grant_plan)
@@ -320,6 +324,7 @@ async def list_affiliates(admin: User = Depends(require_admin), db: AsyncSession
     return [{
         "id": a.id, "username": a.username, "email": a.email,
         "referral_code": a.referral_code, "rate": a.affiliate_rate,
+        "buyer_discount_rate": getattr(a, "buyer_discount_rate", 0),
         "referrals": referrals.get(a.id, 0),
         "earned": earned.get(a.id, 0), "pending": pending.get(a.id, 0),
     } for a in affs]
