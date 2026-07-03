@@ -127,8 +127,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // "Từ prompt" tab: mỗi ô = 1 CẢNH của CÙNG 1 video -> render rồi ghép
   const [bName, setBName] = useState('')
-  const [bScenes, setBScenes] = useState<{ prompt: string; narration: string }[]>([
-    { prompt: '', narration: '' }, { prompt: '', narration: '' },
+  const [bScenes, setBScenes] = useState<{ prompt: string; narration: string; speaker?: string }[]>([
+    { prompt: '', narration: '' },
+    { prompt: '', narration: '' },
   ])
   const [bModel, setBModel] = useState(MODELS[0].key)
   const [bAspect, setBAspect] = useState('16:9')
@@ -418,7 +419,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   const addBScene = () => setBScenes(s => [...s, { prompt: '', narration: '' }])
   const delBScene = (i: number) => setBScenes(s => s.filter((_, idx) => idx !== i))
-  const updBScene = (i: number, key: 'prompt' | 'narration', v: string) =>
+  const updBScene = (i: number, key: 'prompt' | 'narration' | 'speaker', v: string) =>
     setBScenes(s => s.map((x, idx) => idx === i ? { ...x, [key]: v } : x))
 
   async function createBatch() {
