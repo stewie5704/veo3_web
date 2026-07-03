@@ -999,6 +999,46 @@ _TONE_VI = {"ugc": "UGC quay tay tự nhiên, đời thường (không phải qu
             "young": "trẻ trung, năng lượng", "lux": "sang xịn, tinh tế", "fun": "vui nhộn, hài hước"}
 
 
+class FillDialogueRequest(BaseModel):
+    language: str
+    scenes: list[dict]
+    cast: list[str]
+
+
+@router.post("/fill-dialogue")
+async def fill_dialogue(body: FillDialogueRequest, user: User = Depends(get_current_user)):
+    """Tự động điền thoại tiếng Việt cho các cảnh chưa có thoại nhưng có ngụ ý nhân vật đang nói."""
+    if not user.gemini_api_key or body.language != "vi":
+        return {"scenes": body.scenes}
+    
+    cast_str = ", ".join(body.cast) if body.cast else "Không có"
+    system = f"""Bạn là trợ lý biên kịch. Danh sách nhân vật (dùng @Tên): {cast_str}.
+Input là JSON mảng các cảnh: [{{prompt, narration, speaker}}].
+Yêu cầu:
+1. Xét các cảnh có `narration` đang TRỐNG (empty string) và mô tả `prompt` có ngụ ý một nhân vật đang nói chuyện/giao tiếp.
+2. NẾU VẬY: Tự động sáng tác một câu thoại tiếng Việt tự nhiên, phù hợp với hoàn cảnh (1-2 câu) điền vào `narration`, đồng thời xác định người nói điền vào `speaker` (chỉ lấy tên nhân vật trong danh sách, ví dụ An).
+3. Nếu cảnh đã có thoại, hoặc prompt không tả ai đang nói: GIỮ NGUYÊN. KHÔNG được sửa `prompt`.
+Trả về JSON: {{"scenes": [{{prompt, narration, speaker}}, ...]}}
+"""
+    try:
+        import json
+        res = await asyncio.to_thread(_gemini_json, dec(user.gemini_api_key), system + "\n\nInput:\n" + json.dumps(body.scenes, ensure_ascii=False), 8192)
+        if isinstance(res, dict) and "scenes" in res:
+            # Chỉ lấy các trường cần thiết để an toàn
+            out = []
+            for i, s in enumerate(res["scenes"]):
+                if i < len(body.scenes):
+                    out.append({
+                        "prompt": body.scenes[i].get("prompt", ""),
+                        "narration": s.get("narration") or body.scenes[i].get("narration", ""),
+                        "speaker": s.get("speaker") or body.scenes[i].get("speaker", "")
+                    })
+            return {"scenes": out}
+    except Exception as e:
+        log.warning("fill-dialogue lỗi: %s", e)
+    return {"scenes": body.scenes}
+
+
 class SellPromptRequest(BaseModel):
     product: str = ""
     scene: str = "street"

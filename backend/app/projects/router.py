@@ -105,7 +105,7 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
             try:
                 files = await generate_images_flow(
                     user_id=user_id, cookies=cookies, project_id=gproj,
-                    prompt=build_portrait_prompt(ch, style_desc, nationality=nat), count=1, aspect_ratio="1:1",
+                    prompt=build_portrait_prompt(ch, style_desc, nationality=nat), count=1, aspect_ratio="16:9",
                     out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
                 if files:
                     async with AsyncSessionLocal() as db:

@@ -150,6 +150,7 @@ export const toolsApi = {
   },
   tts: (data: { text: string; voice?: string }) =>
     api.post('/tools/tts', data).then(r => r.data),
+  fillDialogue: (language: string, scenes: any[], cast: string[]) => api.post('/tools/fill-dialogue', { language, scenes, cast }).then(r => r.data),
   image: (data: { prompt: string; count?: number; aspect_ratio?: string; char_ids?: string[] }) =>
     api.post('/tools/image', data).then(r => r.data),
   copyIdea: (data: { url: string; style?: string; scene_count?: number }) =>

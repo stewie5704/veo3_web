@@ -422,17 +422,31 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setBScenes(s => s.map((x, idx) => idx === i ? { ...x, [key]: v } : x))
 
   async function createBatch() {
-    const valid = bScenes.filter(s => s.prompt.trim())
+    let valid = bScenes.filter(s => s.prompt.trim())
     if (!valid.length) { setError('Nhập ít nhất 1 cảnh có prompt'); return }
     setError(''); setCreating(true)
+    
     try {
+      if (bAudioMode === 'character_speak' && Array.from(selectedChars).length > 0) {
+        const res = await toolsApi.fillDialogue('vi', valid, Array.from(selectedChars))
+        valid = res.scenes || valid
+      }
+
       const proj = await projectsApi.create({
         name: bName || `Video ${new Date().toLocaleDateString('vi-VN')}`,
         model_key: bModel, aspect_ratio: bAspect, duration_seconds: bDuration,
-        prompts: valid.map(s => s.prompt.trim()),
-        narrations: valid.map(s => s.narration.trim()),
+        prompts: valid.map(s => {
+          // Gắn @Tên vào prompt nếu chưa có để giữ mặt
+          const cNames = Array.from(selectedChars)
+          const mentions = cNames.map(c => `@${c}`).join(' ')
+          return (cNames.length > 0 && !s.prompt.includes('@')) ? `${mentions} ${s.prompt.trim()}` : s.prompt.trim()
+        }),
+        narrations: valid.map(s => s.narration?.trim() || ''),
         auto_render: true, chain_mode: bChain,
         audio_mode: bAudioMode, voiceover: bAudioMode === 'voiceover', voice: bVoice,
+        voices: valid.map(s => s.speaker ? (charVoices[s.speaker] || bVoice) : bVoice),
+        character_names: Array.from(selectedChars),
+        character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id)
       })
       pushLog(`Tạo video từ ${valid.length} cảnh prompt${bChain ? ' (chain)' : ''}`)
       nav(`/projects/${proj.id}`)
@@ -912,7 +926,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 8 }}
                     placeholder="Mô tả cảnh này (hình ảnh + hành động)..." value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
-                  <input className="form-input" style={{ fontSize: 12.5 }} placeholder="🔊 Lời thoại (tuỳ chọn — để lồng tiếng)" value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {(bAudioMode === 'character_speak' && selectedChars.size > 0) && (
+                      <div className="selwrap" style={{ width: 120 }}>
+                        <select className="cmp-sel" value={s.speaker || ''} onChange={e => updBScene(i, 'speaker', e.target.value)}>
+                          <option value="">Người dẫn</option>
+                          {Array.from(selectedChars).map(c => <option key={c} value={c}>@{c}</option>)}
+                        </select>
+                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      </div>
+                    )}
+                    <input className="form-input" style={{ flex: 1, fontSize: 12.5 }} placeholder="🔊 Lời thoại (tuỳ chọn — để lồng tiếng)" value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -963,6 +988,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     </select>
                     <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </div>
+                </div>
+              )}
+              {(bAudioMode === 'character_speak' && selectedChars.size > 0) && (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--inset)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>🎭 Phân giọng nhân vật:</div>
+                  {Array.from(selectedChars).map(cName => (
+                    <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text2)', minWidth: 100 }}>@{cName}</span>
+                      <div className="selwrap" style={{ width: 170 }}>
+                        <select className="cmp-sel" value={charVoices[cName] || bVoice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
+                          {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
+                        </select>
+                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
