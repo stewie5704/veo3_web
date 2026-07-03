@@ -6,6 +6,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     ref: str | None = None   # affiliate referral code (from ?ref= on the signup link)
+    cookie_ref: str | None = None # implicit referral code (from 30-day cookie)
 
 
 class LoginRequest(BaseModel):

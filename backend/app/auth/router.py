@@ -69,7 +69,16 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     from app.affiliate import ensure_referral_code, attach_referrer
     await ensure_referral_code(db, user)
-    await attach_referrer(db, user, body.ref)
+
+    # Determine which ref to use and whether discount is voided
+    actual_ref = body.ref or body.cookie_ref
+    
+    # If they didn't explicitly type a code, but there's a cookie,
+    # we still credit the referrer, but the user doesn't get the discount.
+    if body.cookie_ref and not body.ref:
+        user.ref_discount_voided = True
+
+    await attach_referrer(db, user, actual_ref)
 
     try:
         await db.commit()

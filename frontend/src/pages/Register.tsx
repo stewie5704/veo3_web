@@ -6,7 +6,14 @@ import { authApi } from '../api/client'
 export default function Register() {
   const nav = useNavigate()
   const [params] = useSearchParams()
-  const [ref, setRef] = useState((params.get('ref') || '').trim())
+  // Check if we have a valid 30-day cookie
+  let savedRef = localStorage.getItem('veo_ref_code') || ''
+  const savedTime = parseInt(localStorage.getItem('veo_ref_time') || '0', 10)
+  if (savedRef && Date.now() - savedTime > 30 * 24 * 3600 * 1000) {
+    savedRef = '' // expired > 30 days
+  }
+
+  const [ref, setRef] = useState((params.get('ref') || savedRef || '').trim())
   const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,8 +25,17 @@ export default function Register() {
     if (form.password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự'); return }
     setLoading(true)
     try {
-      const res = await authApi.register({ email: form.email, username: form.username, password: form.password, ref: ref || undefined })
+      const res = await authApi.register({ 
+        email: form.email, 
+        username: form.username, 
+        password: form.password, 
+        ref: ref || undefined,
+        cookie_ref: savedRef || undefined 
+      })
       localStorage.setItem('token', res.access_token)
+      // Clear cookie after successful reg
+      localStorage.removeItem('veo_ref_code')
+      localStorage.removeItem('veo_ref_time')
       nav('/', { replace: true })
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Đăng ký thất bại')

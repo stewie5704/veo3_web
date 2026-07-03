@@ -33,19 +33,32 @@ async def gift_assistants_if_eligible(
     """
     from app.billing.models import AssistantGift
 
-    result = await db.execute(
-        select(AssistantGift).where(AssistantGift.user_id == user_id)
-    )
-    if result.scalar_one_or_none() is not None:
-        return None  # already gifted — once per user
-
     all_assistants = load_assistants()
     if not all_assistants:
         return []
 
-    # Mỗi user sẽ có một pool độc lập. Ta chọn ngẫu nhiên `count` trợ lí từ kho.
+    # Get all previously gifted assistants for this user
+    gifts = (await db.execute(
+        select(AssistantGift).where(AssistantGift.user_id == user_id)
+    )).scalars().all()
+
+    owned_ids = set()
+    for g in gifts:
+        try:
+            arr = json.loads(g.assistants_json)
+            for a in arr:
+                if "id" in a:
+                    owned_ids.add(a["id"])
+        except Exception:
+            pass
+
+    # Find available assistants in the pool
+    available = [a for a in all_assistants if a.get("id") not in owned_ids]
+    if not available:
+        return []  # User has already exhausted the entire pool of ~100 assistants
+
     import random
-    to_gift_pool = list(all_assistants)
+    to_gift_pool = list(available)
     random.shuffle(to_gift_pool)
     to_gift = to_gift_pool[:count]
 

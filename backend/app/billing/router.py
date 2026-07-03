@@ -103,7 +103,7 @@ async def checkout(
         res = await db.execute(select(Payment).where(Payment.user_id == user.id, Payment.status == "paid"))
         if res.first() is None:
             referrer = await db.get(User, user.referred_by)
-            if referrer and getattr(referrer, "buyer_discount_rate", 0) > 0:
+            if referrer and getattr(referrer, "buyer_discount_rate", 0) > 0 and not getattr(user, "ref_discount_voided", False):
                 amount = int(amount * (100 - referrer.buyer_discount_rate) / 100)
 
     expires_at = _utcnow_naive() + timedelta(seconds=ORDER_TTL_SECONDS)
