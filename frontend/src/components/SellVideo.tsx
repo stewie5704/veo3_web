@@ -144,7 +144,7 @@ export default function SellVideo() {
     return `Viết kịch bản video bán hàng affiliate (TikTok Shop), dọc 9:16, kiểu UGC quay tay, gồm ${sceneCount} cảnh NỐI TIẾP nhau cho sản phẩm: "${prod}". Bối cảnh: ${SCENE_VI[scene]}. Tông: ${TONE_VI[tone]}.
 
 QUY TẮC (RẤT QUAN TRỌNG ĐỂ GIỮ MẶT + SẢN PHẨM ĐỒNG BỘ):
-- Phần HÌNH ẢNH viết bằng TIẾNG ANH. Chỉ gọi "the person"/"they". TUYỆT ĐỐI KHÔNG tả ngoại hình.
+- Phần HÌNH ẢNH viết bằng TIẾNG ANH. Chỉ gọi "the person"/"they". TUYỆT ĐỐI KHÔNG tả ngoại hình. KHÔNG dùng các từ miêu tả việc nói chuyện (speaking, talking, explaining).
 - BẮT BUỘC nhắc: "the exact product from the @Product reference image" + "the person from the @KOL reference image".
 - Luôn chèn đầy đủ: keep the product the EXACT same... + "Keep the person's face, hairstyle and appearance 100% identical to the KOL reference image in every frame".
 - Phần LỜI THOẠI viết ${langLabel}, tự nhiên, ~1 câu mỗi cảnh.
@@ -321,6 +321,9 @@ LỜI THOẠI: ...
         }
         if (!/exact same item/i.test(lower)) {
           out = (out ? out + ' — ' : '') + PRODUCT_LOCK
+        }
+        if (audioMode === 'voiceover' && !/mouth closed|not speaking|no talking/i.test(lower)) {
+          out += ', mouth closed, not speaking, no talking'
         }
         return out
       }
