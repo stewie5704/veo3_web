@@ -100,9 +100,61 @@ async def delete_character(
     char = await db.get(Character, char_id)
     if not char or char.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy nhân vật")
-    fpath = CHAR_PATH / char.image_file
-    if fpath.exists():
-        fpath.unlink()
+    if char.image_file:
+        p = CHAR_PATH / char.image_file
+        if p.exists():
+            p.unlink()
     await db.delete(char)
     await db.commit()
-    return {"ok": True}
+    return {"status": "ok"}
+
+
+@router.post("/generate-ai-portraits", response_model=list[CharacterResponse])
+async def generate_ai_portraits(
+    characters: list[dict],
+    user: User = Depends(get_current_user),
+):
+    """Tự động sinh ảnh chân dung cho danh sách nhân vật (dùng Nano Banana Pro flow) và lưu vào kho chung."""
+    from app.projects.router import build_portrait_prompt
+    from app.pipeline.runner import generate_images_flow
+    from app.crypto import dec
+    from app.database import AsyncSessionLocal
+
+    cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
+    gproj = (user.google_project_id if user else "") or ""
+    if not (cookies and gproj):
+        raise HTTPException(400, "Cần thiết lập Nano Banana Pro (cookies + project id) trong phần Cài đặt.")
+
+    results = []
+    
+    async def _one(ch: dict):
+        name = str(ch.get("name") or "").strip()
+        if not name: return
+        try:
+            files = await generate_images_flow(
+                user_id=user.id, cookies=cookies, project_id=gproj,
+                prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="1:1",
+                out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
+            if files:
+                async with AsyncSessionLocal() as db:
+                    # Chặn trùng tên trong kho chung
+                    existing = await db.execute(select(Character).where(Character.user_id == user.id, Character.name == name, Character.project_id.is_(None)))
+                    if existing.scalar_one_or_none():
+                        return # Đã tồn tại, bỏ qua
+                    
+                    char = Character(user_id=user.id, name=name, image_file=files[0], project_id=None)
+                    db.add(char)
+                    await db.commit()
+                    await db.refresh(char)
+                    results.append(_char_resp(char))
+        except Exception as e:
+            pass
+
+    import asyncio
+    import random
+    for i, c in enumerate(characters[:8]):
+        await _one(c)
+        if i < len(characters[:8]) - 1:
+            await asyncio.sleep(random.uniform(2.0, 4.0))
+
+    return results

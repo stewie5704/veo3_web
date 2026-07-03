@@ -193,6 +193,28 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const updateScene = (i: number, key: string, val: string) =>
     setScenes(prev => prev.map((x, idx) => idx === i ? { ...x, [key]: val } : x))
 
+  const [generatingPortraits, setGeneratingPortraits] = useState(false)
+
+  const autoGeneratePortraits = (bc: any[]) => {
+    if (!bc || bc.length === 0) return
+    setGeneratingPortraits(true)
+    charactersApi.generateAIPortraits(bc).then(async () => {
+      const newChars = await charactersApi.list()
+      setChars(newChars)
+      const newCharMap = Object.fromEntries(newChars.map((c: any) => [c.name, c.id]))
+      setCharIdsMap(m => {
+        const nm = { ...m }
+        for (const b of bc) {
+          const cName = b.name || b.char_key
+          if (!nm[cName] && newCharMap[cName]) {
+            nm[cName] = newCharMap[cName]
+          }
+        }
+        return nm
+      })
+    }).catch(console.error).finally(() => setGeneratingPortraits(false))
+  }
+
   // AI viết kịch bản
   async function genPrompts(directCreate = true) {
     if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
@@ -202,7 +224,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect, cast: castObjs })
       const bc = res.characters || []
       const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
-      setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
+      const mappedScenes = (res.scenes || []).map((s: any) => ({ ...s, narration: s.dialogue || s.narration || '' }))
+      setScenes(mappedScenes); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã viết kịch bản ${n} cảnh`)
       if (directCreate) {
@@ -212,6 +235,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       } else {
         setStep('review')
         setLoadingPrompts(false)
+        autoGeneratePortraits(bc)
       }
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setLoadingPrompts(false) }
   }
@@ -225,7 +249,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: castObjs })
       const bc = res.characters || []
       const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
-      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
+      const mappedScenes = (res.scenes || []).map((s: any) => ({ ...s, narration: s.dialogue || s.narration || '' }))
+      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(mappedScenes); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
       if (directCreate) {
@@ -235,6 +260,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       } else {
         setStep('review')
         setLoadingPrompts(false)
+        autoGeneratePortraits(bc)
       }
     } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
   }
@@ -702,7 +728,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
             {bibleChars.length > 0 && (
               <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🎭 Danh sách nhân vật (Gán mặt & Giọng)</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
+                  🎭 Danh sách nhân vật (Gán mặt & Giọng)
+                  {generatingPortraits && <span style={{ marginLeft: 8, color: 'var(--accent3)' }}><Loader2 size={10} className="spin" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}/> Đang vẽ tự động...</span>}
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {bibleChars.map((c: any) => {
                     const cName = c.name || c.char_key
