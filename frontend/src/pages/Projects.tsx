@@ -114,6 +114,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [voice, setVoice] = useState('Kore')
   const [bibleChars, setBibleChars] = useState<any[]>([])           // hồ sơ nhân vật từ AI
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})  // tên nhân vật -> giọng
+  const [charIdsMap, setCharIdsMap] = useState<Record<string, string>>({})  // tên nhân vật -> ID ảnh
   // Thêm nhân vật inline (giữ mặt) trong wizard
   const [addCharOpen, setAddCharOpen] = useState(false)
   const [newCharName, setNewCharName] = useState('')
@@ -326,7 +327,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const knownCharNames = Array.from(new Set([
       ...Object.keys(sCharVoices || {}),
       ...sBible.map((c: any) => c.name || '').filter(Boolean),
-      ...Array.from(selectedChars || [])
+      ...Array.from(selectedChars || []),
+      ...Object.keys(charIdsMap)
     ]))
     function pickVoiceForScene(s: any, narration: string): string {
       const spk = (s?.speaker || '').trim()
@@ -356,9 +358,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
+    const extraCharIds = Object.values(charIdsMap).filter(Boolean)
+    const combinedCharIds = Array.from(new Set([...chars.filter(c => selectedChars.has(c.name)).map(c => c.id), ...extraCharIds]))
+    
+    const combinedNames = new Set([...selectedChars])
+    for (const [nm, id] of Object.entries(charIdsMap)) {
+      if (id) combinedNames.add(nm)
+    }
+    const hasImageLock = combinedCharIds.length > 0;
+
     const enriched = basePrompts.map(p => {
-      const mentions = [...selectedChars].map(c => `@${c}`).join(' ')
-      return selectedChars.size > 0 && !p.includes('@') ? `${mentions} ${p}` : p
+      const mentions = [...combinedNames].map(c => `@${c}`).join(' ')
+      return combinedNames.size > 0 && !p.includes('@') ? `${mentions} ${p}` : p
     })
     try {
       const proj = await projectsApi.create({
@@ -366,11 +377,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         idea, style: sStyle || undefined, model_key: model,
         aspect_ratio: sAspect, duration_seconds: duration, language,
         prompts: enriched, narrations: baseNarr, auto_render: autoRender,
-        character_names: [...selectedChars],
+        character_names: [...combinedNames],
         // id nhân vật được chọn -> backend clone thành nhân vật RIÊNG của project (giữ mặt)
-        character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id),
+        character_ids: combinedCharIds,
         audio_mode: audioMode, voiceover, voice, voices: baseVoices,
         character_bible: sBible,   // -> backend sinh chân dung AI giữ mặt mọi cảnh
+        i2v_fix: hasImageLock,
       })
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
@@ -661,6 +673,158 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             </div>
           </>)}
 
+          {/* ─── BƯỚC 2: DUYỆT KỊCH BẢN ─── */}
+          {step === 'review' && (<>
+            <div className="cmp-body">
+            {/* Banner ước tính */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '14px 16px', marginBottom: 16,
+              background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 10 }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Độ dài video</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent3)' }}>~{fmtLen(reviewLenSec)}</div>
+              </div>
+              <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Số cảnh</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{reviewN} × {duration}s</div>
+              </div>
+              <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Chi phí</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: reviewCost === 0 ? 'var(--green)' : 'var(--yellow)' }}>{reviewCost === 0 ? 'FREE' : `${reviewCost} 💎`}</div>
+              </div>
+              <div style={{ flex: 1 }} />
+              <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right', lineHeight: 1.5 }}>
+                {modelObjNew.label} · {aspect}
+                {(selectedChars.size > 0 || Object.values(charIdsMap).filter(Boolean).length > 0) && <><br />🔒 khoá {new Set([...selectedChars, ...Object.keys(charIdsMap).filter(k => charIdsMap[k])]).size} mặt</>}
+              </div>
+            </div>
+
+            {bibleChars.length > 0 && (
+              <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🎭 Danh sách nhân vật (Gán mặt & Giọng)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {bibleChars.map((c: any) => {
+                    const cName = c.name || c.char_key
+                    const cId = charIdsMap[cName] || (selectedChars.has(cName) ? chars.find(x => x.name === cName)?.id : '')
+                    const cVoice = charVoices[cName] || c.tts_voice || voice
+                    return (
+                      <div key={cName} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 10, borderBottom: '1px dashed var(--border)' }}>
+                        <div style={{ minWidth: 100, fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</div>
+                        
+                        <div className="selwrap" style={{ width: 160 }}>
+                          <select className="cmp-sel" value={cId || ''} onChange={e => {
+                            const val = e.target.value
+                            if (val === 'UPLOAD') {
+                              document.getElementById(`char-upload-${cName}`)?.click()
+                            } else {
+                              setCharIdsMap(m => ({ ...m, [cName]: val }))
+                            }
+                          }}>
+                            <option value="">-- AI tự vẽ chân dung --</option>
+                            {chars.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
+                            <option value="UPLOAD">+ Upload ảnh mới...</option>
+                          </select>
+                          <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </div>
+                        <input type="file" id={`char-upload-${cName}`} style={{ display: 'none' }} accept="image/*" onChange={async e => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          try {
+                            const res = await charactersApi.add(cName, file)
+                            await charactersApi.list().then(setChars)
+                            setCharIdsMap(m => ({ ...m, [cName]: res.id }))
+                          } catch (err) {
+                            alert('Upload lỗi!')
+                          }
+                        }} />
+
+                        <div className="selwrap" style={{ width: 160 }}>
+                          <select className="cmp-sel" value={cVoice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
+                            {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
+                          </select>
+                          <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
+              {loadingPrompts
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--accent2)' }}>
+                    <Loader2 size={13} className="spin" /> 🪄 AI đang viết kịch bản {sceneCount} cảnh — vài giây...
+                  </span>
+                : <>📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:</>}
+            </div>
+            <div style={{ maxHeight: 440, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {loadingPrompts ? Array.from({ length: Math.min(sceneCount, 8) }).map((_, i) => (
+                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                  <div className="skel" style={{ height: 14, width: 96, marginBottom: 10 }} />
+                  <div className="skel" style={{ height: 28, width: '100%', marginBottom: 8 }} />
+                  <div className="skel" style={{ height: 28, width: '85%' }} />
+                </div>
+              )) : scenes.length > 0 ? scenes.map((s, i) => (
+                <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * duration)}–{fmtTC((i + 1) * duration)}</span>
+                    {s.beat && <span style={{ fontSize: 11.5, color: 'var(--accent3)', fontWeight: 600 }}>· {s.beat}</span>}
+                    <button onClick={() => delScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.image} onChange={e => updateScene(i, 'image', e.target.value)} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Hành động</div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.action} onChange={e => updateScene(i, 'action', e.target.value)} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🔊 Lời thoại</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 120px' }} placeholder="Người nói" value={s.speaker} onChange={e => updateScene(i, 'speaker', e.target.value)} />
+                    <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
+                  </div>
+                  <details style={{ marginTop: 8 }}>
+                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Mô tả cảnh — sửa nếu cần</summary>
+                    <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
+                  </details>
+                </div>
+              )) : prompts.map((p, i) => (
+                <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text3)' }}>{duration}s</span>
+                  </div>
+                  <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: narrations[i] !== undefined ? 6 : 0 }} value={p}
+                    placeholder="Mô tả cảnh"
+                    onChange={e => { const np = [...prompts]; np[i] = e.target.value; setPrompts(np) }} />
+                  {narrations[i] !== undefined && (
+                    <input className="form-input" style={{ fontSize: 12 }} value={narrations[i]}
+                      placeholder="🔊 Lời thoại / narration"
+                      onChange={e => { const nn = [...narrations]; nn[i] = e.target.value; setNarrations(nn) }} />
+                  )}
+                </div>
+              ))}
+            </div>
+            {scenes.length > 0 && (
+              <button className="cmp-ghost" onClick={addScene} style={{ width: '100%', borderStyle: 'dashed' }}>+ Thêm cảnh</button>
+            )}
+            </div>
+            <div className="cmp-actionbar">
+              <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
+              <div style={{ flex: 1 }} />
+              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
+              <button className="cmp-cta" onClick={() => {
+                const n = reviewN
+                const msg = reviewCost === 0
+                  ? `Tạo video ${n} cảnh bằng model Miễn phí — KHÔNG tốn credit (0 💎). Tiếp tục?`
+                  : `Tạo video ${n} cảnh — tốn khoảng ${reviewCost} 💎. Tiếp tục?`
+                if (!window.confirm(msg)) return
+                createNew(true)
+              }} disabled={creating || loadingPrompts}>
+                {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
+              </button>
+            </div>
+          </>)}
           
         </div>
       )}
