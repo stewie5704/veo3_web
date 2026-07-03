@@ -741,6 +741,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                       <div key={cName} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 10, borderBottom: '1px dashed var(--border)' }}>
                         <div style={{ minWidth: 100, fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</div>
                         
+                        {cId && chars.find(x => x.id === cId)?.image_url && (
+                          <img 
+                            src={chars.find(x => x.id === cId)?.image_url} 
+                            alt={cName} 
+                            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} 
+                          />
+                        )}
+
                         <div className="selwrap" style={{ width: 160 }}>
                           <select className="cmp-sel" value={cId || ''} onChange={e => {
                             const val = e.target.value
