@@ -23,4 +23,4 @@ def run_ssh_command(cmd):
     return out, err
 
 if __name__ == "__main__":
-    run_ssh_command('systemctl status postgresql')
+    run_ssh_command('cat /etc/nginx/sites-available/veo3-app')

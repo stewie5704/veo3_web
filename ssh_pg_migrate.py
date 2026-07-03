@@ -1,0 +1,31 @@
+import psycopg2
+conn = psycopg2.connect("postgresql://veo3:iouX-4LBGcp_GxVGdjWYOcxF@localhost:5432/veo3web")
+conn.autocommit = True
+cur = conn.cursor()
+
+migrations = [
+    "ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT false",
+    "ALTER TABLE users ADD COLUMN has_gemini_key BOOLEAN DEFAULT false",
+    "ALTER TABLE users ADD COLUMN quota_videos INTEGER DEFAULT 100",
+    "ALTER TABLE users ADD COLUMN videos_generated INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN display_name VARCHAR(100)",
+    "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(300)",
+    "ALTER TABLE users ADD COLUMN plan VARCHAR(20) DEFAULT 'free'",
+    "ALTER TABLE users ADD COLUMN plan_expires_at TIMESTAMP",
+    "ALTER TABLE users ADD COLUMN buyer_discount_rate INTEGER DEFAULT 0",
+    "ALTER TABLE projects ADD COLUMN chain_mode BOOLEAN DEFAULT false",
+    "ALTER TABLE projects ADD COLUMN merged_file VARCHAR(300)",
+    "ALTER TABLE scenes ADD COLUMN start_image VARCHAR(300)",
+    "ALTER TABLE scenes ADD COLUMN wait_for_prev BOOLEAN DEFAULT false",
+    "ALTER TABLE referrals ADD COLUMN buyer_discount_rate INTEGER DEFAULT 0"
+]
+
+for sql in migrations:
+    try:
+        cur.execute(sql)
+        print("OK:", sql)
+    except Exception as e:
+        print("SKIP:", sql, "->", str(e).strip())
+
+cur.close()
+conn.close()

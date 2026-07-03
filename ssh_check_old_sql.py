@@ -1,7 +1,7 @@
 import paramiko
 import sys
 
-host = "180.93.43.43"
+old_host = "74.81.54.150"
 user = "root"
 password = "thaikuku1"
 
@@ -9,7 +9,7 @@ def run_ssh_command(cmd):
     print(f"Running: {cmd}")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host, username=user, password=password)
+    ssh.connect(old_host, username=user, password=password)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     
     out = stdout.read().decode('utf-8', errors='replace')
@@ -23,4 +23,5 @@ def run_ssh_command(cmd):
     return out, err
 
 if __name__ == "__main__":
-    run_ssh_command('systemctl status postgresql')
+    run_ssh_command('ls -l /root/old_db.sql')
+    run_ssh_command('head -n 20 /root/old_db.sql')

@@ -23,4 +23,4 @@ def run_ssh_command(cmd):
     return out, err
 
 if __name__ == "__main__":
-    run_ssh_command('systemctl status postgresql')
+    run_ssh_command('grep "body.email = body.email.lower()" /opt/veo3-web/backend/app/auth/router.py || echo "NOT FOUND"')
