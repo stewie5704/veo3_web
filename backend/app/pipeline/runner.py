@@ -815,7 +815,7 @@ async def run_video_job(job_id: str, user_id: str):
                 return await _generate_one(
                     user_id=user_id, cookies=cookies, project_id=project_id, prompt=prompt,
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
-                    model_key=model_key, out_stem=f"{job_id}_{i}", start_image_path=start_path,
+                    model_key=model_key, out_stem=f"{job_id}_{i}_{int(time.time())}", start_image_path=start_path,
                     extra_ref_paths=extra_ref_paths, seed=sd)
             try:
                 try:
