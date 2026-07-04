@@ -187,7 +187,7 @@ export const charactersApi = {
 }
 
 export const mediaApi = {
-  merge: (project_id: string) => api.post('/media/merge', { project_id }).then(r => r.data),
+  merge: (project_id: string, part: number | null = null) => api.post('/media/merge', { project_id, part }).then(r => r.data),
   cut: (data: { filename: string; mode: string; segment?: number; fps?: number }) =>
     api.post('/media/cut', data).then(r => r.data),
   downloadUrl: (url: string, quality?: string) =>

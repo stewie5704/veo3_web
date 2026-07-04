@@ -169,12 +169,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
-  async function doMerge() {
+  async function doMerge(part: number | null = null) {
     if (!id) return
     setMerging(true); setMergeUrl(null)
-    pushLog('🎬 Bắt đầu ghép phim...')
+    const label = part != null ? `phần ${part}` : 'toàn bộ phim'
+    pushLog(`🎬 Bắt đầu ghép ${label}...`)
     try {
-      const res = await mediaApi.merge(id)
+      const res = await mediaApi.merge(id, part)
       setMergeUrl(res.url)
       pushLog(`✅ Ghép xong: ${res.filename}`)
     } catch (e: any) {
@@ -599,14 +600,36 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           <button className="btn btn-ghost btn-sm" onClick={() => setAddPartOpen(true)} title="Thêm kịch bản / phần tiếp theo (giữ nhân vật)">
             <Plus size={13} /> Thêm kịch bản
           </button>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={doMerge}
-            disabled={merging || !allDone}
-            title={!allDone ? 'Chờ tất cả scene xong' : 'Ghép tất cả scene thành final.mp4'}
-          >
-            {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép phim</>}
-          </button>
+          {multiPart ? (
+            <>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => doMerge(selectedPart)}
+                disabled={merging || partStatusOf(scenesOfPart(selectedPart || 1)) !== 'done'}
+                title="Chỉ ghép các cảnh của phần đang chọn"
+              >
+                {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép Phần {selectedPart}</>}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => doMerge(null)}
+                disabled={merging || !allDone}
+                title={!allDone ? 'Chờ tất cả cảnh xong' : 'Ghép tất cả các phần thành 1 video dài'}
+                style={{ border: '1px solid var(--border)' }}
+              >
+                <Film size={13} /> Ghép tất cả
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => doMerge(null)}
+              disabled={merging || !allDone}
+              title={!allDone ? 'Chờ tất cả scene xong' : 'Ghép tất cả scene thành final.mp4'}
+            >
+              {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép phim</>}
+            </button>
+          )}
           <button className="btn btn-danger btn-sm" onClick={removeProject} title="Xoá dự án"><Trash2 size={13} /> Xoá</button>
         </div>
       </div>

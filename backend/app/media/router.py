@@ -111,6 +111,7 @@ async def gen_thumbnail(
 
 class MergeRequest(BaseModel):
     project_id: str
+    part: int | None = None
 
 
 @router.post("/merge")
@@ -126,6 +127,9 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
             .order_by(Scene.index)
         )
         scenes = res.scalars().all()
+
+    if body.part is not None:
+        scenes = [s for s in scenes if (getattr(s, "part", 1) or 1) == body.part]
 
     if not scenes:
         raise HTTPException(400, "Chưa có scene nào hoàn thành")
