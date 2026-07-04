@@ -196,24 +196,30 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   const [generatingPortraits, setGeneratingPortraits] = useState(false)
 
-  const autoGeneratePortraits = (bc: any[]) => {
-    if (!bc || bc.length === 0) return
+  const autoGeneratePortraits = async (bc: any[]) => {
+    if (!bc || bc.length === 0) return {}
     setGeneratingPortraits(true)
-    charactersApi.generateAIPortraits(bc).then(async () => {
+    pushLog("Tạo character model sheet cho nhân vật...")
+    try {
+      await charactersApi.generateAIPortraits(bc)
       const newChars = await charactersApi.list()
       setChars(newChars)
       const newCharMap = Object.fromEntries(newChars.map((c: any) => [c.name, c.id]))
-      setCharIdsMap(m => {
-        const nm = { ...m }
-        for (const b of bc) {
-          const cName = b.name || b.char_key
-          if (!nm[cName] && newCharMap[cName]) {
-            nm[cName] = newCharMap[cName]
-          }
+      const nm: Record<string, string> = {}
+      for (const b of bc) {
+        const cName = b.name || b.char_key
+        if (newCharMap[cName]) {
+          nm[cName] = newCharMap[cName]
         }
-        return nm
-      })
-    }).catch(console.error).finally(() => setGeneratingPortraits(false))
+      }
+      setCharIdsMap(m => ({ ...m, ...nm }))
+      return nm
+    } catch(e) {
+      console.error(e)
+      return {}
+    } finally {
+      setGeneratingPortraits(false)
+    }
   }
 
   // AI viết kịch bản
@@ -231,8 +237,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`Đã viết kịch bản ${n} cảnh`)
       if (directCreate) {
         const cost = modelObjNew.cost * n
-      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        let extraCharMap = {}
+        if (bc && bc.length > 0) {
+          extraCharMap = await autoGeneratePortraits(bc) || {}
+        }
+        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
       } else {
         setStep('review')
         setLoadingPrompts(false)
@@ -256,8 +266,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
       if (directCreate) {
         const cost = modelObjNew.cost * n
-      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        let extraCharMap = {}
+        if (bc && bc.length > 0) {
+          extraCharMap = await autoGeneratePortraits(bc) || {}
+        }
+        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
       } else {
         setStep('review')
         setLoadingPrompts(false)
@@ -302,8 +316,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       if (!n) { setError('Không đọc được khung nào từ storyboard — thử ảnh rõ hơn.'); setLoadingPrompts(false); return }
       if (directCreate) {
         const cost = modelObjNew.cost * n
-      if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
-      await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv })
+        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        let extraCharMap = {}
+        if (bc && bc.length > 0) {
+          extraCharMap = await autoGeneratePortraits(bc) || {}
+        }
+        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
       } else {
         setStep('review')
         setLoadingPrompts(false)
@@ -334,7 +352,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   // data: cho phép tạo THẲNG từ kết quả phân tích (bỏ bước duyệt) thay vì đọc từ state (chưa kịp cập nhật)
-  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string; style?: string; aspect?: string }) {
+  async function createNew(autoRender: boolean, data?: { scenes?: any[]; prompts?: string[]; narrations?: string[]; bible?: any[]; charVoices?: Record<string, string>; name?: string; style?: string; aspect?: string; charIdsMap?: Record<string, string> }) {
     const sScenes = data?.scenes ?? scenes
     const sPrompts = data?.prompts ?? prompts
     const sNarr = data?.narrations ?? narrations
@@ -385,11 +403,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
-    const extraCharIds = Object.values(charIdsMap).filter(Boolean)
+    const mapToUse = data?.charIdsMap || charIdsMap
+    const extraCharIds = Object.values(mapToUse).filter(Boolean)
     const combinedCharIds = Array.from(new Set([...chars.filter(c => selectedChars.has(c.name)).map(c => c.id), ...extraCharIds]))
     
     const combinedNames = new Set([...selectedChars])
-    for (const [nm, id] of Object.entries(charIdsMap)) {
+    for (const [nm, id] of Object.entries(mapToUse)) {
       if (id) combinedNames.add(nm)
     }
     const hasImageLock = combinedCharIds.length > 0;

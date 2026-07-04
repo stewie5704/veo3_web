@@ -699,13 +699,15 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         </div>
 
         {(project.characters?.length ?? 0) > 0 ? (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {project.characters.map((c: any) => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 4px', borderRadius: 99, border: '1px solid var(--border)', background: 'rgba(249,115,22,0.08)' }}>
-                <img src={c.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--accent3)' }}>@{c.name}</span>
-                <button onClick={() => delProjChar(c.id)} title="Gỡ khỏi dự án"
-                  style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px' }}>✕</button>
+              <div key={c.id} style={{ position: 'relative', width: 90, height: 130, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--inset)' }}>
+                <img src={c.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '40%' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>@{c.name}</span>
+                  <button onClick={() => delProjChar(c.id)} title="Gỡ khỏi dự án"
+                    style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
+                </div>
               </div>
             ))}
           </div>
