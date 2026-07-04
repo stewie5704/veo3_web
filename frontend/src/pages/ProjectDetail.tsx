@@ -701,7 +701,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         {(project.characters?.length ?? 0) > 0 ? (
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {project.characters.map((c: any) => (
-              <div key={c.id} style={{ position: 'relative', width: 90, height: 130, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--inset)' }}>
+              <div key={c.id} style={{ position: 'relative', width: 90, height: 160, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--inset)' }}>
                 <img src={c.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '40%' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>@{c.name}</span>

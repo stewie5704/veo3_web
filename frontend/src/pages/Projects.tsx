@@ -782,11 +782,13 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                         <div style={{ minWidth: 100, fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</div>
                         
                         {cId && chars.find(x => x.id === cId)?.image_url && (
-                          <img 
-                            src={chars.find(x => x.id === cId)?.image_url} 
-                            alt={cName} 
-                            style={{ width: 80, height: 45, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--border)' }} 
-                          />
+                          <div style={{ width: 90, height: 160, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--inset)', flexShrink: 0 }}>
+                            <img 
+                              src={chars.find(x => x.id === cId)?.image_url} 
+                              alt={cName} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            />
+                          </div>
                         )}
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
