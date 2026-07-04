@@ -520,6 +520,32 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                         }
                       }} />
                   </label>
+                  <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}
+                    onClick={async () => {
+                      if (!id) return
+                      try {
+                        notify('Đang chèn cảnh mới lên trước...')
+                        const res = await projectsApi.insertScene(id, scene.index, scene.part)
+                        setMenuScene(null)
+                        await load(true)
+                        if (res.scene_id) { setEditingScene(res.scene_id); setEditPrompt(''); setEditNarration('') }
+                      } catch { notify('Chèn cảnh thất bại', 'error') }
+                    }} title="Chèn một cảnh trống mới lên ngay phía trước cảnh này">
+                    <Plus size={13} /> Chèn cảnh lên trước
+                  </button>
+                  <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}
+                    onClick={async () => {
+                      if (!id) return
+                      try {
+                        notify('Đang chèn cảnh mới xuống sau...')
+                        const res = await projectsApi.insertScene(id, scene.index + 1, scene.part)
+                        setMenuScene(null)
+                        await load(true)
+                        if (res.scene_id) { setEditingScene(res.scene_id); setEditPrompt(''); setEditNarration('') }
+                      } catch { notify('Chèn cảnh thất bại', 'error') }
+                    }} title="Chèn một cảnh trống mới xuống ngay phía sau cảnh này">
+                    <Plus size={13} /> Chèn cảnh xuống sau
+                  </button>
                   <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start', color: 'var(--red)' }}
                     onClick={() => deleteScene(scene.id, scene.index)} title="Xoá hẳn cảnh này khỏi dự án">
                     <Trash2 size={13} /> Xoá cảnh

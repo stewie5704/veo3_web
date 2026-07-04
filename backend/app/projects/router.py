@@ -633,6 +633,48 @@ async def update_scene(
     return scene_to_resp(scene)
 
 
+class InsertSceneRequest(BaseModel):
+    index: int
+    part: int = 1
+
+
+@router.post("/{project_id}/scenes/insert")
+async def insert_scene(
+    project_id: str, body: InsertSceneRequest,
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+
+    res = await db.execute(select(Scene).where(Scene.project_id == project_id).order_by(Scene.index))
+    all_scenes = res.scalars().all()
+
+    for s in all_scenes:
+        if s.index >= body.index:
+            s.index += 1
+
+    new_s = Scene(
+        project_id=project_id,
+        user_id=user.id,
+        index=body.index,
+        part=body.part,
+        prompt="[Cảnh mới] Nhấn nút Sửa để nhập mô tả cảnh...",
+        model_key=proj.model_key,
+        aspect_ratio=proj.aspect_ratio,
+        duration_seconds=proj.duration_seconds,
+        status=SceneStatus.pending,
+    )
+    db.add(new_s)
+    proj.scene_count = len(all_scenes) + 1
+    proj.stopped = False
+
+    await _invalidate_merge(db, project_id)
+    await db.commit()
+    await db.refresh(new_s)
+    return {"ok": True, "scene_id": new_s.id}
+
+
 @router.delete("/{project_id}/scenes/{scene_id}")
 async def delete_scene(
     project_id: str, scene_id: str,
