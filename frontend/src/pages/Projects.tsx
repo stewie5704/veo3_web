@@ -399,6 +399,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       return combinedNames.size > 0 && !p.includes('@') ? `${mentions} ${p}` : p
     })
     try {
+      const startTime = Date.now();
       const proj = await projectsApi.create({
         name: sName || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
         idea, style: sStyle || undefined, model_key: model,
@@ -411,6 +412,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         character_bible: sBible,   // -> backend sinh chân dung AI giữ mặt mọi cảnh
         i2v_fix: hasImageLock,
       })
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) await new Promise(r => setTimeout(r, 5000 - elapsed));
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
       nav(`/projects/${proj.id}`)
@@ -428,6 +431,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setError(''); setCreating(true)
     
     try {
+      const startTime = Date.now();
       if (bAudioMode === 'character_speak' && Array.from(selectedChars).length > 0) {
         const res = await toolsApi.fillDialogue('vi', valid, Array.from(selectedChars))
         valid = res.scenes || valid
@@ -449,6 +453,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         character_names: Array.from(selectedChars),
         character_ids: chars.filter(c => selectedChars.has(c.name)).map(c => c.id)
       })
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 5000) await new Promise(r => setTimeout(r, 5000 - elapsed));
       pushLog(`Tạo video từ ${valid.length} cảnh prompt${bChain ? ' (chain)' : ''}`)
       nav(`/projects/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || 'Tạo video thất bại'); setCreating(false) }
