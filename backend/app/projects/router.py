@@ -59,8 +59,9 @@ def build_portrait_prompt(c: dict, style_desc: str = "", nationality: str = "") 
     sheet_layout = ("CHARACTER MODEL SHEET. A detailed character turnaround sheet featuring a front view, side view, and back view. "
                     "On the right side, show four distinct facial expressions: Happy, Surprised, Thinking, and Laughing. "
                     "Clean light-grey background. Text labels like 'FRONT VIEW', 'SIDE VIEW', 'BACK VIEW', 'HAPPY' are allowed.")
+    ip_safe = " This is a 100% ORIGINAL character design. NOT a real person, NOT a celebrity, NOT from any existing anime, manga, movie, game, or TV show. Completely unique and original creation."
     return (sheet_layout + " " + who + ". " + (desc + ". " if desc else "") +
-            "Consistent wardrobe, identical facial structure across all views. " + nat_lock + " Style: " + look + " No watermark, no logo.")
+            "Consistent wardrobe, identical facial structure across all views. " + nat_lock + " Style: " + look + ip_safe + " No watermark, no logo.")
 
 
 _portrait_inflight: set[str] = set()   # project_id đang sinh chân dung -> single-flight, chống tạo Character trùng
