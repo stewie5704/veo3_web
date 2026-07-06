@@ -30,6 +30,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   })
   const [merging, setMerging] = useState(false)
   const [mergeUrl, setMergeUrl] = useState<string | null>(null)
+  const [mergeFilename, setMergeFilename] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null)
   const toastTimer = useRef<any>(null)
@@ -171,12 +172,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
 
   async function doMerge(part: number | null = null) {
     if (!id) return
-    setMerging(true); setMergeUrl(null)
+    setMerging(true); setMergeUrl(null); setMergeFilename(null)
     const label = part != null ? `phần ${part}` : 'toàn bộ phim'
     pushLog(`🎬 Bắt đầu ghép ${label}...`)
     try {
       const res = await mediaApi.merge(id, part)
       setMergeUrl(res.url)
+      setMergeFilename(res.filename || null)
       pushLog(`✅ Ghép xong: ${res.filename}`)
     } catch (e: any) {
       pushLog(`❌ Ghép thất bại: ${e.response?.data?.detail || e.message}`, 'error')
@@ -665,7 +667,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <div className="alert alert-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
           <Check size={15} /> Ghép xong!
           <video src={mergeUrl} controls style={{ maxWidth: 400, borderRadius: 8 }} />
-          <DownloadMenu base={`/projects/${id}/download-merged`} filename="phim.mp4" />
+          <DownloadMenu base={`/projects/${id}/download-merged`} filename={mergeFilename || 'phim.mp4'} />
         </div>
       )}
 
