@@ -185,80 +185,127 @@ def _is_quota(e) -> bool:
     return any(k in str(e).lower() for k in _QUOTA_KW)
 
 
-def _gemini_json(api_key: str, prompt: str, max_tokens: int = 8192) -> dict:
-    """Gemini JSON mode + fallback BỀN qua các model. Hết quota (429) -> bỏ model đó NGAY (plain cùng
-    model cũng vô ích), thử model kế. timeout/model chống SDK retry-backoff treo lâu. Nếu cạn quota cả
-    3 model -> báo lỗi tiếng Việt rõ ràng thay vì đổ JSON 429."""
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
-    ropts = {"timeout": 35}
+def _call_openai_json(api_key: str, base_url: str, models: list[str], prompt: str, max_tokens: int) -> dict:
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key, base_url=base_url)
     last = None
-    quota_hit = False
-    for mname in GEMINI_MODELS:
+    for mname in models:
         try:
-            txt = genai.GenerativeModel(mname).generate_content(
-                prompt, generation_config=cfg, request_options=ropts).text.strip()
+            resp = client.chat.completions.create(
+                model=mname,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens
+            )
+            txt = resp.choices[0].message.content.strip()
             return _loads_lenient(txt)
         except Exception as e:
             last = e
-            if _is_quota(e):
-                quota_hit = True
-                log.warning("gemini %s hết quota (429) -> thử model kế", mname)
-                continue
-            # Lỗi JSON-mode / format / "no valid Part" -> thử lại model này ở chế độ plain
+            log.warning("openai %s lỗi: %s", mname, e)
+    raise last if last else RuntimeError("API không phản hồi")
+
+
+def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) -> dict:
+    """Định tuyến 2 lớp: Gemini của khách -> 9Router của hệ thống"""
+    # 1. Gemini của khách
+    if gemini_key:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
+        ropts = {"timeout": 35}
+        last = None
+        quota_hit = False
+        for mname in GEMINI_MODELS:
             try:
-                txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
+                txt = genai.GenerativeModel(mname).generate_content(
+                    prompt, generation_config=cfg, request_options=ropts).text.strip()
                 return _loads_lenient(txt)
-            except Exception as e2:
-                last = e2
-                if _is_quota(e2):
+            except Exception as e:
+                last = e
+                if _is_quota(e):
                     quota_hit = True
-                log.warning("gemini %s lỗi (%s) -> thử model kế", mname, str(last).lower()[:80])
-    if quota_hit:
-        raise RuntimeError("Key Gemini đã hết hạn mức miễn phí (quota) lúc này. Đợi vài phút "
-                           "hoặc reset theo ngày, dùng API key Gemini khác, hoặc bật thanh toán cho key.")
-    raise last if last else RuntimeError("Gemini không phản hồi")
+                    continue
+                try:
+                    txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
+                    return _loads_lenient(txt)
+                except Exception as e2:
+                    last = e2
+                    if _is_quota(e2): quota_hit = True
+        if not quota_hit:
+            raise last if last else RuntimeError("Gemini không phản hồi")
+        log.warning("Gemini key hết quota, tự động fallback sang 9Router")
+        
+    # 3. System 9Router fallback (Khách thường hoặc lười điền key)
+    models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
+    if not models: models = ["gemini-2.5-flash"]
+    return _call_openai_json(settings.system_9router_key, settings.system_9router_url, models, prompt, max_tokens)
 
 
 # Vision: ưu tiên flash (đọc tài liệu/ảnh tốt hơn lite), 2.0-flash, cuối là lite (đỡ khi flash hết quota).
 GEMINI_VISION_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash")
 
 
-def _gemini_vision_json(api_key: str, prompt: str, media: list[tuple[str, bytes]],
-                        max_tokens: int = 8192) -> dict:
-    """Như _gemini_json nhưng kèm ẢNH/PDF (đọc storyboard). media = [(mime_type, bytes), ...] gửi inline.
-    Fallback bền qua các model vision; timeout nới (vision chậm hơn nhưng vẫn < nginx 180s)."""
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
-    ropts = {"timeout": 60}
-    blobs = [{"mime_type": m, "data": b} for (m, b) in media]
+def _call_openai_vision_json(api_key: str, base_url: str, models: list[str], prompt: str, media: list[tuple[str, bytes]], max_tokens: int) -> dict:
+    from openai import OpenAI
+    import base64
+    client = OpenAI(api_key=api_key, base_url=base_url)
     last = None
-    quota_hit = False
-    for mname in GEMINI_VISION_MODELS:
+    
+    content = [{"type": "text", "text": prompt}]
+    for mime, b in media:
+        b64 = base64.b64encode(b).decode("utf-8")
+        content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
+        
+    for mname in models:
         try:
-            txt = genai.GenerativeModel(mname).generate_content(
-                [*blobs, prompt], generation_config=cfg, request_options=ropts).text.strip()
+            resp = client.chat.completions.create(
+                model=mname,
+                messages=[{"role": "user", "content": content}],
+                max_tokens=max_tokens
+            )
+            txt = resp.choices[0].message.content.strip()
             return _loads_lenient(txt)
         except Exception as e:
             last = e
-            if _is_quota(e):
-                quota_hit = True
-                log.warning("gemini vision %s hết quota -> thử model kế", mname)
-                continue
-            try:   # lỗi JSON-mode / format -> thử lại model này ở chế độ plain
+            log.warning("openai vision %s lỗi: %s", mname, e)
+    raise last if last else RuntimeError("API không phản hồi")
+
+
+def _gemini_vision_json(gemini_key: str | None, prompt: str, media: list[tuple[str, bytes]],
+                        max_tokens: int = 8192) -> dict:
+    """Định tuyến 2 lớp cho ảnh: Gemini của khách -> 9Router của hệ thống."""
+    # 1. Gemini của khách
+    if gemini_key:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
+        ropts = {"timeout": 60}
+        blobs = [{"mime_type": m, "data": b} for (m, b) in media]
+        last = None
+        quota_hit = False
+        for mname in GEMINI_VISION_MODELS:
+            try:
                 txt = genai.GenerativeModel(mname).generate_content(
-                    [*blobs, prompt], request_options=ropts).text.strip()
+                    [*blobs, prompt], generation_config=cfg, request_options=ropts).text.strip()
                 return _loads_lenient(txt)
-            except Exception as e2:
-                last = e2
-                if _is_quota(e2):
+            except Exception as e:
+                last = e
+                if _is_quota(e):
                     quota_hit = True
-                log.warning("gemini vision %s lỗi (%s) -> thử model kế", mname, str(last).lower()[:80])
-    if quota_hit:
-        raise RuntimeError("Key Gemini đã hết hạn mức (quota) lúc này. Đợi vài phút hoặc dùng key khác.")
-    raise last if last else RuntimeError("Gemini vision không phản hồi")
+                    continue
+                try:
+                    txt = genai.GenerativeModel(mname).generate_content([*blobs, prompt], request_options=ropts).text.strip()
+                    return _loads_lenient(txt)
+                except Exception as e2:
+                    last = e2
+                    if _is_quota(e2): quota_hit = True
+        if not quota_hit:
+            raise last if last else RuntimeError("Gemini không phản hồi")
+        log.warning("Gemini vision key hết quota, tự động fallback sang 9Router")
+
+    # 3. 9Router fallback
+    models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
+    if not models: models = ["gemini-2.5-flash"]
+    return _call_openai_vision_json(settings.system_9router_key, settings.system_9router_url, models, prompt, media, max_tokens)
 
 
 # ── Bible: cấp khoá CHAR_n, dựng mô tả khoá, sửa tham chiếu, ghép vào prompt ──────
@@ -536,10 +583,10 @@ def _reduce_scenes(raw, bible: dict, name_index: dict, style_lock: str, parse_mo
                               scenes=scenes, characters=list(bible.values()))
 
 
-def _scenes_from_gemini(api_key: str, prompt: str, style: str | None, parse_mode: bool,
+def _scenes_from_gemini(gemini_key: str | None, prompt: str, style: str | None, parse_mode: bool,
                         cast: list | None = None) -> AutoPromptResponse:
     """1 lệnh Gemini -> bible + scenes (luồng đơn, ≤ MAX_SCENES). Dùng cho job thường."""
-    data = _gemini_json(api_key, prompt)
+    data = _gemini_json(gemini_key, prompt)
     bible, name_index = _alloc_bible(data.get("characters") or [])
     _overlay_cast(bible, name_index, cast)   # KHÓA nhân vật cũ (đồng bộ xuyên các phần)
     style_lock = _resolve_style_lock(style, str(data.get("suggested_style", "") or ""),
@@ -573,7 +620,7 @@ CHỈ JSON hợp lệ, KHÔNG markdown.
 <{fence}>
 {source}
 </{fence}>"""
-    return _gemini_json(api_key, system, max_tokens=65536)
+    return _gemini_json(gemini_key, system, max_tokens=65536)
 
 
 def _mr_expand(api_key: str, beats_slice: list, start_index: int, style_lock: str,
@@ -590,7 +637,7 @@ Mỗi cảnh: beat ({lang_label} - BẤT KỂ GỐC LÀ GÌ), chars (list KHÓA 
 CHỈ JSON hợp lệ, KHÔNG markdown.
 BEATS (cảnh đầu tiên là index {start_index}):
 {beats_json}"""
-    return _gemini_json(api_key, system, max_tokens=16384)
+    return _gemini_json(gemini_key, system, max_tokens=16384)
 
 
 async def _scenes_mapreduce(api_key: str, source: str, n: int, style: str | None,

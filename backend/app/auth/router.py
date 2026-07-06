@@ -8,7 +8,10 @@ from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
 from app.auth.models import User
-from app.auth.schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateGeminiKey, ApplyRefRequest, VerifyEmailRequest
+from app.auth.schemas import (
+    RegisterRequest, LoginRequest, TokenResponse, UserResponse,
+    UpdateGeminiKey, ApplyRefRequest, VerifyEmailRequest
+)
 from app.auth.utils import hash_password, verify_password, create_access_token, decode_token
 from app.crypto import enc
 from app.config import settings

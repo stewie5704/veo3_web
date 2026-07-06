@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     email_from: str = "AI AutoCut <no-reply@aiautocut.com>"
     email_verify_required: bool = False   # True = bắt buộc xác minh email mới tạo được video
 
+    # 9Router Fallback config
+    system_9router_url: str = "http://127.0.0.1:20128/v1"
+    system_9router_key: str = "sk-dummy"
+    system_9router_models: str = "gemini-2.5-flash"
+
     class Config:
         env_file = ".env"
 

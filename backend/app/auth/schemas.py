@@ -39,7 +39,6 @@ class UserResponse(BaseModel):
 class UpdateGeminiKey(BaseModel):
     api_key: str
 
-
 class ApplyRefRequest(BaseModel):
     ref: str   # mã giới thiệu nhập sau khi đăng ký (trang Hồ sơ)
 
