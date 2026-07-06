@@ -722,10 +722,17 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                                 use_seed, start_id, ref_ids or None, silent=silent, voice_name=voice_name, dialogue=dialogue)
 
     code, resp = await _api_post(endpoint, body, token)
-    if code in (401, 403):                       # token expired mid-flight → refresh once
-        token = await _get_bearer_token(cookies)
-        if token:
-            code, resp = await _api_post(endpoint, body, token)
+    for attempt in range(2):
+        if code not in (401, 403):
+            break
+        await asyncio.sleep(2.0 + random.uniform(0.0, 2.5) * (attempt + 1))
+        new_token = await _get_bearer_token(cookies)
+        if new_token:
+            token = new_token
+        fresh = await request_captcha(user_id)
+        if fresh:
+            body["clientContext"]["recaptchaContext"]["token"] = fresh
+        code, resp = await _api_post(endpoint, body, token)
     if code != 200 or not isinstance(resp, dict):
         raise RuntimeError(f"API generate HTTP {code}: {str(resp)[:200]}")
 
