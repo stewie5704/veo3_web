@@ -638,7 +638,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                 disabled={merging || partStatusOf(scenesOfPart(selectedPart || 1)) !== 'done'}
                 title={t('scene.merge_part_tooltip')}
               >
-                {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.merging')}</> : <><Film size={13} /> {t('scene.merge_part', { part: selectedPart })}</>}
+                {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.merging')}</> : <><Film size={13} /> {t('scene.merge_part', { part: selectedPart || '' })}</>}
               </button>
               <button
                 className="btn btn-ghost btn-sm"

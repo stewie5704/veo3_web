@@ -381,7 +381,7 @@ LỜI THOẠI: ...
             <div className={`scene-ph${!failed ? ' shimmer' : ''}`} style={{ width: '100%', height: '100%' }}>
               {failed ? <><div className="scene-ph-orb fail"><AlertCircle size={20} /></div><span style={{ fontSize: 11, color: '#fca5a5' }}>{t('sell.scene_error')}</span></>
                 : <><div className="scene-ph-orb run"><Loader2 size={20} className="spin" /></div>
-                  <span>{done < total ? t('sell.creating_scenes', { done, total }) : t('sell.merging_video')}</span></>}}
+                  <span>{done < total ? t('sell.creating_scenes', { done, total }) : t('sell.merging_video')}</span></>}
             </div>
           )}
         </div>
