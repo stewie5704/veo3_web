@@ -157,6 +157,24 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
         if proc.returncode != 0:
             raise HTTPException(500, f"FFmpeg: {stderr.decode()[-300:]}")
+        # Cập nhật proj.merged_file để nút "Tải về" trả đúng file mới nhất
+        # (copy vào UPLOAD_PATH vì download-merged serve từ UPLOAD_PATH)
+        import shutil
+        upload_copy = UPLOAD_PATH / out_name
+        shutil.copy2(out_path, upload_copy)
+        async with AsyncSessionLocal() as db2:
+            from app.projects.models import Project
+            proj2 = await db2.get(Project, body.project_id)
+            if proj2:
+                # Xoá file ghép cũ
+                if proj2.merged_file and proj2.merged_file != out_name:
+                    for old_dir in (UPLOAD_PATH, MERGED_PATH):
+                        old_f = old_dir / proj2.merged_file
+                        if old_f.exists():
+                            try: old_f.unlink()
+                            except OSError: pass
+                proj2.merged_file = out_name
+                await db2.commit()
         return {"ok": True, "filename": out_name, "url": f"/merged/{out_name}"}
     finally:
         if concat_file.exists():
