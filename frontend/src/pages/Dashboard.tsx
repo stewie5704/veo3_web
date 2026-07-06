@@ -415,7 +415,25 @@ export default function Dashboard() {
 
         {/* Bottom: LangSwitch + credits + user */}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <LangSwitch compact={!navExpanded} />
+          {/* Custom Lang Switch for Sidebar */}
+          <button title={t('settings.language') || 'Language'} onClick={() => {
+            const newLang = localStorage.getItem('lang') === 'vi' ? 'en' : 'vi';
+            localStorage.setItem('lang', newLang);
+            window.location.reload();
+          }}
+            style={{
+              width: navExpanded ? '100%' : 34, height: 34, borderRadius: 8, background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#80705c',
+              transition: 'all 0.15s', fontSize: 13, fontWeight: 600, gap: 6,
+              padding: navExpanded ? '0 12px' : 0,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#e0c0a0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#80705c'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+          >
+            <span style={{ fontSize: 14 }}>🌐</span>
+            {navExpanded && <span>{localStorage.getItem('lang') === 'en' ? 'English' : 'Tiếng Việt'}</span>}
+          </button>
           {credits !== null && (
             <div title={t('dash.gems_remaining', { count: credits })} style={{
               minWidth: 34, height: 34, borderRadius: 8, padding: '0 9px',
