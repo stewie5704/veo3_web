@@ -1171,9 +1171,18 @@ async def _try_auto_merge(project_id: str):
             return
 
         log.info("Auto-merging project %s (%d scenes)", project_id, len(video_files))
-        out_name = f"final_{project_id[:8]}.mp4"
+        ts = int(time.time())
+        out_name = f"final_{project_id[:8]}_{ts}.mp4"
         out_path = UPLOAD_PATH / out_name
-        tmp_path = UPLOAD_PATH / f"final_{project_id[:8]}.tmp.mp4"
+        tmp_path = UPLOAD_PATH / f"final_{project_id[:8]}_{ts}.tmp.mp4"
+        # Xoá file ghép cũ (nếu có) để tiết kiệm dung lượng
+        async with AsyncSessionLocal() as db:
+            proj_old = await db.get(Project, project_id)
+            if proj_old and proj_old.merged_file:
+                old_path = UPLOAD_PATH / proj_old.merged_file
+                if old_path.exists():
+                    try: old_path.unlink()
+                    except OSError: pass
         list_path = None
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
