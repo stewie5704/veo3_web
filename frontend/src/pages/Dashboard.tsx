@@ -182,7 +182,7 @@ export default function Dashboard() {
         background: 'rgba(10,8,6,0.96)', borderRight: '1px solid rgba(249,115,22,0.08)',
         display: 'flex', flexDirection: 'column', alignItems: navExpanded ? 'stretch' : 'center',
         padding: navExpanded ? '14px 10px' : '14px 0', gap: 4,
-        transition: 'width 0.2s ease',
+        transition: 'width 0.2s ease', overflowY: 'auto',
       }}>
         {/* Logo + brand + toggle */}
         <div style={{

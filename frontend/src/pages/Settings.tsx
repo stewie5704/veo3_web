@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '../components/Toast'
-import { useT } from '../i18n'
+import { useT, LangSwitch } from '../i18n'
 import api, { authApi, billingApi } from '../api/client'
 import {
   User, KeyRound, Wifi, Shield, Save, Loader2, Crown, HardDrive, Sparkles,
@@ -228,7 +228,10 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       {/* Profile */}
       {tab === 'profile' && (
         <div className="card">
-          <div className="card-header"><User size={15} /> {t('settings.profile_header')}</div>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span><User size={15} /> {t('settings.profile_header')}</span>
+            <LangSwitch />
+          </div>
           <div className="form-group">
             <label className="form-label">{t('settings.display_name')}</label>
             <input className="form-input" placeholder={t('settings.display_name_placeholder')}
