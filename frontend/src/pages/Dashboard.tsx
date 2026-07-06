@@ -20,6 +20,7 @@ import Affiliate from './Affiliate'
 import Guide from './Guide'
 import Support from './Support'
 import VerifyEmail from './VerifyEmail'
+import { useT, LangSwitch } from '../i18n'
 
 export const logStore: { msg: string; level: string; ts: string }[] = []
 export let logListeners: (() => void)[] = []
@@ -30,56 +31,6 @@ export function pushLog(msg: string, level = 'info') {
 }
 
 type NavItem = { path: string; icon: any; label: string; exact?: boolean; userOnly?: boolean; adminOnly?: boolean }
-// userOnly = chỉ user thường (admin không tạo video, ẩn đi). adminOnly = chỉ admin.
-const NAV: NavItem[] = [
-  { path: '/projects', icon: FolderOpen, label: 'Tạo video', userOnly: true },
-  { path: '/videos', icon: Library, label: 'Thư viện', userOnly: true },
-  { path: '/tools', icon: Wrench, label: 'Công cụ', userOnly: true },
-  { path: '/billing', icon: Crown, label: 'Nâng gói', userOnly: true },
-  { path: '/affiliate', icon: Share2, label: 'Cộng tác viên', userOnly: true },
-  { path: '/guide', icon: BookOpen, label: 'Hướng dẫn' },
-  { path: '/support', icon: LifeBuoy, label: 'Hỗ trợ' },
-  { path: '/settings', icon: Settings, label: 'Cài đặt' },
-  { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
-]
-
-// Mục con của "Tạo video" (dropdown) — điều hướng tới /projects?tab=<tab>
-const PROJECTS_SUB = [
-  { tab: 'new', label: 'Tạo từ ý tưởng', icon: Sparkles },
-  { tab: 'batch', label: 'Từ mô tả từng cảnh', icon: PenLine },
-  { tab: 'copy', label: 'Chép ý tưởng', icon: Copy },
-  { tab: 'sell', label: 'Video bán hàng', icon: ShoppingBag },
-]
-
-// Mục con của "Công cụ" (dropdown) — điều hướng tới /tools?t=<key>
-const TOOL_SUB = [
-  { t: 'i2v', label: 'Ảnh → Video', icon: Film },
-  { t: 'r2v', label: 'Giữ mặt → Video', icon: Layers },
-  { t: 'image', label: 'Tạo ảnh', icon: Image },
-  { t: 'tts', label: 'Đọc thành giọng nói', icon: Volume2 },
-  { t: 'cut', label: 'Cắt video', icon: Scissors },
-  { t: 'download', label: 'Tải video từ đường link', icon: Download },
-  { t: 'chars', label: 'Nhân vật', icon: Users },
-]
-
-// Mục con của "Admin" — điều hướng tới /admin?s=<section>
-const ADMIN_SUB = [
-  { s: 'overview',  label: 'Tổng quan',   icon: BarChart3 },
-  { s: 'users',     label: 'Người dùng',  icon: Users },
-  { s: 'payments',  label: 'Đơn hàng',    icon: CreditCard },
-  { s: 'affiliate', label: 'Affiliate',   icon: Share2 },
-]
-
-// Mục con của "Hướng dẫn" — điều hướng tới /guide?s=<section_id>
-const GUIDE_SUB = [
-  { s: 'overview',   label: 'Tổng quan',               icon: BookOpen },
-  { s: 'extension',  label: 'Cài tiện ích Chrome',      icon: Puzzle },
-  { s: 'connect',    label: 'Kết nối Google Ultra',     icon: Plug },
-  { s: 'project',    label: 'Tạo phim từ kịch bản',    icon: Clapperboard },
-  { s: 'tools',      label: 'Bộ công cụ',               icon: Wrench },
-  { s: 'specs',      label: 'Tỉ lệ · Chất lượng · Gem', icon: Ratio },
-  { s: 'trouble',    label: 'Gặp lỗi? Khắc phục',      icon: LifeBuoy },
-]
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -101,6 +52,58 @@ export default function Dashboard() {
   const [adminOpen, setAdminOpen] = useState(() => window.location.pathname === '/admin')
   const navWidth = navExpanded ? 208 : 58
   const toggleNav = () => setNavExpanded(v => { localStorage.setItem('navExpanded', v ? '0' : '1'); return !v })
+  const t = useT()
+
+  // userOnly = chỉ user thường (admin không tạo video, ẩn đi). adminOnly = chỉ admin.
+  const NAV: NavItem[] = [
+    { path: '/projects', icon: FolderOpen, label: t('nav.create_video'), userOnly: true },
+    { path: '/videos', icon: Library, label: t('nav.library'), userOnly: true },
+    { path: '/tools', icon: Wrench, label: t('nav.tools'), userOnly: true },
+    { path: '/billing', icon: Crown, label: t('nav.billing'), userOnly: true },
+    { path: '/affiliate', icon: Share2, label: t('nav.affiliate'), userOnly: true },
+    { path: '/guide', icon: BookOpen, label: t('nav.guide') },
+    { path: '/support', icon: LifeBuoy, label: t('nav.support') },
+    { path: '/settings', icon: Settings, label: t('nav.settings') },
+    { path: '/admin', icon: Shield, label: 'Admin', adminOnly: true },
+  ]
+
+  // Mục con của "Tạo video" (dropdown) — điều hướng tới /projects?tab=<tab>
+  const PROJECTS_SUB = [
+    { tab: 'new', label: t('nav.sub.from_idea'), icon: Sparkles },
+    { tab: 'batch', label: t('nav.sub.from_script'), icon: PenLine },
+    { tab: 'copy', label: t('nav.sub.copy_idea'), icon: Copy },
+    { tab: 'sell', label: t('nav.sub.sell_video'), icon: ShoppingBag },
+  ]
+
+  // Mục con của "Công cụ" (dropdown) — điều hướng tới /tools?t=<key>
+  const TOOL_SUB = [
+    { t: 'i2v', label: t('nav.sub.img_to_video'), icon: Film },
+    { t: 'r2v', label: t('nav.sub.face_to_video'), icon: Layers },
+    { t: 'image', label: t('nav.sub.create_image'), icon: Image },
+    { t: 'tts', label: t('nav.sub.tts'), icon: Volume2 },
+    { t: 'cut', label: t('nav.sub.cut_video'), icon: Scissors },
+    { t: 'download', label: t('nav.sub.download_video'), icon: Download },
+    { t: 'chars', label: t('nav.sub.characters'), icon: Users },
+  ]
+
+  // Mục con của "Admin" — điều hướng tới /admin?s=<section>
+  const ADMIN_SUB = [
+    { s: 'overview',  label: t('nav.sub.admin_overview'),   icon: BarChart3 },
+    { s: 'users',     label: t('nav.sub.admin_users'),  icon: Users },
+    { s: 'payments',  label: t('nav.sub.admin_payments'),    icon: CreditCard },
+    { s: 'affiliate', label: 'Affiliate',   icon: Share2 },
+  ]
+
+  // Mục con của "Hướng dẫn" — điều hướng tới /guide?s=<section_id>
+  const GUIDE_SUB = [
+    { s: 'overview',   label: t('guide.nav.overview'),               icon: BookOpen },
+    { s: 'extension',  label: t('guide.nav.extension'),      icon: Puzzle },
+    { s: 'connect',    label: t('guide.nav.connect'),     icon: Plug },
+    { s: 'project',    label: t('guide.nav.project'),    icon: Clapperboard },
+    { s: 'tools',      label: t('guide.nav.tools'),               icon: Wrench },
+    { s: 'specs',      label: t('guide.nav.specs'), icon: Ratio },
+    { s: 'trouble',    label: t('guide.nav.trouble'),      icon: LifeBuoy },
+  ]
 
   useEffect(() => {
     authApi.me().then(u => {
@@ -198,7 +201,7 @@ export default function Dashboard() {
             </div>
             {navExpanded && <span style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>AI AutoCut</span>}
           </div>
-          <button onClick={toggleNav} title={navExpanded ? 'Thu gọn' : 'Mở rộng'} style={{
+          <button onClick={toggleNav} title={navExpanded ? t('dash.collapse') : t('dash.expand')} style={{
             width: 30, height: 30, borderRadius: 8, flexShrink: 0,
             background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a08060',
@@ -214,7 +217,7 @@ export default function Dashboard() {
             const curTab = new URLSearchParams(loc.search).get('tab') || 'new'
             return (
               <div key="/projects" style={{ width: navExpanded ? '100%' : 40 }}>
-                <button onClick={() => navExpanded ? setProjectsOpen(o => !o) : nav('/projects')} title="Tạo video"
+                <button onClick={() => navExpanded ? setProjectsOpen(o => !o) : nav('/projects')} title={t('nav.create_video')}
                   style={{
                     width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 11,
@@ -224,7 +227,7 @@ export default function Dashboard() {
                     color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
                   }}>
                   <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>Tạo video</span>}
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.create_video')}</span>}
                   {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: projectsOpen ? 'rotate(180deg)' : 'none' }} />}
                   {active && !navExpanded && (
                     <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
@@ -258,7 +261,7 @@ export default function Dashboard() {
             const curT = new URLSearchParams(loc.search).get('t') || 'i2v'
             return (
               <div key="/tools" style={{ width: navExpanded ? '100%' : 40 }}>
-                <button onClick={() => navExpanded ? setToolsOpen(o => !o) : nav('/tools')} title="Công cụ"
+                <button onClick={() => navExpanded ? setToolsOpen(o => !o) : nav('/tools')} title={t('nav.tools')}
                   style={{
                     width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 11,
@@ -268,7 +271,7 @@ export default function Dashboard() {
                     color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
                   }}>
                   <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>Công cụ</span>}
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.tools')}</span>}
                   {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: toolsOpen ? 'rotate(180deg)' : 'none' }} />}
                   {active && !navExpanded && (
                     <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
@@ -302,7 +305,7 @@ export default function Dashboard() {
             const curS = new URLSearchParams(loc.search).get('s') || ''
             return (
               <div key="/guide" style={{ width: navExpanded ? '100%' : 40 }}>
-                <button onClick={() => navExpanded ? setGuideOpen(o => !o) : nav('/guide')} title="Hướng dẫn"
+                <button onClick={() => navExpanded ? setGuideOpen(o => !o) : nav('/guide')} title={t('nav.guide')}
                   style={{
                     width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 11,
@@ -312,7 +315,7 @@ export default function Dashboard() {
                     color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
                   }}>
                   <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>Hướng dẫn</span>}
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.guide')}</span>}
                   {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: guideOpen ? 'rotate(180deg)' : 'none' }} />}
                   {active && !navExpanded && (
                     <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
@@ -410,10 +413,11 @@ export default function Dashboard() {
           )
         })}
 
-        {/* Bottom: credits + user */}
+        {/* Bottom: LangSwitch + credits + user */}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <LangSwitch compact={!navExpanded} />
           {credits !== null && (
-            <div title={`Số Gem còn lại: ${credits}`} style={{
+            <div title={t('dash.gems_remaining', { count: credits })} style={{
               minWidth: 34, height: 34, borderRadius: 8, padding: '0 9px',
               background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -424,7 +428,7 @@ export default function Dashboard() {
           )}
           {/* Worker status */}
           {workerStatus && (workerStatus.processing > 0 || workerStatus.pending > 0) && (
-            <div title={`${workerStatus.processing} đang render · ${workerStatus.pending} chờ`}
+            <div title={t('dash.worker_status', { processing: workerStatus.processing, pending: workerStatus.pending })}
               style={{
                 width: 34, height: 34, borderRadius: 8, position: 'relative',
                 background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)',
@@ -444,7 +448,7 @@ export default function Dashboard() {
           }} title={user?.username} onClick={() => nav('/settings')}>
             {user?.username?.[0]?.toUpperCase()}
           </div>
-          <button title="Đăng xuất" onClick={() => { localStorage.removeItem('token'); nav('/login') }}
+          <button title={t('auth.logout')} onClick={() => { localStorage.removeItem('token'); nav('/login') }}
             style={{
               width: 34, height: 34, borderRadius: 8, background: 'transparent',
               border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer',
@@ -472,7 +476,7 @@ export default function Dashboard() {
           <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
-                Dự Án
+                {t('dash.projects')}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={loadProjects}
@@ -489,11 +493,11 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: extConnected ? 'var(--green)' : 'rgba(248,113,113,0.6)', flexShrink: 0 }} />
               {extConnected ? (
-                <span style={{ color: 'var(--green)' }}>Ultra kết nối</span>
+                <span style={{ color: 'var(--green)' }}>{t('dash.ultra_connected')}</span>
               ) : (
-                <Link to="/settings" title="Bấm để kết nối trong Cài đặt"
+                <Link to="/settings" title={t('dash.click_to_connect')}
                   style={{ color: 'rgba(248,113,113,0.85)', textDecoration: 'underline', cursor: 'pointer' }}>
-                  Chưa kết nối — bấm để xử lý
+                  {t('dash.not_connected')}
                 </Link>
               )}
             </div>
@@ -510,10 +514,10 @@ export default function Dashboard() {
                 }}>
                   <FolderOpen size={20} color="#fb923c" />
                 </div>
-                <div style={{ color: 'var(--text2)', fontWeight: 600, marginBottom: 4 }}>Chưa có dự án</div>
-                <div style={{ marginBottom: 14, lineHeight: 1.5 }}>Tạo dự án đầu tiên để bắt đầu làm phim AI</div>
+                <div style={{ color: 'var(--text2)', fontWeight: 600, marginBottom: 4 }}>{t('dash.no_projects')}</div>
+                <div style={{ marginBottom: 14, lineHeight: 1.5 }}>{t('dash.create_first_project')}</div>
                 <button className="btn btn-primary btn-sm" onClick={() => nav('/projects')}>
-                  <Plus size={12} /> Tạo dự án
+                  <Plus size={12} /> {t('dash.create_project')}
                 </button>
               </div>
             ) : projects.map(p => {
@@ -556,7 +560,7 @@ export default function Dashboard() {
       }}>
         <main className="main-content" style={{ flex: 1, paddingBottom: logOpen ? 250 : 56 }}>
           <Routes>
-            <Route path="/" element={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>} />
+            <Route path="/" element={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>{t('dash.loading')}</div>} />
             <Route path="/projects" element={<Projects user={user} onCreated={loadProjects} />} />
             <Route path="/projects/:id" element={<ProjectDetail user={user} onUpdate={loadProjects} />} />
             <Route path="/videos" element={<MyVideos onUpdate={loadProjects} />} />
@@ -583,7 +587,7 @@ export default function Dashboard() {
               padding: '7px 18px', cursor: 'pointer', userSelect: 'none',
             }}>
             <Terminal size={12} color="#50402e" />
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, fontFamily: 'monospace' }}>Nhật ký</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, fontFamily: 'monospace' }}>{t('dash.logs')}</span>
             {unread > 0 && (
               <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 99, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>
                 {unread}
@@ -595,7 +599,7 @@ export default function Dashboard() {
           </div>
           {logOpen && (
             <div style={{ height: 200, overflowY: 'auto', padding: '8px 18px', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.7, background: 'rgba(0,0,0,0.3)' }}>
-              {logs.length === 0 && <div style={{ color: 'var(--text3)' }}>No logs yet...</div>}
+              {logs.length === 0 && <div style={{ color: 'var(--text3)' }}>{t('dash.no_logs')}</div>}
               {logs.map((l, i) => (
                 <div key={i} style={{ color: l.level === 'error' ? '#f87171' : l.level === 'warn' ? '#fbbf24' : '#504030' }}>
                   <span style={{ color: '#302010', marginRight: 10 }}>{l.ts}</span>

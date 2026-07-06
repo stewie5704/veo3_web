@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { downloadVideoFile } from '../api/client'
 import { useToast } from './Toast'
+import { useT } from '../i18n'
 
 /**
  * "Tải về" với lựa chọn độ phân giải. 720p = bản gốc (tải ngay);
@@ -17,6 +18,7 @@ export default function DownloadMenu({
   iconOnly?: boolean   // chỉ hiện icon (dùng trong card cảnh cho gọn)
 }) {
   const toast = useToast()
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<'720' | '1080' | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -35,7 +37,7 @@ export default function DownloadMenu({
       const sep = base.includes('?') ? '&' : '?'
       await downloadVideoFile(`${base}${sep}res=${res}`, filename.replace(/\.mp4$/i, `_${res}p.mp4`))
     } catch {
-      toast(res === '1080' ? 'Tạo bản 1080p thất bại, thử lại sau' : 'Tải thất bại', 'error')
+      toast(res === '1080' ? t('download.upscale_failed') : t('download.download_failed'), 'error')
     } finally {
       setBusy(null)
     }
@@ -48,15 +50,15 @@ export default function DownloadMenu({
         style={{ width: flex ? '100%' : undefined }}
         disabled={busy !== null}
         onClick={() => setOpen(o => !o)}
-        title={iconOnly ? 'Tải về' : undefined}
+        title={iconOnly ? t('download.download') : undefined}
       >
         {busy
           ? (iconOnly
               ? <Loader2 size={13} className="spin" />
-              : <><Loader2 size={12} className="spin" /> {busy === '1080' ? 'Đang tạo 1080p…' : 'Đang tải…'}</>)
+              : <><Loader2 size={12} className="spin" /> {busy === '1080' ? t('download.creating_1080p') : t('download.downloading')}</>)
           : (iconOnly
               ? <><Download size={14} /> <ChevronDown size={10} style={{ opacity: 0.7 }} /></>
-              : <><Download size={12} /> Tải về <ChevronDown size={11} style={{ opacity: 0.8 }} /></>)}
+              : <><Download size={12} /> {t('download.download')} <ChevronDown size={11} style={{ opacity: 0.8 }} /></>)}
       </button>
 
       {open && (
@@ -68,7 +70,7 @@ export default function DownloadMenu({
           <button onClick={() => pick('720')} style={menuItem}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>720p</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Bản gốc · tải ngay</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t('download.original_instant')}</div>
             </div>
           </button>
           <button onClick={() => pick('1080')} style={menuItem}>
@@ -80,7 +82,7 @@ export default function DownloadMenu({
                   color: '#fff', background: 'linear-gradient(115deg,#F97316,#EC4899)',
                 }}>HD</span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Nâng cấp · chờ vài giây</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t('download.upscale_wait')}</div>
             </div>
             <Sparkles size={14} color="#fbbf24" />
           </button>

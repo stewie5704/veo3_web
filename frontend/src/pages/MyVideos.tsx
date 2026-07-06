@@ -4,10 +4,12 @@ import { projectsApi, videosApi, extensionApi, removeDeletedSellId } from '../ap
 import { useToast } from '../components/Toast'
 import DownloadMenu from '../components/DownloadMenu'
 import { Trash2, Search, RefreshCw, Play, Loader2, FolderOpen, AlertCircle } from 'lucide-react'
+import { useT } from '../i18n'
 
 type SortBy = 'newest' | 'oldest'
 
 export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
+  const t = useT()
   const toast = useToast()
   const nav = useNavigate()
   const [projects, setProjects] = useState<any[]>([])   // mỗi item = project + scenes[]
@@ -29,8 +31,8 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
     setLoading(false)
   }
   async function retryVideo(id: string) {
-    try { await videosApi.retry(id); toast('Đang tạo lại...', 'success'); load() }
-    catch (e: any) { toast(e?.response?.data?.detail || 'Tạo lại thất bại', 'error') }
+    try { await videosApi.retry(id); toast(t('video.retrying'), 'success'); load() }
+    catch (e: any) { toast(e?.response?.data?.detail || t('video.retry_failed'), 'error') }
   }
   useEffect(() => { load() }, [])
   useEffect(() => { extensionApi.status().then(s => setExtOk(!!s.connected)).catch(() => setExtOk(null)) }, [])
@@ -49,15 +51,15 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
 
   async function delProject(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm('Xoá dự án này?')) return
+    if (!confirm(t('video.confirm_delete_project'))) return
     try {
       await projectsApi.delete(id)
       removeDeletedSellId(id)
       setProjects(ps => ps.filter(p => p.id !== id))
-      toast('Đã xoá dự án', 'success')
+      toast(t('video.deleted_project'), 'success')
       onUpdate?.()
     } catch (err: any) {
-      toast(err?.response?.data?.detail || 'Xoá thất bại', 'error')
+      toast(err?.response?.data?.detail || t('video.delete_failed'), 'error')
     }
   }
 
@@ -67,15 +69,15 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
     <div>
       <div className="page-header">
         <div>
-          <div className="page-title">Thư viện</div>
-          <div className="page-subtitle">{projects.length} dự án · {videos.length} video lẻ</div>
+          <div className="page-title">{t('video.library')}</div>
+          <div className="page-subtitle">{t('video.library_subtitle', { projects: projects.length, videos: videos.length })}</div>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={13} /></button>
       </div>
 
       {extOk === false && (
         <div className="alert alert-warn" style={{ marginBottom: 18 }}>
-          <AlertCircle size={15} /> Tiện ích trên Chrome chưa kết nối — chưa tạo video được. Mở tiện ích và <strong>đăng nhập lại</strong>, rồi mở 1 tab Google Flow (labs.google).
+          <AlertCircle size={15} /> {t('video.extension_not_connected')}
         </div>
       )}
 
@@ -83,13 +85,13 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
       <div style={{ display: 'flex', gap: 10, marginBottom: 22, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
-          <input className="form-input" style={{ paddingLeft: 34, height: 36 }} placeholder="Tìm dự án / video..."
+          <input className="form-input" style={{ paddingLeft: 34, height: 36 }} placeholder={t('video.search_placeholder')}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {(['newest', 'oldest'] as SortBy[]).map(s => (
             <button key={s} onClick={() => setSortBy(s)} className={sortBy === s ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}>
-              {s === 'newest' ? '↓ Mới nhất' : '↑ Cũ nhất'}
+              {s === 'newest' ? t('video.sort_newest') : t('video.sort_oldest')}
             </button>
           ))}
         </div>
@@ -97,17 +99,17 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
-          <Loader2 size={24} className="spin" style={{ marginBottom: 12 }} /><div>Đang tải...</div>
+          <Loader2 size={24} className="spin" style={{ marginBottom: 12 }} /><div>{t('video.loading')}</div>
         </div>
       ) : (projList.length === 0 && vidList.length === 0) ? (
         <div className="empty-state">
           <div className="ico"><FolderOpen size={26} color="var(--accent2)" strokeWidth={1.8} /></div>
-          <h3>Thư viện trống</h3>
-          <p>Chưa có video nào. Tạo một dự án phim AI nhiều cảnh, hoặc dựng nhanh 1 clip ở mục Công cụ.</p>
+          <h3>{t('video.library_empty')}</h3>
+          <p>{t('video.library_empty_desc')}</p>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: -4 }}>
-            Nhớ kết nối Google Ultra trước khi tạo (xem <a href="/settings" onClick={(e) => { e.preventDefault(); nav('/settings') }} style={{ color: 'var(--accent2)' }}>Cài đặt</a>).
+            {t('video.remember_connect_google')} <a href="/settings" onClick={(e) => { e.preventDefault(); nav('/settings') }} style={{ color: 'var(--accent2)' }}>{t('video.settings_link')}</a>).
           </p>
-          <button className="btn btn-primary" onClick={() => nav('/projects')}>+ Tạo dự án mới</button>
+          <button className="btn btn-primary" onClick={() => nav('/projects')}>{t('video.create_new_project')}</button>
         </div>
       ) : (
         <>
@@ -115,7 +117,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
           {projList.length > 0 && (
             <>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
-                <FolderOpen size={15} color="var(--accent2)" /> Dự án
+                <FolderOpen size={15} color="var(--accent2)" /> {t('video.projects_section')}
               </div>
               <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 32 }}>
                 {projList.map(p => {
@@ -132,7 +134,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text3)' }}>
                             <FolderOpen size={28} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-                            <span style={{ fontSize: 11 }}>{done > 0 ? `${done} cảnh xong` : 'Chưa có cảnh nào xong'}</span>
+                            <span style={{ fontSize: 11 }}>{done > 0 ? t('video.scenes_done', { count: done }) : t('video.no_scenes_done')}</span>
                           </div>
                         )}
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0)', opacity: 0, transition: 'all .2s' }}
@@ -141,7 +143,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
                           <Play size={34} color="#fff" />
                         </div>
                         <div style={{ position: 'absolute', top: 8, left: 8 }}>
-                          <span className="badge badge-done" style={{ fontSize: 10 }}>{done}/{total} cảnh</span>
+                          <span className="badge badge-done" style={{ fontSize: 10 }}>{t('video.scene_count_badge', { done, total })}</span>
                         </div>
                       </div>
                       <div className="video-card-body">
@@ -153,7 +155,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
                         </div>
                         <div className="video-card-actions" onClick={e => e.stopPropagation()}>
                           <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => nav(`/projects/${p.id}`)}>
-                            <Play size={11} /> Xem
+                            <Play size={11} /> {t('video.view')}
                           </button>
                           <button className="btn btn-danger btn-sm btn-icon" onClick={(e) => delProject(p.id, e)}><Trash2 size={12} /></button>
                         </div>
@@ -169,7 +171,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
           {vidList.length > 0 && (
             <>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
-                🎬 Video lẻ
+                🎬 {t('video.standalone_videos')}
               </div>
               <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
                 {vidList.map(v => {
@@ -183,7 +185,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            {v.status === 'processing' && <><Loader2 size={22} className="spin" color="var(--accent2)" /><span style={{ fontSize: 11, color: 'var(--text3)' }}>Đang tạo...</span></>}
+                            {v.status === 'processing' && <><Loader2 size={22} className="spin" color="var(--accent2)" /><span style={{ fontSize: 11, color: 'var(--text3)' }}>{t('video.creating')}</span></>}
                             {v.status === 'pending' && <span style={{ fontSize: 28 }}>⏳</span>}
                             {v.status === 'failed' && <><span style={{ fontSize: 26 }}>❌</span><span style={{ fontSize: 11, color: 'var(--red)', textAlign: 'center', padding: '0 8px' }}>{v.error_msg?.slice(0, 60)}</span></>}
                           </div>
@@ -197,7 +199,7 @@ export default function MyVideos({ onUpdate }: { onUpdate?: () => void }) {
                           )}
                           {v.status === 'failed' && (
                             <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => retryVideo(v.id)}>
-                              <RefreshCw size={12} /> Tạo lại
+                              <RefreshCw size={12} /> {t('video.retry')}
                             </button>
                           )}
                           <button className="btn btn-danger btn-sm btn-icon" onClick={async () => { await videosApi.delete(v.id); setVideos(vs => vs.filter(x => x.id !== v.id)) }}>

@@ -4,45 +4,9 @@ import { projectsApi, toolsApi, charactersApi, removeDeletedSellId } from '../ap
 import { pushLog } from './Dashboard'
 import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket, List } from 'lucide-react'
 import SellVideo from '../components/SellVideo'
-
-// Các bước hiển thị khi đang phân tích + tạo (cho cảm giác đang chạy, đỡ thấy lâu)
-const CREATE_STEPS = [
-  { icon: Search, text: 'Đang đọc kịch bản của bạn...' },
-  { icon: Users, text: 'Nhận diện nhân vật & bối cảnh...' },
-  { icon: Clapperboard, text: 'Dựng từng cảnh quay...' },
-  { icon: Sparkles, text: 'Tối ưu câu lệnh cho Veo...' },
-  { icon: Rocket, text: 'Khởi tạo & bắt đầu render...' },
-]
+import { useT } from '../i18n'
 
 type AudioMode = 'voiceover' | 'character_speak' | 'off'
-const AUDIO_OPTS = [
-  { v: 'voiceover', icon: Mic, t: 'Lồng tiếng (AI đọc)', d: 'Giọng đọc đè lên — rõ tiếng Việt, mồm không khớp' },
-  { v: 'character_speak', icon: MessagesSquare, t: 'Nhân vật tự nói', d: 'Veo cho nhân vật nói, mồm nhép theo lời (giọng có thể chưa chuẩn)' },
-  { v: 'off', icon: VolumeX, t: 'Không tiếng', d: 'Chỉ hình' },
-] as const
-
-// Bộ chọn âm thanh dùng CHUNG cho cả 3 tab (Tạo ý tưởng / Mô tả từng cảnh / Chép ý tưởng)
-function AudioPicker({ value, onChange }: { value: AudioMode; onChange: (v: AudioMode) => void }) {
-  return (
-    <div>
-      <div style={{ marginBottom: 9 }}>
-        <span className="cmp-clab"><Volume2 size={13} style={{ color: 'var(--accent2)' }} /> Âm thanh</span>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {AUDIO_OPTS.map(o => {
-          const Icon = o.icon
-          return (
-            <button key={o.v} type="button" onClick={() => onChange(o.v)} title={o.d}
-              className={value === o.v ? 'cmp-audio on' : 'cmp-audio'}>
-              <div className="t"><Icon size={15} /> {o.t}</div>
-              <div className="d">{o.d}</div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 const MODELS = [
   { key: 'veo_3_1_t2v_lite_low_priority', label: 'Veo 3.1 · Lite (Lower Priority) — FREE', cost: 0 },
@@ -81,6 +45,7 @@ const VOICES = [
 type Tab = 'new' | 'batch' | 'copy' | 'sell'
 
 export default function Projects({ user, onCreated }: { user: any; onCreated?: () => void }) {
+  const t = useT()
   const nav = useNavigate()
   const [sp] = useSearchParams()
   const [tab, setTab] = useState<Tab>((sp.get('tab') as Tab) || 'new')
@@ -90,6 +55,44 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const [projects, setProjects] = useState<any[]>([])
   const [chars, setChars] = useState<any[]>([])
   const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set())
+
+  // Các bước hiển thị khi đang phân tích + tạo (cho cảm giác đang chạy, đỡ thấy lâu)
+  const CREATE_STEPS = [
+    { icon: Search, text: t('project.step_reading_script') },
+    { icon: Users, text: t('project.step_identify_chars') },
+    { icon: Clapperboard, text: t('project.step_building_scenes') },
+    { icon: Sparkles, text: t('project.step_optimizing') },
+    { icon: Rocket, text: t('project.step_starting_render') },
+  ]
+
+  const AUDIO_OPTS = [
+    { v: 'voiceover' as const, icon: Mic, t: t('project.audio_voiceover'), d: t('project.audio_voiceover_desc') },
+    { v: 'character_speak' as const, icon: MessagesSquare, t: t('project.audio_character_speak'), d: t('project.audio_character_speak_desc') },
+    { v: 'off' as const, icon: VolumeX, t: t('project.audio_off'), d: t('project.audio_off_desc') },
+  ]
+
+  // Bộ chọn âm thanh dùng CHUNG cho cả 3 tab (Tạo ý tưởng / Mô tả từng cảnh / Chép ý tưởng)
+  function AudioPicker({ value, onChange }: { value: AudioMode; onChange: (v: AudioMode) => void }) {
+    return (
+      <div>
+        <div style={{ marginBottom: 9 }}>
+          <span className="cmp-clab"><Volume2 size={13} style={{ color: 'var(--accent2)' }} /> {t('project.audio')}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {AUDIO_OPTS.map(o => {
+            const Icon = o.icon
+            return (
+              <button key={o.v} type="button" onClick={() => onChange(o.v)} title={o.d}
+                className={value === o.v ? 'cmp-audio on' : 'cmp-audio'}>
+                <div className="t"><Icon size={15} /> {o.t}</div>
+                <div className="d">{o.d}</div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   // NEW tab
   const [step, setStep] = useState<'setup' | 'review'>('setup')  // wizard: thiết lập -> duyệt kịch bản
@@ -199,7 +202,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const autoGeneratePortraits = async (bc: any[]) => {
     if (!bc || bc.length === 0) return {}
     setGeneratingPortraits(true)
-    pushLog("Tạo character model sheet cho nhân vật...")
+    pushLog(t('project.generating_portraits'))
     try {
       await charactersApi.generateAIPortraits(bc)
       const newChars = await charactersApi.list()
@@ -224,7 +227,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // AI viết kịch bản
   async function genPrompts(directCreate = true) {
-    if (!idea.trim()) { setError('Nhập ý tưởng trước'); return }
+    if (!idea.trim()) { setError(t('project.enter_idea_first')); return }
     setError(''); setLoadingPrompts(true)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
@@ -237,7 +240,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`Đã viết kịch bản ${n} cảnh`)
       if (directCreate) {
         const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
         let extraCharMap = {}
         if (bc && bc.length > 0) {
           extraCharMap = await autoGeneratePortraits(bc) || {}
@@ -248,12 +251,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         setLoadingPrompts(false)
         autoGeneratePortraits(bc)
       }
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi tạo prompt'); setLoadingPrompts(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
   // Tự nhập kịch bản
   async function parseScript(directCreate = true) {
-    if (!idea.trim()) { setError('Dán kịch bản của bạn trước'); return }
+    if (!idea.trim()) { setError(t('project.paste_script_first')); return }
     setError(''); setLoadingPrompts(true)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
@@ -266,7 +269,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`Đã phân tích kịch bản ${n} cảnh`)
       if (directCreate) {
         const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
         let extraCharMap = {}
         if (bc && bc.length > 0) {
           extraCharMap = await autoGeneratePortraits(bc) || {}
@@ -277,21 +280,21 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         setLoadingPrompts(false)
         autoGeneratePortraits(bc)
       }
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi phân tích kịch bản'); setLoadingPrompts(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_parse_script')); setLoadingPrompts(false) }
   }
 
   // Dán Prompts
   async function parsePromptsLocally(directCreate = true) {
-    if (!idea.trim()) { setError('Dán prompts của bạn trước'); return }
+    if (!idea.trim()) { setError(t('project.paste_prompts_first')); return }
     const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-    if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); return }
+    if (!lines.length) { setError(t('project.no_valid_prompt')); return }
     
     const n = lines.length
     pushLog(`Đã đọc ${n} prompts`)
     
     if (directCreate) {
         const cost = modelObjNew.cost * n
-    if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { return }
+    if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { return }
     await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
       } else {
         setPrompts(lines)
@@ -303,7 +306,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   // Đọc storyboard
   async function readStoryboard(directCreate = true) {
-    if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); return }
+    if (!sbFiles.length) { setError(t('project.select_storyboard_first')); return }
     setError(''); setLoadingPrompts(true)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
@@ -313,10 +316,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
       const n = (res.scenes?.length || res.prompts?.length || 0)
       pushLog(`Đã đọc storyboard ${n} cảnh`)
-      if (!n) { setError('Không đọc được khung nào từ storyboard — thử ảnh rõ hơn.'); setLoadingPrompts(false); return }
+      if (!n) { setError(t('project.storyboard_no_frames')); setLoadingPrompts(false); return }
       if (directCreate) {
         const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(`Tạo ${n} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setLoadingPrompts(false); return }
+        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
         let extraCharMap = {}
         if (bc && bc.length > 0) {
           extraCharMap = await autoGeneratePortraits(bc) || {}
@@ -326,7 +329,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         setStep('review')
         setLoadingPrompts(false)
       }
-    } catch (e: any) { setError(e.response?.data?.detail || 'Lỗi đọc storyboard'); setLoadingPrompts(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_read_storyboard')); setLoadingPrompts(false) }
   }
 
   function addScene() {
@@ -337,7 +340,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   async function addCharacter() {
-    if (!newCharName.trim() || !newCharFile) { setError('Cần tên + ảnh nhân vật'); return }
+    if (!newCharName.trim() || !newCharFile) { setError(t('project.need_name_and_photo')); return }
     setAddingChar(true); setError('')
     try {
       const c = await charactersApi.add(newCharName.trim(), newCharFile)  // vào kho chung, dùng lại được
@@ -347,7 +350,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       setNewCharName(''); setNewCharFile(null); setAddCharOpen(false)
       if (charFileRef.current) charFileRef.current.value = ''
       pushLog(`Đã thêm nhân vật @${c.name}`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Thêm nhân vật thất bại') }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.add_char_failed')) }
     finally { setAddingChar(false) }
   }
 
@@ -400,7 +403,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       const nar = (baseNarr[i] || sNarr[i] || '')
       return pickVoiceForScene(s, nar)
     })
-    if (!basePrompts.length) { setError('Viết kịch bản trước'); return }
+    if (!basePrompts.length) { setError(t('project.write_script_first')); return }
     setError(''); setCreating(true)
     // Inject @CharName into prompts for selected chars
     const mapToUse = data?.charIdsMap || charIdsMap
@@ -420,7 +423,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const startTime = Date.now();
       const proj = await projectsApi.create({
-        name: sName || `Dự án ${new Date().toLocaleDateString('vi-VN')}`,
+        name: sName || `${t('project.default_name')} ${new Date().toLocaleDateString('vi-VN')}`,
         idea, style: sStyle || undefined, model_key: model,
         aspect_ratio: sAspect, duration_seconds: duration, language,
         prompts: enriched, narrations: baseNarr, auto_render: autoRender,
@@ -436,7 +439,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`${autoRender ? 'Auto render' : 'Tạo'} dự án: ${proj.name}`)
       onCreated?.()
       nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo dự án thất bại'); setCreating(false); setLoadingPrompts(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.create_project_failed')); setCreating(false); setLoadingPrompts(false) }
   }
 
   const addBScene = () => setBScenes(s => [...s, { prompt: '', narration: '' }])
@@ -446,7 +449,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   async function createBatch() {
     let valid = bScenes.filter(s => s.prompt.trim())
-    if (!valid.length) { setError('Nhập ít nhất 1 cảnh có prompt'); return }
+    if (!valid.length) { setError(t('project.need_at_least_one_scene')); return }
     setError(''); setCreating(true)
     
     try {
@@ -476,25 +479,25 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       if (elapsed < 5000) await new Promise(r => setTimeout(r, 5000 - elapsed));
       pushLog(`Tạo video từ ${valid.length} cảnh prompt${bChain ? ' (chain)' : ''}`)
       nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo video thất bại'); setCreating(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.create_video_failed')); setCreating(false) }
   }
 
   async function doCopy() {
-    if (!copyUrl.trim()) { setError('Nhập URL'); return }
+    if (!copyUrl.trim()) { setError(t('project.enter_url')); return }
     setError(''); setCopyLoading(true)
     try {
       const res = await toolsApi.copyIdea({ url: copyUrl, style: copyStyle || undefined, scene_count: copyCount })
       pushLog(`Chép ý tưởng: ${res.prompts.length} cảnh`)
       const cost = modelObjNew.cost * (res.prompts?.length || 0)
       setCopyLoading(false)
-      if (cost > 0 && !window.confirm(`Tạo ${res.prompts.length} cảnh — tốn khoảng ${cost} 💎. Tiếp tục?`)) return
+      if (cost > 0 && !window.confirm(t('project.confirm_create', { n: res.prompts.length, cost }))) return
       await createNew(true, { name: res.title, prompts: res.prompts, narrations: res.narrations, style: copyStyle, bible: [], aspect: copyAspect })
-    } catch (e: any) { setError(e.response?.data?.detail || 'Phân tích thất bại'); setCopyLoading(false) }
+    } catch (e: any) { setError(e.response?.data?.detail || t('project.analysis_failed')); setCopyLoading(false) }
   }
 
   async function delProject(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm('Xóa dự án này?')) return
+    if (!confirm(t('project.confirm_delete'))) return
     await projectsApi.delete(id)
     removeDeletedSellId(id)
     setProjects(ps => ps.filter(p => p.id !== id))
@@ -514,7 +517,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <div style={{ fontSize: 16, fontWeight: 700, marginTop: 22, marginBottom: 6, color: 'var(--text)' }}>
                 {CREATE_STEPS[loadStep].text}
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Đang dựng phim từ kịch bản của bạn — chỉ vài giây ☕</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('project.overlay_building')}</div>
               <div className="load-bar"><div className="load-bar-fill" /></div>
             </div>
           </div>
@@ -523,9 +526,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       {/* Header — chế độ chọn ở sidebar (mục con của "Tạo video") */}
       <div className="page-header">
         <div>
-          <div className="page-title" style={{ margin: 0 }}>Tạo video</div>
+          <div className="page-title" style={{ margin: 0 }}>{t('project.create_video')}</div>
           <div className="page-subtitle">
-            {tab === 'new' ? 'Tạo từ ý tưởng' : tab === 'batch' ? 'Từ mô tả từng cảnh' : tab === 'copy' ? 'Chép ý tưởng' : 'Video bán hàng'}
+            {tab === 'new' ? t('project.tab_new') : tab === 'batch' ? t('project.tab_batch') : tab === 'copy' ? t('project.tab_copy') : t('project.tab_sell')}
           </div>
         </div>
       </div>
@@ -536,22 +539,22 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       {tab === 'new' && (
         <div className="composer fx-card">
           <div className="cmp-steps">
-            <span className="on"><i>✦</i> Tạo từ ý tưởng — AI tự viết kịch bản &amp; render thẳng</span>
+            <span className="on"><i>✦</i> {t('project.new_header')}</span>
           </div>
 
           {/* ─── BƯỚC 1: THIẾT LẬP ─── */}
           {step === 'setup' && (<>
           <div className="cmp-body">
               <div className="cmp-titlerow">
-                <span className="cmp-tlabel">Tên dự án</span>
-                <input className="cmp-titlein" placeholder="Tên phim của bạn..." value={name} onChange={e => setName(e.target.value)} />
+                <span className="cmp-tlabel">{t('project.project_name')}</span>
+                <input className="cmp-titlein" placeholder={t('project.project_name_placeholder')} value={name} onChange={e => setName(e.target.value)} />
               </div>
 
               <div className="cmp-tabs" style={{ marginBottom: 14 }}>
-                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
-                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
-                <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> Dán Prompts</button>
-                <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
+                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> {t('project.mode_ai')}</button>
+                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> {t('project.mode_manual')}</button>
+                <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> {t('project.mode_prompts')}</button>
+                <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> {t('project.mode_storyboard')}</button>
               </div>
 
               {mode === 'storyboard' ? (
@@ -562,10 +565,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     border: '1.5px dashed var(--line, #2a2740)', borderRadius: 14, background: 'rgba(255,255,255,0.02)',
                   }}>
                     <Clapperboard size={26} style={{ color: 'var(--accent2)' }} />
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Chọn ảnh storyboard hoặc PDF</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('project.storyboard_select')}</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 420 }}>
-                      1 ảnh nhiều khung (grid), nhiều ảnh rời, hoặc PDF. AI đọc từng khung → tự viết prompt + lời thoại.
-                      <strong> Số cảnh = số khung.</strong> Tối đa 10 file, ~18MB.
+                      {t('project.storyboard_desc')}
                     </div>
                     <input id="sb-input" ref={sbFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }}
                       onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) setSbFiles(prev => [...prev, ...fs].slice(0, 10)); if (sbFileRef.current) sbFileRef.current.value = '' }} />
@@ -586,16 +588,16 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
                   <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' || mode === 'prompts' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
                     placeholder={mode === 'manual'
-                      ? 'Dán kịch bản của bạn (kèm lời thoại + tên nhân vật)...\nVD:\nCảnh 1: Mẹ ngồi gục ở quầy spa, mệt mỏi.\nLời thoại (Mẹ): "Cả ngày không có khách nào..."\nCảnh 2: Con trai bước vào...'
+                      ? t('project.placeholder_manual')
                       : mode === 'prompts'
-                      ? 'Dán danh sách prompt của bạn (1 dòng = 1 prompt = 1 cảnh)...\nVD:\nA cinematic shot of a mountain at sunset\nA person walking in the snow\n...'
-                      : 'Mô tả ý tưởng của bạn — càng chi tiết, AI viết càng sát...'} />
+                      ? t('project.placeholder_prompts')
+                      : t('project.placeholder_ai')} />
                 </div>
               )}
 
               <div className="cmp-settings">
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Số cảnh {sceneCount > 30 && <span className="rv" style={{ color: 'var(--accent2)' }}>tạo nhanh ⚡</span>}</div>
+                  <div className="cmp-label">{t('project.scene_count')} {sceneCount > 30 && <span className="rv" style={{ color: 'var(--accent2)' }}>{t('project.fast_create')} ⚡</span>}</div>
                   <div className="stepper">
                     <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
                     <input type="number" min={1} max={600} value={sceneCount}
@@ -604,7 +606,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Thời lượng / cảnh <span className="rv">{duration}s</span></div>
+                  <div className="cmp-label">{t('project.duration_per_scene')} <span className="rv">{duration}s</span></div>
                   <div className="seg2">
                     {DURATIONS.map(d => (
                       <button key={d} type="button" className={duration === d ? 'on' : ''} onClick={() => setDuration(d)}>{d}</button>
@@ -612,7 +614,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Chất lượng video</div>
+                  <div className="cmp-label">{t('project.video_quality')}</div>
                   <div className="selwrap">
                     <select className="cmp-sel" value={model} onChange={e => setModel(e.target.value)}>
                       {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -621,7 +623,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Tỉ lệ</div>
+                  <div className="cmp-label">{t('project.aspect_ratio')}</div>
                   <div className="selwrap">
                     <select className="cmp-sel" value={aspect} onChange={e => setAspect(e.target.value)}>
                       {ASPECTS.map(a => <option key={a}>{a}</option>)}
@@ -640,7 +642,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">Ngôn ngữ</div>
+                  <div className="cmp-label">{t('project.language')}</div>
                   <div className="selwrap">
                     <select className="cmp-sel" value={language} onChange={e => setLanguage(e.target.value)}>
                       <option value="vi">🇻🇳 Việt</option>
@@ -653,9 +655,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
               {/* Nhân vật của dự án — giữ mặt */}
               <div className="cmp-chiprow" style={{ marginBottom: 24 }}>
-                <span className="cmp-clab">Giữ mặt</span>
+                <span className="cmp-clab">{t('project.face_lock')}</span>
                 {chars.length === 0 && (
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm ảnh để nhân vật giữ nguyên khuôn mặt qua các cảnh.</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('project.face_lock_hint')}</span>
                 )}
                 {chars.map(c => (
                   <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
@@ -663,19 +665,19 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     <img src={c.image_url} alt="" />@{c.name}
                   </div>
                 ))}
-                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title="Tải ảnh để AI giữ đúng mặt nhân vật qua các cảnh">
-                  {addCharOpen ? <><X size={13} /> đóng</> : <><Plus size={13} /> thêm nhân vật</>}
+                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title={t('project.face_lock_tooltip')}>
+                  {addCharOpen ? <><X size={13} /> {t('project.close')}</> : <><Plus size={13} /> {t('project.add_character')}</>}
                 </div>
               </div>
               {addCharOpen && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                  <input className="cmp-sel" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
+                  <input className="cmp-sel" placeholder={t('project.char_name_placeholder')} value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
                   <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
-                    {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : '📁 Chọn ảnh'}
+                    {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : t('project.select_photo')}
                     <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
                   </label>
                   <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
-                    {addingChar ? <Loader2 size={13} className="spin" /> : 'Lưu'}
+                    {addingChar ? <Loader2 size={13} className="spin" /> : t('project.save')}
                   </button>
                 </div>
               )}
@@ -685,7 +687,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
                 {(audioMode === 'voiceover' || audioMode === 'character_speak') && selectedChars.size > 0 && (
                   <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 Gán giọng nói cho nhân vật đã chọn</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>🔊 {t('project.assign_voice')}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                       {Array.from(selectedChars).map(cName => (
                         <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -720,7 +722,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     else genPrompts(false)
                   }}
                   disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
-                  Kiểm tra kịch bản chi tiết
+                  {t('project.review_script')}
                 </button>
               )}
 
@@ -733,8 +735,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 }}
                 disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
                 {loadingPrompts || creating
-                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? 'Đang đọc storyboard...' : mode === 'manual' ? 'Đang phân tích & tạo...' : 'Đang tạo...'}</>
-                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? 'Đọc storyboard & tạo phim →' : mode === 'manual' ? 'Phân tích & tạo phim →' : mode === 'prompts' ? 'Tạo phim từ Prompts →' : 'AI viết & tạo phim →'}</>}
+                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? t('project.reading_storyboard') : mode === 'manual' ? t('project.analyzing_creating') : t('project.creating')}</>
+                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? t('project.cta_storyboard') : mode === 'manual' ? t('project.cta_manual') : mode === 'prompts' ? t('project.cta_prompts') : t('project.cta_ai')}</>}
               </button>
             </div>
           </>)}
@@ -746,31 +748,31 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '14px 16px', marginBottom: 16,
               background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 10 }}>
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Độ dài video</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>{t('project.video_length')}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent3)' }}>~{fmtLen(reviewLenSec)}</div>
               </div>
               <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Số cảnh</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>{t('project.scene_count')}</div>
                 <div style={{ fontSize: 16, fontWeight: 600 }}>{reviewN} × {duration}s</div>
               </div>
               <div style={{ width: 1, height: 32, background: 'var(--border2)' }} />
               <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Chi phí</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>{t('project.cost')}</div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: reviewCost === 0 ? 'var(--green)' : 'var(--yellow)' }}>{reviewCost === 0 ? 'FREE' : `${reviewCost} 💎`}</div>
               </div>
               <div style={{ flex: 1 }} />
               <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right', lineHeight: 1.5 }}>
                 {modelObjNew.label} · {aspect}
-                {(selectedChars.size > 0 || Object.values(charIdsMap).filter(Boolean).length > 0) && <><br />🔒 khoá {new Set([...selectedChars, ...Object.keys(charIdsMap).filter(k => charIdsMap[k])]).size} mặt</>}
+                {(selectedChars.size > 0 || Object.values(charIdsMap).filter(Boolean).length > 0) && <><br />{t('project.locked_faces', { count: new Set([...selectedChars, ...Object.keys(charIdsMap).filter(k => charIdsMap[k])]).size })}</>}
               </div>
             </div>
 
             {bibleChars.length > 0 && (
               <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
-                  🎭 Danh sách nhân vật (Gán mặt & Giọng)
-                  {generatingPortraits && <span style={{ marginLeft: 8, color: 'var(--accent3)' }}><Loader2 size={10} className="spin" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}/> Đang vẽ tự động...</span>}
+                  🎭 {t('project.char_list_title')}
+                  {generatingPortraits && <span style={{ marginLeft: 8, color: 'var(--accent3)' }}><Loader2 size={10} className="spin" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}/> {t('project.auto_drawing')}</span>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {bibleChars.map((c: any) => {
@@ -801,9 +803,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                                 setCharIdsMap(m => ({ ...m, [cName]: val }))
                               }
                             }}>
-                              <option value="">-- AI tự vẽ chân dung --</option>
+                              <option value="">{t('project.ai_auto_portrait')}</option>
                               {chars.map(char => <option key={char.id} value={char.id}>{char.name}</option>)}
-                              <option value="UPLOAD">+ Upload ảnh mới...</option>
+                              <option value="UPLOAD">{t('project.upload_new_photo')}</option>
                             </select>
                             <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                           </div>
@@ -814,19 +816,19 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                             onClick={async () => {
                               // Regenerate
                               const btn = document.getElementById(`regen-btn-${cName}`)
-                              if (btn) btn.innerHTML = '⏳ Đang vẽ...'
+                              if (btn) btn.innerHTML = `⏳ ${t('project.drawing')}`
                               try {
                                 await charactersApi.generateAIPortraits([c], true)
                                 await charactersApi.list().then(setChars)
                               } catch(e) {
-                                alert('Lỗi tạo ảnh')
+                                alert(t('project.error_create_photo'))
                               } finally {
-                                if (btn) btn.innerHTML = '✨ Vẽ lại ảnh AI'
+                                if (btn) btn.innerHTML = `✨ ${t('project.redraw_ai')}`
                               }
                             }}
                             id={`regen-btn-${cName}`}
                           >
-                            ✨ Vẽ lại ảnh AI
+                            ✨ {t('project.redraw_ai')}
                           </button>
                         </div>
                         
@@ -838,7 +840,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                             await charactersApi.list().then(setChars)
                             setCharIdsMap(m => ({ ...m, [cName]: res.id }))
                           } catch (err) {
-                            alert('Upload lỗi!')
+                            alert(t('project.upload_error'))
                           }
                         }} />
 
@@ -858,9 +860,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
               {loadingPrompts
                 ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--accent2)' }}>
-                    <Loader2 size={13} className="spin" /> 🪄 AI đang viết kịch bản {sceneCount} cảnh — vài giây...
+                    <Loader2 size={13} className="spin" /> {t('project.ai_writing_script', { count: sceneCount })}
                   </span>
-                : <>📝 Kịch bản chi tiết · {reviewN} cảnh — sửa trước khi tạo:</>}
+                : <>{t('project.detailed_script', { count: reviewN })}</>}
             </div>
             <div style={{ maxHeight: 440, overflowY: 'auto', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {loadingPrompts ? Array.from({ length: Math.min(sceneCount, 8) }).map((_, i) => (
@@ -872,59 +874,59 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               )) : scenes.length > 0 ? scenes.map((s, i) => (
                 <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>{t('scene.label', { index: i + 1 })}</span>
                     <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * duration)}–{fmtTC((i + 1) * duration)}</span>
                     {s.beat && <span style={{ fontSize: 11.5, color: 'var(--accent3)', fontWeight: 600 }}>· {s.beat}</span>}
-                    <button onClick={() => delScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+                    <button onClick={() => delScene(i)} title={t('scene.delete')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Mô tả hình ảnh</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 {t('scene.image_desc')}</div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.image} onChange={e => updateScene(i, 'image', e.target.value)} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 Hành động</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🎬 {t('scene.action')}</div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 9 }} value={s.action} onChange={e => updateScene(i, 'action', e.target.value)} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🔊 Lời thoại</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>🔊 {t('scene.dialogue')}</div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 120px' }} placeholder="Người nói" value={s.speaker} onChange={e => updateScene(i, 'speaker', e.target.value)} />
-                    <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder="Lời thoại..." value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
+                    <input className="form-input" style={{ fontSize: 12.5, flex: '0 0 120px' }} placeholder={t('scene.speaker')} value={s.speaker} onChange={e => updateScene(i, 'speaker', e.target.value)} />
+                    <input className="form-input" style={{ fontSize: 12.5, flex: 1 }} placeholder={t('scene.dialogue_placeholder')} value={s.dialogue} onChange={e => updateScene(i, 'dialogue', e.target.value)} />
                   </div>
                   <details style={{ marginTop: 8 }}>
-                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ Mô tả cảnh — sửa nếu cần</summary>
+                    <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ {t('scene.edit_prompt')}</summary>
                     <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
                   </details>
                 </div>
               )) : prompts.map((p, i) => (
                 <div key={i} style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 9, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 5, padding: '1px 7px' }}>{t('scene.label', { index: i + 1 })}</span>
                     <span style={{ fontSize: 10, color: 'var(--text3)' }}>{duration}s</span>
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12, marginBottom: narrations[i] !== undefined ? 6 : 0 }} value={p}
-                    placeholder="Mô tả cảnh"
+                    placeholder={t('scene.describe')}
                     onChange={e => { const np = [...prompts]; np[i] = e.target.value; setPrompts(np) }} />
                   {narrations[i] !== undefined && (
                     <input className="form-input" style={{ fontSize: 12 }} value={narrations[i]}
-                      placeholder="🔊 Lời thoại / narration"
+                      placeholder={t('scene.narration_placeholder')}
                       onChange={e => { const nn = [...narrations]; nn[i] = e.target.value; setNarrations(nn) }} />
                   )}
                 </div>
               ))}
             </div>
             {scenes.length > 0 && (
-              <button className="cmp-ghost" onClick={addScene} style={{ width: '100%', borderStyle: 'dashed' }}>+ Thêm cảnh</button>
+              <button className="cmp-ghost" onClick={addScene} style={{ width: '100%', borderStyle: 'dashed' }}>+ {t('scene.add')}</button>
             )}
             </div>
             <div className="cmp-actionbar">
-              <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← Sửa lại</button>
+              <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← {t('project.edit_back')}</button>
               <div style={{ flex: 1 }} />
-              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 Lưu nháp</button>
+              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 {t('project.save_draft')}</button>
               <button className="cmp-cta" onClick={() => {
                 const n = reviewN
                 const msg = reviewCost === 0
-                  ? `Tạo video ${n} cảnh bằng model Miễn phí — KHÔNG tốn credit (0 💎). Tiếp tục?`
-                  : `Tạo video ${n} cảnh — tốn khoảng ${reviewCost} 💎. Tiếp tục?`
+                  ? t('project.confirm_create_free', { n })
+                  : t('project.confirm_create_paid', { n, cost: reviewCost })
                 if (!window.confirm(msg)) return
                 createNew(true)
               }} disabled={creating || loadingPrompts}>
-                {creating ? <><Loader2 size={14} className="spin" /> Đang khởi tạo...</> : '🚀 Tạo & Ghép video'}
+                {creating ? <><Loader2 size={14} className="spin" /> {t('project.initializing')}</> : t('project.create_and_merge')}
               </button>
             </div>
           </>)}
@@ -937,43 +939,43 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         <div className="composer fx-card">
           <div className="cmp-body">
             <div className="cmp-titlerow">
-              <span className="cmp-tlabel">Tên dự án</span>
-              <input className="cmp-titlein" placeholder="Tên video của bạn..." value={bName} onChange={e => setBName(e.target.value)} />
+              <span className="cmp-tlabel">{t('project.project_name')}</span>
+              <input className="cmp-titlein" placeholder={t('project.video_name_placeholder')} value={bName} onChange={e => setBName(e.target.value)} />
             </div>
 
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, fontWeight: 600 }}>
-              🎬 Mỗi ô = 1 <strong>CẢNH</strong> của video — tạo xong tự ghép thành 1 phim. Dùng <strong>@Tên</strong> để giữ mặt nhân vật.
+              {t('project.batch_desc')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {bScenes.map((s, i) => (
                 <div key={i} style={{ padding: '12px 14px', background: 'var(--inset)', borderRadius: 11, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>Cảnh {i + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--grad)', borderRadius: 6, padding: '2px 9px' }}>{t('scene.label', { index: i + 1 })}</span>
                     <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtTC(i * bDuration)}–{fmtTC((i + 1) * bDuration)}</span>
-                    {bScenes.length > 1 && <button onClick={() => delBScene(i)} title="Xoá cảnh" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>}
+                    {bScenes.length > 1 && <button onClick={() => delBScene(i)} title={t('scene.delete')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>}
                   </div>
                   <textarea className="form-textarea" rows={2} style={{ fontSize: 12.5, minHeight: 'auto', marginBottom: 8 }}
-                    placeholder="Mô tả cảnh này (hình ảnh + hành động)..." value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
+                    placeholder={t('project.batch_scene_placeholder')} value={s.prompt} onChange={e => updBScene(i, 'prompt', e.target.value)} />
                   <div style={{ display: 'flex', gap: 8 }}>
                     {(bAudioMode === 'character_speak' && selectedChars.size > 0) && (
                       <div className="selwrap" style={{ width: 120 }}>
                         <select className="cmp-sel" value={s.speaker || ''} onChange={e => updBScene(i, 'speaker', e.target.value)}>
-                          <option value="">Người dẫn</option>
+                          <option value="">{t('project.narrator')}</option>
                           {Array.from(selectedChars).map(c => <option key={c} value={c}>@{c}</option>)}
                         </select>
                         <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                       </div>
                     )}
-                    <input className="form-input" style={{ flex: 1, fontSize: 12.5 }} placeholder="🔊 Lời thoại (tuỳ chọn — để lồng tiếng)" value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
+                    <input className="form-input" style={{ flex: 1, fontSize: 12.5 }} placeholder={t('project.batch_narration_placeholder')} value={s.narration} onChange={e => updBScene(i, 'narration', e.target.value)} />
                   </div>
                 </div>
               ))}
             </div>
-            <button className="cmp-ghost" onClick={addBScene} style={{ width: '100%', borderStyle: 'dashed', marginBottom: 18 }}>+ Thêm cảnh</button>
+            <button className="cmp-ghost" onClick={addBScene} style={{ width: '100%', borderStyle: 'dashed', marginBottom: 18 }}>+ {t('scene.add')}</button>
 
             <div className="cmp-settings">
               <div className="cmp-ctrl">
-                <div className="cmp-label">Chất lượng video</div>
+                <div className="cmp-label">{t('project.video_quality')}</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={bModel} onChange={e => setBModel(e.target.value)}>
                     {MODELS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -982,7 +984,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">Tỉ lệ</div>
+                <div className="cmp-label">{t('project.aspect_ratio')}</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={bAspect} onChange={e => setBAspect(e.target.value)}>
                     {ASPECTS.map(a => <option key={a}>{a}</option>)}
@@ -991,16 +993,16 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">Thời lượng / cảnh <span className="rv">{bDuration}s</span></div>
+                <div className="cmp-label">{t('project.duration_per_scene')} <span className="rv">{bDuration}s</span></div>
                 <div className="seg2">
                   {DURATIONS.map(d => <button key={d} type="button" className={bDuration === d ? 'on' : ''} onClick={() => setBDuration(d)}>{d}</button>)}
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">Tuỳ chọn</div>
+                <div className="cmp-label">{t('project.options')}</div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', height: 38 }}>
                   <input type="checkbox" checked={bChain} onChange={e => setBChain(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                  <Link2 size={13} color="var(--accent2)" /> Nối tiếp cảnh trước (cảnh sau bắt đầu từ khung cuối cảnh trước)
+                  <Link2 size={13} color="var(--accent2)" /> {t('project.chain_mode')}
                 </label>
               </div>
             </div>
@@ -1009,7 +1011,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <AudioPicker value={bAudioMode} onChange={setBAudioMode} />
               {(bAudioMode === 'voiceover' || bAudioMode === 'character_speak') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>Giọng đọc:</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('project.voice_read')}:</span>
                   <div className="selwrap" style={{ width: 170 }}>
                     <select className="cmp-sel" value={bVoice} onChange={e => setBVoice(e.target.value)}>
                       {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
@@ -1020,7 +1022,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               )}
               {(bAudioMode === 'character_speak' && selectedChars.size > 0) && (
                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--inset)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>🎭 Phân giọng nhân vật:</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>🎭 {t('project.char_voice_assign')}:</div>
                   {Array.from(selectedChars).map(cName => (
                     <div key={cName} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 13, color: 'var(--text2)', minWidth: 100 }}>@{cName}</span>
@@ -1045,7 +1047,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             </div>
             <div style={{ flex: 1 }} />
             <button className="cmp-cta" onClick={createBatch} disabled={creating || !bValid.length}>
-              {creating ? <><Loader2 size={14} className="spin" /> Đang tạo...</> : '🚀 Tạo & Ghép video'}
+              {creating ? <><Loader2 size={14} className="spin" /> {t('project.creating')}</> : t('project.create_and_merge')}
             </button>
           </div>
         </div>
@@ -1055,17 +1057,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       {tab === 'copy' && (
         <div className="composer fx-card">
           <div className="cmp-steps">
-            <span className="on"><i>✦</i> Chép ý tưởng — clone video nguồn → kịch bản mới, render thẳng</span>
+            <span className="on"><i>✦</i> {t('project.copy_header')}</span>
           </div>
           <div className="cmp-body">
             <div className="cmp-titlerow">
-              <span className="cmp-tlabel">Link video</span>
+              <span className="cmp-tlabel">{t('project.video_link')}</span>
               <input className="cmp-titlein" placeholder="https://youtube.com/... hoặc TikTok" value={copyUrl} onChange={e => setCopyUrl(e.target.value)} />
             </div>
 
             <div className="cmp-settings">
               <div className="cmp-ctrl">
-                <div className="cmp-label">Số cảnh <span className="rv">{copyCount}</span></div>
+                <div className="cmp-label">{t('project.scene_count')} <span className="rv">{copyCount}</span></div>
                 <div className="stepper">
                   <button type="button" onClick={() => setCopyCount(c => Math.max(2, c - 1))}>−</button>
                   <input type="number" min={2} max={20} value={copyCount}
@@ -1074,21 +1076,21 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">Khung hình</div>
+                <div className="cmp-label">{t('project.frame')}</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={copyAspect} onChange={e => setCopyAspect(e.target.value)}>
-                    <option value="9:16">9:16 — Dọc (TikTok / Reels)</option>
-                    <option value="16:9">16:9 — Ngang (YouTube)</option>
-                    <option value="1:1">1:1 — Vuông</option>
+                    <option value="9:16">{t('project.frame_vertical')}</option>
+                    <option value="16:9">{t('project.frame_horizontal')}</option>
+                    <option value="1:1">{t('project.frame_square')}</option>
                   </select>
                   <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                 </div>
               </div>
               <div className="cmp-ctrl" style={{ gridColumn: '1 / -1' }}>
-                <div className="cmp-label">Phong cách hình ảnh</div>
+                <div className="cmp-label">{t('project.visual_style')}</div>
                 <div className="selwrap">
                   <select className="cmp-sel" value={copyStyle} onChange={e => setCopyStyle(e.target.value)}>
-                    <option value="">Giữ nguyên style gốc</option>
+                    <option value="">{t('project.keep_original_style')}</option>
                     {styleList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
@@ -1098,9 +1100,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
             {/* Giữ mặt — đồng bộ nhân vật cho video clone */}
             <div className="cmp-chiprow" style={{ marginBottom: 20 }}>
-              <span className="cmp-clab">Giữ mặt</span>
+              <span className="cmp-clab">{t('project.face_lock')}</span>
               {chars.length === 0 && (
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm ảnh nhân vật để giữ NGUYÊN gương mặt qua mọi cảnh của video clone.</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('project.face_lock_clone_hint')}</span>
               )}
               {chars.map(c => (
                 <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
@@ -1108,19 +1110,19 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   <img src={c.image_url} alt="" />@{c.name}
                 </div>
               ))}
-              <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title="Tải ảnh để giữ đúng mặt nhân vật qua các cảnh">
-                {addCharOpen ? <><X size={13} /> đóng</> : <><Plus size={13} /> thêm nhân vật</>}
+              <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title={t('project.face_lock_tooltip')}>
+                {addCharOpen ? <><X size={13} /> {t('project.close')}</> : <><Plus size={13} /> {t('project.add_character')}</>}
               </div>
             </div>
             {addCharOpen && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                <input className="cmp-sel" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
+                <input className="cmp-sel" placeholder={t('project.char_name_placeholder')} value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
                 <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
-                  {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : '📁 Chọn ảnh'}
+                  {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : t('project.select_photo')}
                   <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
                 </label>
                 <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
-                  {addingChar ? <Loader2 size={13} className="spin" /> : 'Lưu'}
+                  {addingChar ? <Loader2 size={13} className="spin" /> : t('project.save')}
                 </button>
               </div>
             )}
@@ -1132,11 +1134,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
           <div className="cmp-actionbar">
             <div className="cmp-est">
-              <span className="meta">{copyCount} cảnh · {copyAspect}{selectedChars.size > 0 ? ` · 🔒 khoá ${selectedChars.size} mặt` : ''}</span>
+              <span className="meta">{t('project.copy_est', { count: copyCount, aspect: copyAspect })}{selectedChars.size > 0 ? ` · ${t('project.locked_faces', { count: selectedChars.size })}` : ''}</span>
             </div>
             <div style={{ flex: 1 }} />
             <button className="cmp-cta" onClick={doCopy} disabled={copyLoading || !copyUrl.trim()}>
-              {copyLoading ? <><Loader2 size={14} className="spin" /> Đang phân tích & tạo phim...</> : <>🚀 Tạo phim ngay →</>}
+              {copyLoading ? <><Loader2 size={14} className="spin" /> {t('project.analyzing_creating_film')}</> : <>{t('project.create_film_now')}</>}
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import './Landing.css'
+import { useT, LangSwitch } from '../i18n'
 
 // ============================================
 // AI AutoCut Landing — React + Vite Static Export
@@ -84,6 +85,7 @@ const GUIDES = [
 ]
 
 export default function Landing() {
+  const t = useT()
   useEffect(() => {
     const els = Array.from(document.querySelectorAll('#lp .reveal'))
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -187,15 +189,16 @@ export default function Landing() {
                 AI AutoCut
               </div>
               <nav className="links">
-                <a href="#features">Tính năng</a>
-                <a href="#how">Cách hoạt động</a>
-                <a href="#samples">Video mẫu</a>
-                <a href="#guide">Hướng dẫn</a>
-                <a href="#pricing">Bảng giá</a>
+                <a href="#features">{t('landing.nav_features')}</a>
+                <a href="#how">{t('landing.nav_how')}</a>
+                <a href="#samples">{t('landing.nav_samples')}</a>
+                <a href="#guide">{t('landing.nav_guide')}</a>
+                <a href="#pricing">{t('landing.nav_pricing')}</a>
               </nav>
               <div className="hright">
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/login">Đăng nhập</a>
-                <a className="btn btn-grad" href="https://app.aiautocut.com/register">Bắt đầu miễn phí</a>
+                <LangSwitch compact />
+                <a className="btn btn-ghost" href="https://app.aiautocut.com/login">{t('landing.login')}</a>
+                <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.start_free')}</a>
               </div>
             </div>
           </div>
@@ -205,22 +208,22 @@ export default function Landing() {
         <div className="inner">
           <section className="hero">
             <div className="reveal">
-              <div className="pill"><span className="d"></span>🎁 Dùng thử miễn phí 24h · Veo 3.1</div>
-              <h1>Một dòng ý tưởng,<br />thành <span className="g">bộ phim AI</span> hoàn chỉnh.</h1>
-              <p className="lead">AI AutoCut tự viết kịch bản, giữ nguyên gương mặt nhân vật qua từng cảnh, render bằng Veo 3.1 rồi ghép thành video. Bạn chỉ cần ý tưởng — phần còn lại để AI lo.</p>
+              <div className="pill"><span className="d"></span>{t('landing.hero_pill')}</div>
+              <h1>{t('landing.hero_title_1')}<br />{t('landing.hero_title_2')} <span className="g">{t('landing.hero_title_highlight')}</span> {t('landing.hero_title_3')}</h1>
+              <p className="lead">{t('landing.hero_lead')}</p>
               <div className="cta-row">
                 <a className="btn btn-grad btn-lg" href="https://app.aiautocut.com/register">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
-                  Tạo video đầu tiên — miễn phí
+                  {t('landing.hero_cta')}
                 </a>
-                <a className="btn btn-ghost btn-lg" href="#how">Xem cách hoạt động</a>
+                <a className="btn btn-ghost btn-lg" href="#how">{t('landing.hero_cta2')}</a>
               </div>
 
               <div className="stats">
-                <div className="stat"><b>Veo 3.1</b><span>engine mới nhất</span></div>
-                <div className="stat"><b>Giữ mặt</b><span>xuyên mọi cảnh</span></div>
-                <div className="stat"><b>Tự ghép</b><span>ra phim hoàn chỉnh</span></div>
-                <div className="stat"><b>~vài phút</b><span>mỗi video</span></div>
+                <div className="stat"><b>Veo 3.1</b><span>{t('landing.stat_engine')}</span></div>
+                <div className="stat"><b>{t('landing.stat_face')}</b><span>{t('landing.stat_face_desc')}</span></div>
+                <div className="stat"><b>{t('landing.stat_merge')}</b><span>{t('landing.stat_merge_desc')}</span></div>
+                <div className="stat"><b>{t('landing.stat_time')}</b><span>{t('landing.stat_time_desc')}</span></div>
               </div>
             </div>
 
@@ -244,7 +247,7 @@ export default function Landing() {
                   <span className="big">1:36</span>
                   <span style={{ color: 'var(--text3)' }}>· 12×8s ·</span>
                   <span className="free">FREE</span>
-                  <span className="go">Viết kịch bản →</span>
+                  <span className="go">{t('landing.write_script')}</span>
                 </div>
               </div>
             </div>
@@ -254,9 +257,9 @@ export default function Landing() {
         {/* SAMPLES */}
         <section className="blk" id="samples">
           <div className="inner">
-            <div className="eyebrow reveal">Video mẫu</div>
-            <h2 className="h2 reveal">Video từ cộng đồng</h2>
-            <p className="sub reveal">Vài video do AI AutoCut tạo — nhân vật giữ mặt xuyên cảnh, nối khung mượt, lồng tiếng Việt tự nhiên.</p>
+            <div className="eyebrow reveal">{t('landing.samples_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.samples_title')}</h2>
+            <p className="sub reveal">{t('landing.samples_desc')}</p>
 
             <div className="samples reveal">
               <div className="srow srow-v">
@@ -272,9 +275,9 @@ export default function Landing() {
         {/* FEATURES */}
         <section className="blk" id="features">
           <div className="inner">
-            <div className="eyebrow reveal">Tính năng</div>
-            <h2 className="h2 reveal">Cả một xưởng phim, gói trong một dòng ý tưởng</h2>
-            <p className="sub reveal">Không cần biết dựng phim. Bạn mô tả, phần còn lại để AI AutoCut lo.</p>
+            <div className="eyebrow reveal">{t('landing.features_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.features_title')}</h2>
+            <p className="sub reveal">{t('landing.features_desc')}</p>
 
             <div className="feat">
               <div className="fcard span2 reveal">
@@ -310,9 +313,9 @@ export default function Landing() {
         {/* HOW IT WORKS */}
         <section className="blk" id="how">
           <div className="inner">
-            <div className="eyebrow reveal">Cách hoạt động</div>
-            <h2 className="h2 reveal">Ba bước, từ ý tưởng tới video</h2>
-            <p className="sub reveal">Trung bình vài phút cho một video nhiều cảnh hoàn chỉnh.</p>
+            <div className="eyebrow reveal">{t('landing.how_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.how_title')}</h2>
+            <p className="sub reveal">{t('landing.how_desc')}</p>
             <div className="steps">
               {STEPS.map((st, i) => (
                 <div key={i} className="step reveal">
@@ -328,9 +331,9 @@ export default function Landing() {
         {/* WHY / NO NEED */}
         <section className="blk" id="why">
           <div className="inner">
-            <div className="eyebrow reveal">Đơn giản tới mức khó tin</div>
-            <h2 className="h2 reveal">Một cú click — ra video AI <span className="g">hoàn chỉnh</span></h2>
-            <p className="sub reveal">Một dòng ý tưởng bằng tiếng Việt. Mọi thứ rắc rối còn lại, để AI AutoCut lo trọn.</p>
+            <div className="eyebrow reveal">{t('landing.why_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.why_title_1')} <span className="g">{t('landing.why_title_highlight')}</span></h2>
+            <p className="sub reveal">{t('landing.why_desc')}</p>
 
             <div className="nocards">
               {NO_NEED.map((n, i) => (
@@ -348,18 +351,18 @@ export default function Landing() {
                   <GradIcon><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 2.6 15.6 0 18M12 3c-2.6 2.4-2.6 15.6 0 18"/></GradIcon>
                 </span>
                 <div>
-                  <h3>Chạy thẳng trên web — không cài gì cả</h3>
-                  <p>Mở trình duyệt là tạo video ngay. Không tải app, không cấu hình, không tốn ổ cứng.</p>
+                  <h3>{t('landing.web_title')}</h3>
+                  <p>{t('landing.web_desc')}</p>
                 </div>
               </div>
               <div className="db-devices">
                 <span className="db-dev">
                   <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M11 18h2"/></svg>
-                  Điện thoại
+                  {t('landing.device_phone')}
                 </span>
                 <span className="db-dev">
                   <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.2"/><path d="M11 18h2"/></svg>
-                  Máy tính bảng
+                  {t('landing.device_tablet')}
                 </span>
                 <span className="db-dev">
                   <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 20h20"/></svg>
@@ -374,8 +377,8 @@ export default function Landing() {
         {/* TESTIMONIALS */}
         <section className="blk" id="testimonials">
           <div className="inner">
-            <div className="eyebrow reveal">Người dùng nói gì</div>
-            <h2 className="h2 reveal">Hàng nghìn creator đang tạo phim với AI AutoCut</h2>
+            <div className="eyebrow reveal">{t('landing.testimonials_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.testimonials_title')}</h2>
             <div className="testi reveal">
               {TESTIMONIALS.map((t, i) => (
                 <div key={i} className="tcard">
@@ -397,9 +400,9 @@ export default function Landing() {
         {/* GUIDE */}
         <section className="blk" id="guide">
           <div className="inner">
-            <div className="eyebrow reveal">Hướng dẫn bắt đầu</div>
-            <h2 className="h2 reveal">Chạy được trong 3 bước</h2>
-            <p className="sub reveal">Cần máy tính + trình duyệt Chrome. Làm một lần là xong.</p>
+            <div className="eyebrow reveal">{t('landing.guide_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.guide_title')}</h2>
+            <p className="sub reveal">{t('landing.guide_desc')}</p>
 
             <div className="guide3">
               {GUIDES.map((g, i) => (
@@ -416,71 +419,71 @@ export default function Landing() {
               ))}
             </div>
 
-            <div className="ghint reveal">📘 Sau khi đăng nhập, mục <b>Hướng dẫn</b> trong app có chi tiết từng bước + nút tải tiện ích.</div>
+            <div className="ghint reveal">{t('landing.guide_hint')}</div>
           </div>
         </section>
 
         {/* PRICING */}
         <section className="blk" id="pricing">
           <div className="inner">
-            <div className="eyebrow reveal">Bảng giá</div>
-            <h2 className="h2 reveal">Dùng thử miễn phí, nâng Pro khi cần</h2>
-            <p className="sub reveal">Mở tài khoản là có ngay <b>24 giờ tạo video miễn phí</b> — không cần thẻ. Thích thì nâng Pro chỉ từ <b>249k/tháng</b>.</p>
+            <div className="eyebrow reveal">{t('landing.pricing_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.pricing_title')}</h2>
+            <p className="sub reveal">{t('landing.pricing_desc')}</p>
 
             <div className="price">
               {/* Free */}
               <div className="pcard reveal">
-                <span className="tag" style={{ background: 'rgba(249,115,22,.14)', color: 'var(--accent)', border: '1px solid var(--line2)' }}>DÙNG THỬ</span>
-                <div className="name">Miễn phí</div>
-                <div className="amt">0đ<small>/24 giờ đầu</small></div>
+                <span className="tag" style={{ background: 'rgba(249,115,22,.14)', color: 'var(--accent)', border: '1px solid var(--line2)' }}>{t('landing.price_trial_tag')}</span>
+                <div className="name">{t('landing.price_free')}</div>
+                <div className="amt">0đ<small>{t('landing.price_free_period')}</small></div>
                 <ul>
-                  <li>{Check()} <b>24 giờ</b> tạo video thả ga</li>
+                  <li>{Check()} <b>24 {t('landing.hours')}</b> {t('landing.price_free_f1')}</li>
                   <li>{Check()} Model Veo 3.1 Lite — <b>FREE</b></li>
-                  <li>{Check()} Giữ mặt &amp; tự ghép phim</li>
-                  <li>{Check()} 150MB lưu trữ</li>
+                  <li>{Check()} {t('landing.price_free_f3')}</li>
+                  <li>{Check()} 150MB {t('landing.storage')}</li>
                 </ul>
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">Dùng thử miễn phí</a>
+                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">{t('landing.price_free_cta')}</a>
               </div>
 
               {/* Pro */}
               <div className="pcard hot reveal">
-                <span className="tag">Phổ biến nhất</span>
+                <span className="tag">{t('landing.price_pro_tag')}</span>
                 <div className="name">Pro</div>
-                <div className="amt">249k<small>/tháng</small></div>
+                <div className="amt">249k<small>{t('landing.price_per_month')}</small></div>
                 <ul>
-                  <li>{Check()} Tạo video <b>không giới hạn</b></li>
-                  <li>{Check()} <b>Tất cả</b> model: Lite · Fast · Quality</li>
-                  <li>{Check()} Render hàng loạt + ưu tiên hàng đợi</li>
-                  <li>{Check()} <b>1GB</b> lưu trữ</li>
-                  <li>{Check()} Hỗ trợ ưu tiên (Telegram/Zalo)</li>
+                  <li>{Check()} {t('landing.price_pro_f1')}</li>
+                  <li>{Check()} <b>{t('landing.price_pro_f2a')}</b> {t('landing.price_pro_f2b')}</li>
+                  <li>{Check()} {t('landing.price_pro_f3')}</li>
+                  <li>{Check()} <b>1GB</b> {t('landing.storage')}</li>
+                  <li>{Check()} {t('landing.price_pro_f5')}</li>
                 </ul>
-                <a className="btn btn-grad" href="https://app.aiautocut.com/register">Nâng Pro ngay</a>
+                <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.price_pro_cta')}</a>
               </div>
 
               {/* Yearly */}
               <div className="pcard reveal">
-                <span className="tag" style={{ background: 'rgba(16,185,129,.14)', color: 'var(--green)', border: '1px solid var(--line2)' }}>TIẾT KIỆM 13%</span>
-                <div className="name">Pro · 12 tháng</div>
-                <div className="amt">2.599k<small>/năm</small></div>
+                <span className="tag" style={{ background: 'rgba(16,185,129,.14)', color: 'var(--green)', border: '1px solid var(--line2)' }}>{t('landing.price_yearly_tag')}</span>
+                <div className="name">{t('landing.price_yearly_name')}</div>
+                <div className="amt">2.599k<small>{t('landing.price_per_year')}</small></div>
                 <ul>
-                  <li>{Check()} Mọi thứ ở gói Pro</li>
-                  <li>{Check()} Chỉ <b>~217k/tháng</b> — rẻ hơn 13%</li>
-                  <li>{Check()} Thanh toán 1 lần, dùng cả năm</li>
+                  <li>{Check()} {t('landing.price_yearly_f1')}</li>
+                  <li>{Check()} {t('landing.price_yearly_f2')}</li>
+                  <li>{Check()} {t('landing.price_yearly_f3')}</li>
                 </ul>
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">Chọn gói năm</a>
+                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">{t('landing.price_yearly_cta')}</a>
               </div>
             </div>
 
-            <p className="sub reveal" style={{ marginTop: 16, fontSize: 13 }}>Còn gói <b>6 tháng — 1.419k</b> (tiết kiệm 5%). Mọi gói Pro đều <b>1GB</b> lưu trữ &amp; full tính năng. Hủy bất cứ lúc nào.</p>
+            <p className="sub reveal" style={{ marginTop: 16, fontSize: 13 }}>{t('landing.pricing_note')}</p>
 
             {/* Final CTA band */}
             <div className="band reveal">
               <div className="band-left">
-                <h2>Bắt đầu tạo video của bạn<br />ngay hôm nay</h2>
-                <p>Mở tài khoản nhận ngay <b>24h tạo video miễn phí</b> — không cần thẻ tín dụng.</p>
+                <h2>{t('landing.final_cta_title')}</h2>
+                <p>{t('landing.final_cta_desc')}</p>
                 <div className="band-form">
-                  <input className="band-input" type="text" placeholder="Nhập ý tưởng của bạn..." readOnly onClick={() => window.location.href = 'https://app.aiautocut.com/register'} />
-                  <a className="btn btn-grad" href="https://app.aiautocut.com/register">Tạo video ngay</a>
+                  <input className="band-input" type="text" placeholder={t('landing.final_cta_placeholder')} readOnly onClick={() => window.location.href = 'https://app.aiautocut.com/register'} />
+                  <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.final_cta_btn')}</a>
                 </div>
               </div>
               <div className="band-right">
@@ -496,31 +499,31 @@ export default function Landing() {
             <div className="foot-top">
               <div className="foot-brand">
                 <div className="brand"><span className="logo"><Logo /></span> AI AutoCut</div>
-                <p className="foot-desc">Nền tảng AI tạo video giúp bạn biến ý tưởng thành những video chuyên nghiệp trong vài phút.</p>
+                <p className="foot-desc">{t('landing.footer_desc')}</p>
               </div>
               <div className="fcol">
-                <b>Sản phẩm</b>
-                <a href="#features">Tính năng</a>
-                <a href="#pricing">Bảng giá</a>
+                <b>{t('landing.footer_product')}</b>
+                <a href="#features">{t('landing.nav_features')}</a>
+                <a href="#pricing">{t('landing.nav_pricing')}</a>
                 <a href="#">API</a>
                 <a href="#">Blog</a>
               </div>
               <div className="fcol">
-                <b>Hỗ trợ</b>
-                <a href="https://app.aiautocut.com/guide">Hướng dẫn</a>
+                <b>{t('landing.footer_support')}</b>
+                <a href="https://app.aiautocut.com/guide">{t('landing.nav_guide')}</a>
                 <a href="https://t.me/thaidem57" target="_blank" rel="noreferrer">Telegram</a>
                 <a href="https://zalo.me/0366566303" target="_blank" rel="noreferrer">Zalo: 0366566303</a>
               </div>
               <div className="fcol">
-                <b>Công ty</b>
-                <a href="#">Về chúng tôi</a>
+                <b>{t('landing.footer_company')}</b>
+                <a href="#">{t('landing.footer_about')}</a>
                 <a href="#">Blog</a>
-                <a href="#">Tuyển dụng</a>
+                <a href="#">{t('landing.footer_careers')}</a>
               </div>
               <div className="fcol">
-                <b>Chính sách</b>
-                <a href="#">Điều khoản sử dụng</a>
-                <a href="#">Chính sách bảo mật</a>
+                <b>{t('landing.footer_policy')}</b>
+                <a href="#">{t('landing.footer_terms')}</a>
+                <a href="#">{t('landing.footer_privacy')}</a>
                 <a href="#">Tiếng Việt</a>
               </div>
             </div>

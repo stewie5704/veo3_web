@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Scissors, Gift } from 'lucide-react'
 import { authApi } from '../api/client'
+import { useT } from '../i18n'
 
 export default function Register() {
   const nav = useNavigate()
@@ -17,12 +18,13 @@ export default function Register() {
   const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const t = useT()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (form.password !== form.confirm) { setError('Mật khẩu không khớp'); return }
-    if (form.password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự'); return }
+    if (form.password !== form.confirm) { setError(t('auth.password_mismatch')); return }
+    if (form.password.length < 6) { setError(t('auth.password_min_length')); return }
     setLoading(true)
     try {
       const res = await authApi.register({ 
@@ -38,7 +40,7 @@ export default function Register() {
       localStorage.removeItem('veo_ref_time')
       nav('/', { replace: true })
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Đăng ký thất bại')
+      setError(err.response?.data?.detail || t('auth.register_failed'))
     } finally {
       setLoading(false)
     }
@@ -65,7 +67,7 @@ export default function Register() {
             <Scissors size={24} color="#fff" strokeWidth={2.2} />
           </div>
           <h1>AI AutoCut</h1>
-          <p>Tạo phim AI bằng Veo 3.1</p>
+          <p>{t('auth.tagline')}</p>
         </div>
 
         {error && <div className="alert alert-error"><span>⚠️</span> {error}</div>}
@@ -83,31 +85,31 @@ export default function Register() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Mật khẩu</label>
+              <label className="form-label">{t('auth.password')}</label>
               <input className="form-input" type="password" placeholder="••••••••"
                 value={form.password} onChange={set('password')} required />
             </div>
             <div className="form-group">
-              <label className="form-label">Xác nhận</label>
+              <label className="form-label">{t('auth.confirm_password')}</label>
               <input className="form-input" type="password" placeholder="••••••••"
                 value={form.confirm} onChange={set('confirm')} required />
             </div>
           </div>
           <div className="form-group">
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Gift size={12} /> Mã giới thiệu <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(không bắt buộc)</span>
+              <Gift size={12} /> {t('auth.referral_code')} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({t('auth.optional')})</span>
             </label>
-            <input className="form-input" type="text" placeholder="Nhập mã nếu có — có thể điền sau ở Hồ sơ"
+            <input className="form-input" type="text" placeholder={t('auth.referral_placeholder')}
               value={ref} onChange={e => setRef(e.target.value)} />
           </div>
           <button type="submit" className="btn btn-primary btn-lg"
             style={{ width: '100%', marginTop: 8 }} disabled={loading}>
-            {loading ? <><span className="spinner" /> Đang tạo...</> : '✨ Tạo tài khoản'}
+            {loading ? <><span className="spinner" /> {t('auth.creating')}</> : t('auth.register_btn')}
           </button>
         </form>
 
         <div className="auth-footer">
-          Đã có tài khoản? <Link to="/login">Đăng nhập →</Link>
+          {t('auth.has_account')} <Link to="/login">{t('auth.login_link')}</Link>
         </div>
       </div>
     </div>

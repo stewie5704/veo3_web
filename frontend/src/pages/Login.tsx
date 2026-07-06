@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Scissors } from 'lucide-react'
 import { authApi } from '../api/client'
+import { useT } from '../i18n'
 
 export default function Login() {
   const nav = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const t = useT()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -17,7 +19,7 @@ export default function Login() {
       localStorage.setItem('token', res.access_token)
       nav('/', { replace: true })
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Email hoặc mật khẩu không đúng')
+      setError(err.response?.data?.detail || t('auth.login_failed'))
     } finally {
       setLoading(false)
     }
@@ -52,7 +54,7 @@ export default function Login() {
             <Scissors size={24} color="#fff" strokeWidth={2.2} />
           </div>
           <h1>AI AutoCut</h1>
-          <p>Tạo phim AI bằng Veo 3.1</p>
+          <p>{t('auth.tagline')}</p>
         </div>
 
         {error && (
@@ -71,7 +73,7 @@ export default function Login() {
               autoComplete="email" required />
           </div>
           <div className="form-group" style={{ marginBottom: 24 }}>
-            <label className="form-label">Mật khẩu</label>
+            <label className="form-label">{t('auth.password')}</label>
             <input id="login-password" className="form-input" type="password"
               placeholder="••••••••"
               value={form.password}
@@ -80,12 +82,12 @@ export default function Login() {
           </div>
           <button id="login-submit" type="submit" className="btn btn-primary btn-lg"
             style={{ width: '100%' }} disabled={loading}>
-            {loading ? <><span className="spinner" /> Đang đăng nhập...</> : '🚀 Đăng nhập'}
+            {loading ? <><span className="spinner" /> {t('auth.logging_in')}</> : t('auth.login_btn')}
           </button>
         </form>
 
         <div className="auth-footer">
-          Chưa có tài khoản? <Link to="/register">Đăng ký ngay →</Link>
+          {t('auth.no_account')} <Link to="/register">{t('auth.register_link')}</Link>
         </div>
       </div>
     </div>

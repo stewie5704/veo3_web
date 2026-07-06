@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '../components/Toast'
+import { useT } from '../i18n'
 import api, { authApi, billingApi } from '../api/client'
 import {
   User, KeyRound, Wifi, Shield, Save, Loader2, Crown, HardDrive, Sparkles,
   Gem, Check, AtSign, Mail, Gift, Bot, ExternalLink, Search,
 } from 'lucide-react'
 
-const PLAN_LABEL: Record<string, string> = { m1: '1 tháng', m6: '6 tháng', m12: '12 tháng' }
 const fmtBytes = (b: number) =>
   b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(2) + ' GB'
     : b >= 1024 ** 2 ? (b / 1024 ** 2).toFixed(0) + ' MB'
@@ -14,6 +14,7 @@ const fmtBytes = (b: number) =>
 
 export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: any) => void }) {
   const toast = useToast()
+  const t = useT()
   const [tab, setTab] = useState<'profile' | 'assistants' | 'security' | 'api'>('profile')
   const [sub, setSub] = useState<any>(null)
 
@@ -36,6 +37,8 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const [gift, setGift] = useState<any>(null)
   const [asstQ, setAsstQ] = useState('')
 
+  const PLAN_LABEL: Record<string, string> = { m1: t('settings.plan_1m'), m6: t('settings.plan_6m'), m12: t('settings.plan_12m') }
+
   useEffect(() => {
     if (user) { setDisplayName(user.display_name || ''); setUsername(user.username || '') }
   }, [user])
@@ -47,19 +50,19 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     try {
       await api.patch('/profile/me', { display_name: displayName, username })
       onUpdate(await authApi.me())
-      toast('Đã cập nhật hồ sơ', 'success')
-    } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
+      toast(t('settings.profile_updated'), 'success')
+    } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
     finally { setSaving(false) }
   }
   async function changePassword() {
-    if (newPwd !== confirmPwd) { toast('Mật khẩu không khớp', 'error'); return }
-    if (newPwd.length < 6) { toast('Tối thiểu 6 ký tự', 'error'); return }
+    if (newPwd !== confirmPwd) { toast(t('settings.password_mismatch'), 'error'); return }
+    if (newPwd.length < 6) { toast(t('settings.password_min_length'), 'error'); return }
     setPwdSaving(true)
     try {
       await api.post('/profile/change-password', { current_password: curPwd, new_password: newPwd })
       setCurPwd(''); setNewPwd(''); setConfirmPwd('')
-      toast('Đã đổi mật khẩu', 'success')
-    } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
+      toast(t('settings.password_changed'), 'success')
+    } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
     finally { setPwdSaving(false) }
   }
   async function saveGeminiKey() {
@@ -68,8 +71,8 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     try {
       await authApi.saveGeminiKey(geminiKey)
       onUpdate(await authApi.me())
-      toast('Đã lưu Gemini API key', 'success'); setGeminiKey('')
-    } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
+      toast(t('settings.gemini_key_saved'), 'success'); setGeminiKey('')
+    } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
     finally { setKeySaving(false) }
   }
   async function applyRefCode() {
@@ -78,18 +81,18 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     try {
       await authApi.applyRef(refCode.trim())
       onUpdate(await authApi.me())
-      toast('Đã áp mã giới thiệu', 'success'); setRefCode('')
-    } catch (e: any) { toast(e.response?.data?.detail || 'Lỗi', 'error') }
+      toast(t('settings.ref_applied'), 'success'); setRefCode('')
+    } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
     finally { setRefSaving(false) }
   }
 
   // Tab "Trợ lý AI" chỉ hiện khi user thực sự được tặng (quà kèm gói)
   const hasGift = !!(gift?.gifted && (gift?.assistants?.length || 0) > 0)
   const TABS: { k: 'profile' | 'assistants' | 'security' | 'api'; l: string; i: any }[] = [
-    { k: 'profile', l: 'Hồ sơ', i: User },
-    ...(hasGift ? [{ k: 'assistants' as const, l: 'Trợ lý AI', i: Bot }] : []),
-    { k: 'security', l: 'Bảo mật', i: Shield },
-    { k: 'api', l: 'Kết nối & API Key', i: Wifi },
+    { k: 'profile', l: t('settings.tab_profile'), i: User },
+    ...(hasGift ? [{ k: 'assistants' as const, l: t('settings.tab_assistants'), i: Bot }] : []),
+    { k: 'security', l: t('settings.tab_security'), i: Shield },
+    { k: 'api', l: t('settings.tab_api'), i: Wifi },
   ]
 
   // Plan / trial state
@@ -110,7 +113,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   const asstGroups: [string, any[]][] = []
   const asstIdx: Record<string, any[]> = {}
   for (const a of asstFiltered) {
-    const cat = a.category || 'Khác'
+    const cat = a.category || t('settings.category_other')
     if (!asstIdx[cat]) { asstIdx[cat] = []; asstGroups.push([cat, asstIdx[cat]]) }
     asstIdx[cat].push(a)
   }
@@ -120,9 +123,9 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       <div className="page-header">
         <div>
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Gem size={22} color="#fb923c" /> Cài đặt
+            <Gem size={22} color="#fb923c" /> {t('settings.title')}
           </div>
-          <div className="page-subtitle">Tài khoản · bảo mật · kết nối · lưu trữ</div>
+          <div className="page-subtitle">{t('settings.subtitle')}</div>
         </div>
       </div>
 
@@ -159,7 +162,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                   fontSize: 11.5, fontWeight: 700, color: '#fff', background: 'var(--grad)',
                   boxShadow: '0 4px 12px -4px rgba(236,72,153,0.6)',
                 }}>
-                  <Crown size={12} /> Gói {PLAN_LABEL[sub.plan] || sub.plan}{sub.days_left != null ? ` · còn ${Math.round(sub.days_left)}d` : ''}
+                  <Crown size={12} /> {t('settings.plan_badge', { plan: PLAN_LABEL[sub.plan] || sub.plan, days: sub.days_left != null ? String(Math.round(sub.days_left)) : '' })}
                 </span>
               ) : inTrial ? (
                 <span style={{
@@ -167,17 +170,17 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                   fontSize: 11.5, fontWeight: 700, color: '#fbbf24',
                   background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)',
                 }}>
-                  <Sparkles size={12} /> Dùng thử · còn {trialHrs}h
+                  <Sparkles size={12} /> {t('settings.trial_badge', { hours: String(trialHrs) })}
                 </span>
               ) : (
-                <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text3)' }}>Miễn phí</span>
+                <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text3)' }}>{t('settings.free_badge')}</span>
               )}
               {user?.is_admin && <span className="badge badge-processing">Admin</span>}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 99,
                 fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', background: 'rgba(255,255,255,0.05)',
               }}>
-                🎬 {user?.videos_generated || 0} video
+                🎬 {t('settings.videos_count', { count: String(user?.videos_generated || 0) })}
               </span>
             </div>
           </div>
@@ -187,7 +190,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
         <div style={{ marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12.5, marginBottom: 7 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text2)' }}>
-              <HardDrive size={14} color={stNear ? '#f87171' : '#fb923c'} /> Dung lượng lưu trữ
+              <HardDrive size={14} color={stNear ? '#f87171' : '#fb923c'} /> {t('settings.storage_label')}
             </span>
             <span style={{ color: stNear ? '#f87171' : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>
               {fmtBytes(stUsed)} / {fmtBytes(stLimit)}{active ? '' : ' (free)'}
@@ -198,25 +201,25 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 7 }}>
             {stNear
-              ? <span style={{ color: '#f87171' }}>Sắp đầy! {active ? 'Xóa bớt video cũ.' : 'Nâng gói để có 1GB.'}</span>
-              : active ? 'Gói trả phí: tối đa 1GB.' : 'Tài khoản free: 150MB. Nâng gói để lên 1GB.'}
+              ? <span style={{ color: '#f87171' }}>{active ? t('settings.storage_near_full_paid') : t('settings.storage_near_full_free')}</span>
+              : active ? t('settings.storage_paid_info') : t('settings.storage_free_info')}
           </div>
         </div>
       </div>
 
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 18 }}>
-        {TABS.map(t => {
-          const Icon = t.i; const on = tab === t.k
+        {TABS.map(tb => {
+          const Icon = tb.i; const on = tab === tb.k
           return (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{
+            <button key={tb.k} onClick={() => setTab(tb.k)} style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10,
               border: `1px solid ${on ? 'rgba(249,115,22,0.35)' : 'transparent'}`, cursor: 'pointer',
               fontSize: 13, fontWeight: 600, transition: 'all .15s', fontFamily: 'inherit',
               background: on ? 'rgba(249,115,22,0.13)' : 'rgba(255,255,255,0.04)',
               color: on ? '#fb923c' : 'var(--text3)',
             }}>
-              <Icon size={14} /> {t.l}
+              <Icon size={14} /> {tb.l}
             </button>
           )
         })}
@@ -225,15 +228,15 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       {/* Profile */}
       {tab === 'profile' && (
         <div className="card">
-          <div className="card-header"><User size={15} /> Thông tin hồ sơ</div>
+          <div className="card-header"><User size={15} /> {t('settings.profile_header')}</div>
           <div className="form-group">
-            <label className="form-label">Tên hiển thị</label>
-            <input className="form-input" placeholder="Tên của bạn"
+            <label className="form-label">{t('settings.display_name')}</label>
+            <input className="form-input" placeholder={t('settings.display_name_placeholder')}
               value={displayName} onChange={e => setDisplayName(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AtSign size={12} /> Tên đăng nhập</label>
-            <input className="form-input" placeholder="tên đăng nhập"
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AtSign size={12} /> {t('settings.username')}</label>
+            <input className="form-input" placeholder={t('settings.username_placeholder')}
               value={username} onChange={e => setUsername(e.target.value)} />
           </div>
           <div className="form-group">
@@ -241,23 +244,23 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
             <input className="form-input" value={user?.email || ''} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
           </div>
           <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Gift size={12} /> Mã giới thiệu</label>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Gift size={12} /> {t('settings.referral_code')}</label>
             {user?.referred_by ? (
               <div className="alert alert-success" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 0 }}>
-                <Check size={13} /> Bạn đã có người giới thiệu.
+                <Check size={13} /> {t('settings.already_referred')}
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 8 }}>
-                <input className="form-input" placeholder="Nhập mã nếu được ai đó giới thiệu (chỉ áp 1 lần)"
+                <input className="form-input" placeholder={t('settings.referral_placeholder')}
                   value={refCode} onChange={e => setRefCode(e.target.value)} style={{ flex: 1 }} />
                 <button type="button" className="btn btn-ghost" onClick={applyRefCode} disabled={refSaving || !refCode.trim()}>
-                  {refSaving ? <Loader2 size={13} className="spin" /> : 'Áp mã'}
+                  {refSaving ? <Loader2 size={13} className="spin" /> : t('settings.apply_ref')}
                 </button>
               </div>
             )}
           </div>
           <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>
-            {saving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu thay đổi</>}
+            {saving ? <><Loader2 size={13} className="spin" /> {t('settings.saving')}</> : <><Save size={13} /> {t('settings.save_changes')}</>}
           </button>
         </div>
       )}
@@ -266,22 +269,22 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       {tab === 'assistants' && hasGift && (
         <div className="card">
           <div className="card-header" style={{ justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={15} color="#fb923c" /> Trợ lý AI được tặng</span>
-            <span className="badge" style={{ background: 'var(--grad)', color: '#fff', border: 'none' }}>{gift.count} trợ lý</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bot size={15} color="#fb923c" /> {t('settings.gifted_assistants')}</span>
+            <span className="badge" style={{ background: 'var(--grad)', color: '#fff', border: 'none' }}>{t('settings.assistant_count', { count: String(gift.count) })}</span>
           </div>
           <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 14 }}>
-            Quà kèm theo gói của bạn. Bấm vào <b>tên trợ lý</b> để mở trên ChatGPT (mở tab mới).
+            {t('settings.gift_info')}
           </div>
           {allAssts.length > 8 && (
             <div style={{ position: 'relative', marginBottom: 14 }}>
               <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
-              <input className="form-input" style={{ paddingLeft: 34 }} placeholder="Tìm trợ lý..."
+              <input className="form-input" style={{ paddingLeft: 34 }} placeholder={t('settings.search_assistants')}
                 value={asstQ} onChange={e => setAsstQ(e.target.value)} />
             </div>
           )}
           <div className="gift-asst-list">
             {asstGroups.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '18px 4px', textAlign: 'center' }}>Không tìm thấy trợ lý nào.</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '18px 4px', textAlign: 'center' }}>{t('settings.no_assistants_found')}</div>
             ) : asstGroups.map(([cat, items]) => (
               <div key={cat}>
                 <div className="gift-asst-cat">{cat}</div>
@@ -301,28 +304,28 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       {/* Security */}
       {tab === 'security' && (
         <div className="card">
-          <div className="card-header"><Shield size={15} /> Đổi mật khẩu</div>
+          <div className="card-header"><Shield size={15} /> {t('settings.change_password')}</div>
           <div className="form-group">
-            <label className="form-label">Mật khẩu hiện tại</label>
+            <label className="form-label">{t('settings.current_password')}</label>
             <input className="form-input" type="password" placeholder="••••••••"
               value={curPwd} onChange={e => setCurPwd(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Mật khẩu mới</label>
-            <input className="form-input" type="password" placeholder="Tối thiểu 6 ký tự"
+            <label className="form-label">{t('settings.new_password')}</label>
+            <input className="form-input" type="password" placeholder={t('settings.password_min_length')}
               value={newPwd} onChange={e => setNewPwd(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Xác nhận mật khẩu mới</label>
+            <label className="form-label">{t('settings.confirm_password')}</label>
             <input className="form-input" type="password" placeholder="••••••••"
               value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} />
           </div>
           {newPwd && confirmPwd && newPwd !== confirmPwd && (
-            <div className="alert alert-error" style={{ marginBottom: 12 }}>Mật khẩu không khớp</div>
+            <div className="alert alert-error" style={{ marginBottom: 12 }}>{t('settings.password_mismatch')}</div>
           )}
           <button className="btn btn-primary" onClick={changePassword}
             disabled={pwdSaving || !curPwd || !newPwd || newPwd !== confirmPwd}>
-            {pwdSaving ? <><Loader2 size={13} className="spin" /> Đang đổi...</> : <><KeyRound size={13} /> Đổi mật khẩu</>}
+            {pwdSaving ? <><Loader2 size={13} className="spin" /> {t('settings.changing_password')}</> : <><KeyRound size={13} /> {t('settings.change_password')}</>}
           </button>
         </div>
       )}
@@ -331,15 +334,15 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
       {tab === 'api' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card">
-            <div className="card-header"><Wifi size={15} /> Kết nối Google Ultra</div>
+            <div className="card-header"><Wifi size={15} /> {t('settings.google_ultra_connection')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <div className={`connection-badge ${user?.google_connected ? 'connected' : 'disconnected'}`}>
                 <span className="connection-dot" />
-                {user?.google_connected ? 'Đã kết nối' : 'Chưa kết nối'}
+                {user?.google_connected ? t('settings.connected') : t('settings.not_connected')}
               </div>
             </div>
             <div className="alert alert-info" style={{ fontSize: 12 }}>
-              Cài tiện ích trên trình duyệt Chrome, đăng nhập tài khoản Google, rồi bấm Kết nối trong tiện ích.
+              {t('settings.chrome_extension_info')}
             </div>
           </div>
 
@@ -347,7 +350,7 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
             <div className="card-header"><KeyRound size={15} /> Gemini API Key</div>
             {user?.has_gemini_key && (
               <div className="alert alert-success" style={{ marginBottom: 12, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Check size={13} /> Đã có API key. Nhập key mới để thay thế.
+                <Check size={13} /> {t('settings.has_api_key')}
               </div>
             )}
             <div className="form-group">
@@ -356,10 +359,10 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
                 value={geminiKey} onChange={e => setGeminiKey(e.target.value)} />
             </div>
             <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 12 }}>
-              Dùng để viết kịch bản, đọc giọng nói và tạo ảnh. Lấy key tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
+              {t('settings.gemini_key_info')} <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
             </div>
             <button className="btn btn-primary" onClick={saveGeminiKey} disabled={keySaving || !geminiKey.trim()}>
-              {keySaving ? <><Loader2 size={13} className="spin" /> Đang lưu...</> : <><Save size={13} /> Lưu API Key</>}
+              {keySaving ? <><Loader2 size={13} className="spin" /> {t('settings.saving')}</> : <><Save size={13} /> {t('settings.save_api_key')}</>}
             </button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { billingApi } from '../api/client'
 import {
   X, Copy, Check, Loader2, Clock, ShieldCheck, ExternalLink, Landmark, Coins, Sparkles,
 } from 'lucide-react'
+import { useT } from '../i18n'
 
 export type PaymentOrder = {
   order_id: string
@@ -28,6 +29,7 @@ export type PaymentOrder = {
 const BRAND = 'linear-gradient(120deg,#F97316,#EC4899,#A855F7,#F97316)'
 
 function CopyField({ label, value }: { label: string; value: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   function copy() {
     navigator.clipboard?.writeText(value).then(() => {
@@ -57,7 +59,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
         <span style={{ display: 'inline-flex', animation: copied ? 'popIn .3s ease' : undefined }}>
           {copied ? <Check size={12} /> : <Copy size={12} />}
         </span>
-        {copied ? 'Đã chép' : 'Sao chép'}
+        {copied ? t('payment.copied') : t('payment.copy')}
       </button>
     </div>
   )
@@ -72,6 +74,7 @@ export default function PaymentModal({
   onClose: () => void
 }) {
   const isBinance = order.method === 'binance'
+  const t = useT()
   const hasQr = isBinance ? !!(order.qr_content || order.qr_url) : !!order.qr_code
   const [remaining, setRemaining] = useState(() =>
     Math.max(0, Math.floor((new Date(order.expires_at).getTime() - Date.now()) / 1000)))
@@ -181,9 +184,9 @@ export default function PaymentModal({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                {isBinance ? 'Thanh toán USDT' : 'Chuyển khoản ngân hàng'}
+                {isBinance ? t('payment.pay_usdt') : t('payment.bank_transfer')}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>Gói {planLabel}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t('payment.plan_label', { plan: planLabel })}</div>
             </div>
             <button
               onClick={onClose}
@@ -206,10 +209,10 @@ export default function PaymentModal({
                 <Clock size={26} color="var(--text3)" />
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-                Đơn đã hết hạn
+                {t('payment.order_expired')}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 22, lineHeight: 1.5 }}>
-                Đơn hàng quá 5 phút chưa thanh toán. Vui lòng tạo đơn mới.
+                {t('payment.expired_desc')}
               </div>
               <button
                 onClick={onClose}
@@ -219,7 +222,7 @@ export default function PaymentModal({
                   fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
-                Đóng
+                {t('payment.close')}
               </button>
             </div>
           ) : (
@@ -232,7 +235,7 @@ export default function PaymentModal({
                 border: `1px solid ${lowTime ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.06)'}`,
               }}>
                 <Clock size={14} color={lowTime ? '#f87171' : 'var(--text3)'} />
-                <span style={{ fontSize: 13, color: 'var(--text3)' }}>Đơn có hiệu lực trong</span>
+                <span style={{ fontSize: 13, color: 'var(--text3)' }}>{t('payment.valid_for')}</span>
                 <span style={{
                   fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                   color: lowTime ? '#f87171' : 'var(--text)',
@@ -288,25 +291,25 @@ export default function PaymentModal({
                   background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)',
                 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#f87171', marginBottom: 4 }}>
-                    Không tạo được mã QR
+                    {t('payment.qr_failed')}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                    Vui lòng thử lại hoặc liên hệ hỗ trợ.
+                    {t('payment.try_again_or_contact')}
                     {order.checkout_url && (
-                      <> <a href={order.checkout_url} target="_blank" rel="noopener noreferrer" style={{ color: '#fb923c' }}>Mở trang thanh toán</a></>
+                      <> <a href={order.checkout_url} target="_blank" rel="noopener noreferrer" style={{ color: '#fb923c' }}>{t('payment.open_checkout')}</a></>
                     )}
                   </div>
                 </div>
               )}
 
               <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
-                {isBinance ? 'Mở app Binance → quét mã QR' : 'Mở app ngân hàng bất kỳ → quét mã VietQR'}
+                {isBinance ? t('payment.scan_binance') : t('payment.scan_vietqr')}
               </div>
 
               {/* Details */}
               {isBinance ? (
                 <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Số tiền</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{t('payment.amount')}</div>
                   <div style={{
                     fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em',
                     background: 'linear-gradient(115deg,#F5A623,#F7931A)',
@@ -323,23 +326,23 @@ export default function PaymentModal({
                 }}>
                   {order.bank_name && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Ngân hàng</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{t('payment.bank')}</span>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{order.bank_name}</span>
                     </div>
                   )}
-                  {order.account_number && <CopyField label="Số tài khoản" value={order.account_number} />}
+                  {order.account_number && <CopyField label={t('payment.account_number')} value={order.account_number} />}
                   {order.account_name && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Chủ tài khoản</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{t('payment.account_holder')}</span>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right' }}>{order.account_name}</span>
                     </div>
                   )}
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <CopyField label="Số tiền" value={`${fmt(order.amount)}`} />
+                    <CopyField label={t('payment.amount')} value={`${fmt(order.amount)}`} />
                   </div>
                   {order.description && (
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                      <CopyField label="Nội dung chuyển khoản" value={order.description} />
+                      <CopyField label={t('payment.transfer_content')} value={order.description} />
                     </div>
                   )}
                 </div>
@@ -358,7 +361,7 @@ export default function PaymentModal({
                     fontWeight: 700, fontSize: 13, textDecoration: 'none', fontFamily: 'inherit',
                   }}
                 >
-                  <ExternalLink size={13} /> Mở app Binance
+                  <ExternalLink size={13} /> {t('payment.open_binance')}
                 </a>
               )}
 
@@ -373,7 +376,7 @@ export default function PaymentModal({
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                   animation: 'shimmerText 2.2s linear infinite',
                 }}>
-                  Đang chờ xác nhận thanh toán...
+                  {t('payment.waiting_confirmation')}
                 </span>
               </div>
 
@@ -382,7 +385,7 @@ export default function PaymentModal({
                 fontSize: 11, color: 'var(--text3)', lineHeight: 1.5,
               }}>
                 <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-                Chuyển khoản đúng số tiền và nội dung. Gói được kích hoạt tự động sau khi nhận tiền.
+                {t('payment.transfer_notice')}
               </div>
 
               {/* Cancel */}
@@ -397,7 +400,7 @@ export default function PaymentModal({
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                 }}
               >
-                {cancelling ? <><Loader2 size={13} className="spin" /> Đang hủy...</> : 'Hủy đơn'}
+                {cancelling ? <><Loader2 size={13} className="spin" /> {t('payment.cancelling')}</> : t('payment.cancel_order')}
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { useNavigate } from 'react-router-dom'
 import { Crown, Bot, Rocket } from 'lucide-react'
+import { useT } from '../i18n'
 
 function celebrate() {
   const end = Date.now() + 1400
@@ -22,6 +23,7 @@ export default function WelcomeCelebration({
   onClose: () => void
 }) {
   const navigate = useNavigate()
+  const t = useT()
 
   useEffect(() => { celebrate() }, [])
 
@@ -58,17 +60,17 @@ export default function WelcomeCelebration({
         </div>
 
         <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 6, letterSpacing: '.04em' }}>
-          Thanh toán thành công
+          {t('welcome.payment_success')}
         </div>
         <div style={{ fontSize: 23, fontWeight: 900, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.02em' }}>
-          Chào mừng đến với
+          {t('welcome.welcome_to')}
         </div>
         <div style={{
           fontSize: 30, fontWeight: 900, marginBottom: 22, letterSpacing: '-0.03em',
           background: 'linear-gradient(115deg,#fb923c,#f472b6,#a855f7)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         }}>
-          Gói {planLabel}
+          {t('welcome.plan_label', { plan: planLabel })}
         </div>
 
         {giftCount > 0 && (
@@ -79,7 +81,7 @@ export default function WelcomeCelebration({
           }}>
             <Bot size={20} color="#fbbf24" />
             <span style={{ fontSize: 14, color: 'var(--text)' }}>
-              Tặng bạn <b style={{ color: '#fbbf24' }}>{giftCount} trợ lí AI</b>
+              {t('welcome.gift_prefix')} <b style={{ color: '#fbbf24' }}>{t('welcome.gift_count', { count: giftCount })}</b>
             </span>
           </div>
         )}
@@ -95,7 +97,7 @@ export default function WelcomeCelebration({
             boxShadow: '0 10px 30px -8px rgba(249,115,22,0.55), inset 0 1px 0 rgba(255,255,255,0.25)',
           }}
         >
-          <Rocket size={16} /> Bắt đầu dùng ngay
+          <Rocket size={16} /> {t('welcome.start_now')}
         </button>
         <button
           onClick={onClose}
@@ -105,7 +107,7 @@ export default function WelcomeCelebration({
             cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          Để sau
+          {t('welcome.later')}
         </button>
       </div>
     </div>

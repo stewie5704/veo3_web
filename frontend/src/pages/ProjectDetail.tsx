@@ -9,11 +9,13 @@ import {
 } from 'lucide-react'
 import AddPartPanel from '../components/AddPartPanel'
 import DownloadMenu from '../components/DownloadMenu'
+import { useT } from '../i18n'
 
 // Thu gọn mô tả còn 2 dòng (bấm "Xem thêm" để bung)
 const CLAMP: React.CSSProperties = { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 
 export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?: () => void }) {
+  const t = useT()
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [project, setProject] = useState<any>(null)
@@ -88,16 +90,16 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     scenes.forEach(s => {
       const prev = prevStatus.current[s.id]
       if (prev && prev !== 'done' && s.status === 'done') newlyDone++
-      if (prev && prev !== 'failed' && s.status === 'failed') notify(`❌ Cảnh ${s.index + 1} lỗi`, 'error', document.hidden)
+      if (prev && prev !== 'failed' && s.status === 'failed') notify(t('scene.scene_failed', { index: s.index + 1 }), 'error', document.hidden)
       prevStatus.current[s.id] = s.status
     })
     const allDone = scenes.length > 0 && scenes.every(s => s.status === 'done')
     if (allDone && !notifiedDone.current) {
       notifiedDone.current = true
-      notify(`🎬 Dự án "${p.name}" đã render xong toàn bộ ${scenes.length} cảnh!`, 'success', true)
+      notify(t('scene.project_render_done', { name: p.name, count: scenes.length }), 'success', true)
     } else if (newlyDone > 0) {
       const doneN = scenes.filter(s => s.status === 'done').length
-      notify(`✅ Xong cảnh ${doneN}/${scenes.length}`, 'success', document.hidden)
+      notify(t('scene.scene_done_count', { done: doneN, total: scenes.length }), 'success', document.hidden)
     }
   }
 
@@ -113,8 +115,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
     }
-    const t = setInterval(() => load(true), 4000)
-    return () => clearInterval(t)
+    const tm = setInterval(() => load(true), 4000)
+    return () => clearInterval(tm)
   }, [project])
 
   // Giữ "phần đang chọn" luôn hợp lệ khi dự án đổi (mặc định phần đầu tiên)
@@ -139,49 +141,49 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     try {
       await projectsApi.updatePartScript(id, part, partDraft)
       setEditPart(null)
-      notify('Đã lưu kịch bản')
+      notify(t('scene.script_saved'))
       load(true)
     } catch {
-      notify('Lưu kịch bản thất bại', 'error')
+      notify(t('scene.script_save_failed'), 'error')
     }
   }
 
   async function rerenderScene(sceneId: string) {
     if (!id) return
     try {
-      notify('Đang tạo lại cảnh...')
+      notify(t('scene.rerendering'))
       await projectsApi.rerenderScene(id, sceneId)
       load(true)
     } catch {
-      notify('Tạo lại cảnh thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+      notify(t('scene.rerender_failed'), 'error')
     }
   }
 
   async function deleteScene(sceneId: string, sceneIdx: number) {
     if (!id) return
-    if (!window.confirm(`Xoá cảnh ${sceneIdx + 1}? Không thể hoàn tác — các cảnh sau sẽ dồn số lại.`)) return
+    if (!window.confirm(t('scene.confirm_delete', { index: sceneIdx + 1 }))) return
     setMenuScene(null)
     try {
       await projectsApi.deleteScene(id, sceneId)
-      notify(`Đã xoá cảnh ${sceneIdx + 1}`)
+      notify(t('scene.deleted', { index: sceneIdx + 1 }))
       load(true)
     } catch (e: any) {
-      notify(e?.response?.data?.detail || 'Xoá cảnh thất bại', 'error')
+      notify(e?.response?.data?.detail || t('scene.delete_failed'), 'error')
     }
   }
 
   async function doMerge(part: number | null = null) {
     if (!id) return
     setMerging(true); setMergeUrl(null); setMergeFilename(null)
-    const label = part != null ? `phần ${part}` : 'toàn bộ phim'
-    pushLog(`🎬 Bắt đầu ghép ${label}...`)
+    const label = part != null ? t('scene.part_label', { part }) : t('scene.entire_film')
+    pushLog(`🎬 ${t('scene.merge_start', { label })}`)
     try {
       const res = await mediaApi.merge(id, part)
       setMergeUrl(res.url)
       setMergeFilename(res.filename || null)
-      pushLog(`✅ Ghép xong: ${res.filename}`)
+      pushLog(`✅ ${t('scene.merge_done', { filename: res.filename })}`)
     } catch (e: any) {
-      pushLog(`❌ Ghép thất bại: ${e.response?.data?.detail || e.message}`, 'error')
+      pushLog(`❌ ${t('scene.merge_failed', { detail: e.response?.data?.detail || e.message })}`, 'error')
     } finally {
       setMerging(false)
     }
@@ -195,16 +197,16 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       scope = scope.filter((s: any) => s.status === 'failed')
     }
     const n = scope.filter((s: any) => s.status !== 'processing').length
-    if (n === 0) { notify(failed_only ? 'Không có cảnh bị lỗi nào.' : 'Không có cảnh nào để tạo lại (cảnh đang render được bỏ qua).'); return }
-    const label = part == null ? 'TOÀN BỘ dự án' : `Phần ${part}`
-    const msg = failed_only ? `Tạo lại ${n} cảnh bị lỗi của ${label}?` : `Tạo lại ${n} cảnh của ${label}? Mỗi cảnh tốn credit/Gem như render thường. Tiếp tục?`
+    if (n === 0) { notify(failed_only ? t('scene.no_failed_scenes') : t('scene.no_scenes_to_rerender')); return }
+    const label = part == null ? t('scene.entire_project') : t('scene.part_num', { part })
+    const msg = failed_only ? t('scene.confirm_rerender_failed', { n, label }) : t('scene.confirm_rerender_all', { n, label })
     if (!window.confirm(msg)) return
     try {
       const r = await projectsApi.rerenderBatch(id, part, failed_only)
-      notify(`Đang tạo lại ${r.rerendered} cảnh...`)
+      notify(t('scene.rerendering_batch', { count: r.rerendered }))
       load(true)
     } catch (e: any) {
-      notify(e?.response?.data?.detail || 'Tạo lại hàng loạt thất bại', 'error')
+      notify(e?.response?.data?.detail || t('scene.batch_rerender_failed'), 'error')
     }
   }
 
@@ -213,8 +215,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     setGenningPortraits(true)
     try {
       const r = await projectsApi.genPortraits(id)
-      if (!r.generating) { notify(r.detail || 'Mọi nhân vật đã có ảnh chân dung'); return }
-      notify(`Đang tạo ${r.generating} ảnh chân dung giữ mặt — chờ ~30–60 giây...`)
+      if (!r.generating) { notify(r.detail || t('scene.all_chars_have_portraits')); return }
+      notify(t('scene.generating_portraits', { count: r.generating }))
       // Sinh ảnh chạy nền (lâu hơn 4s nhiều) -> poll tới khi có chân dung, giữ nút khoá suốt lúc đó.
       const before = project?.characters?.length || 0
       let appeared = false
@@ -228,11 +230,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       }
       notify(
         appeared
-          ? 'Đã tạo ảnh giữ mặt. Cảnh chưa render sẽ tự dùng; cảnh đã xong thì bấm "Tạo lại" để áp.'
-          : 'Chưa tạo được ảnh — kiểm tra kết nối Google/extension rồi thử lại.',
+          ? t('scene.portraits_created')
+          : t('scene.portraits_failed_check'),
         appeared ? 'success' : 'error')
     } catch (e: any) {
-      notify(e?.response?.data?.detail || 'Tạo chân dung thất bại', 'error')
+      notify(e?.response?.data?.detail || t('scene.portrait_gen_failed'), 'error')
     } finally {
       setGenningPortraits(false)
     }
@@ -245,9 +247,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       await charactersApi.add(pcName.trim(), pcFile, id)   // gắn riêng project này
       setPcName(''); setPcFile(null); setCharMode('')
       if (pcFileRef.current) pcFileRef.current.value = ''
-      pushLog(`Đã thêm nhân vật vào dự án`)
+      pushLog(t('scene.char_added_to_project'))
       load(true)
-    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Thêm thất bại'}`, 'error') }
+    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || t('scene.add_failed')}`, 'error') }
     finally { setPcBusy(false) }
   }
 
@@ -261,15 +263,15 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     setPcBusy(true)
     try {
       await charactersApi.copyInto(c.id, id, c.name)   // copy kho chung -> project
-      pushLog(`Đã thêm @${c.name} vào dự án`)
+      pushLog(t('scene.char_added_name', { name: c.name }))
       setCharMode('')
       load(true)
-    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Thất bại'}`, 'error') }
+    } catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || t('scene.failed')}`, 'error') }
     finally { setPcBusy(false) }
   }
 
   async function delProjChar(charId: string) {
-    if (!confirm('Gỡ nhân vật này khỏi dự án?')) return
+    if (!confirm(t('scene.confirm_remove_char'))) return
     await charactersApi.delete(charId)
     load(true)
   }
@@ -280,7 +282,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     try {
       const res = await projectsApi.exportPrompts(id)
       await navigator.clipboard.writeText(res.text)
-      notify(`📋 Đã copy ${res.scene_count} prompts`)
+      notify(t('scene.copied_prompts', { count: res.scene_count }))
     } catch {
       pushLog('❌ Không copy được', 'error')
     } finally {
@@ -290,31 +292,31 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
 
   async function stopProject() {
     if (!id) return
-    await projectsApi.stop(id); pushLog('⏸ Đã dừng dự án'); load(true)
+    await projectsApi.stop(id); pushLog(`⏸ ${t('scene.project_stopped')}`); load(true)
   }
   async function resumeProject() {
     if (!id) return
-    try { const r = await projectsApi.resume(id); pushLog(`▶ Tiếp tục: ${r.resumed} cảnh`); load(true) }
-    catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || 'Lỗi tiếp tục'}`, 'error') }
+    try { const r = await projectsApi.resume(id); pushLog(`▶ ${t('scene.resumed', { count: r.resumed })}`); load(true) }
+    catch (e: any) { pushLog(`❌ ${e.response?.data?.detail || t('scene.resume_error')}`, 'error') }
   }
   async function renameProject() {
     if (!id) return
-    const name = window.prompt('Tên dự án mới:', project?.name || '')
+    const name = window.prompt(t('scene.new_project_name'), project?.name || '')
     if (name && name.trim()) { await projectsApi.rename(id, name.trim()); load(true) }
   }
   async function removeProject() {
     if (!id) return
-    if (!confirm('Xoá dự án này? Không thể hoàn tác.')) return
+    if (!confirm(t('scene.confirm_delete_project'))) return
     try {
       await projectsApi.delete(id)
       removeDeletedSellId(id)
       onUpdate?.(); nav('/projects')
     } catch (e: any) {
-      notify(e?.response?.data?.detail || 'Xoá thất bại', 'error')
+      notify(e?.response?.data?.detail || t('scene.delete_project_failed'), 'error')
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Đang tải...</div>
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>{t('scene.loading')}</div>
   if (!project) return null
 
   const doneCount = project.scenes.filter((s: any) => s.status === 'done').length
@@ -358,13 +360,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       return (
         <div style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
-            <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
+            <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> {t('scene.script')}{multiPart ? ` ${t('scene.part_num', { part: partNum })}` : ''}
           </div>
           <textarea className="form-textarea" rows={6} value={partDraft} onChange={e => setPartDraft(e.target.value)}
-            placeholder="Dán / nhập kịch bản của phần này..." style={{ fontSize: 12.5, marginBottom: 8 }} />
+            placeholder={t('scene.script_placeholder')} style={{ fontSize: 12.5, marginBottom: 8 }} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary btn-sm" onClick={() => savePartScript(partNum)}><Save size={13} /> Lưu</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditPart(null)}>Hủy</button>
+            <button className="btn btn-primary btn-sm" onClick={() => savePartScript(partNum)}><Save size={13} /> {t('scene.save')}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditPart(null)}>{t('scene.cancel')}</button>
           </div>
         </div>
       )
@@ -373,9 +375,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       return (
         <details open style={{ background: 'var(--inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
           <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 7, listStyle: 'none' }}>
-            <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> Kịch bản{multiPart ? ` Phần ${partNum}` : ''}
+            <ScrollText size={14} style={{ color: 'var(--accent2)' }} /> {t('scene.script')}{multiPart ? ` ${t('scene.part_num', { part: partNum })}` : ''}
             <button onClick={e => { e.preventDefault(); setEditPart(partNum); setPartDraft(script) }}
-              title="Sửa kịch bản" style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              title={t('scene.edit_script')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Pencil size={13} />
             </button>
           </summary>
@@ -385,7 +387,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
     return (
       <button className="btn btn-ghost btn-sm" onClick={() => { setEditPart(partNum); setPartDraft('') }} style={{ borderStyle: 'dashed' }}>
-        <ScrollText size={13} /> + Thêm kịch bản cho phần này
+        <ScrollText size={13} /> + {t('scene.add_script_for_part')}
       </button>
     )
   }
@@ -411,14 +413,14 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', display: 'block' }} />
           ) : (
             <div className={`scene-ph${st === 'processing' ? ' shimmer' : ''}`} style={{ width: '100%', height: '100%', borderRadius: 0 }}>
-              {st === 'pending' && (<><div className="scene-ph-orb wait"><Clapperboard size={20} /></div><span>Chờ tạo</span></>)}
-              {st === 'processing' && (<><div className="scene-ph-orb run"><Loader2 size={20} className="spin" /></div><span>Đang tạo...</span></>)}
+              {st === 'pending' && (<><div className="scene-ph-orb wait"><Clapperboard size={20} /></div><span>{t('scene.waiting')}</span></>)}
+              {st === 'processing' && (<><div className="scene-ph-orb run"><Loader2 size={20} className="spin" /></div><span>{t('scene.processing')}</span></>)}
               {st === 'failed' && (<><div className="scene-ph-orb fail"><AlertCircle size={20} /></div>
                 <span style={{ color: '#fca5a5', textAlign: 'center', padding: '0 12px', fontSize: 11, lineHeight: 1.4 }}>{scene.error_msg?.slice(0, 90)}</span></>)}
             </div>
           )}
           <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 6, color: '#fff', background: 'var(--grad)' }}>
-            Cảnh {scene.index + 1}
+            {t('scene.label', { index: scene.index + 1 })}
           </span>
         </div>
 
@@ -426,13 +428,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
           {editing ? (
             <>
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Mô tả cảnh:</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t('scene.scene_desc')}:</div>
               <textarea className="form-textarea" rows={4} value={editPrompt} onChange={e => setEditPrompt(e.target.value)} style={{ fontSize: 13 }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)' }}>🎙️ Lời thoại (để trống = không thoại):</div>
-              <textarea className="form-textarea" rows={2} value={editNarration} onChange={e => setEditNarration(e.target.value)} placeholder="Lời thoại nhân vật / narration cảnh này..." style={{ fontSize: 13 }} />
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>🎙️ {t('scene.dialogue_empty')}:</div>
+              <textarea className="form-textarea" rows={2} value={editNarration} onChange={e => setEditNarration(e.target.value)} placeholder={t('scene.narration_edit_placeholder')} style={{ fontSize: 13 }} />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}><Save size={13} /> Lưu</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setEditingScene(null)}>Hủy</button>
+                <button className="btn btn-primary btn-sm" onClick={() => saveScene(scene.id)}><Save size={13} /> {t('scene.save')}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditingScene(null)}>{t('scene.cancel')}</button>
               </div>
             </>
           ) : (
@@ -443,7 +445,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               {scene.prompt && scene.prompt.length > 110 && (
                 <button onClick={() => toggleExpand(scene.id)}
                   style={{ background: 'none', border: 'none', color: 'var(--accent2)', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 3, alignSelf: 'flex-start' }}>
-                  {expanded.has(scene.id) ? <><ChevronUp size={12} /> Thu gọn</> : <><ChevronDown size={12} /> Xem thêm</>}
+                  {expanded.has(scene.id) ? <><ChevronUp size={12} /> {t('scene.collapse')}</> : <><ChevronDown size={12} /> {t('scene.expand')}</>}
                 </button>
               )}
               {scene.narration && (
@@ -456,27 +458,27 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               {/* Hàng nút chính */}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 'auto', alignItems: 'center' }}>
                 {st === 'pending' && (
-                  <button className="btn btn-primary btn-sm" title="Tạo video" onClick={async () => {
+                  <button className="btn btn-primary btn-sm" title={t('scene.render_video')} onClick={async () => {
                     if (!id) return
                     try {
-                      notify(`Đang tạo cảnh ${scene.index + 1}...`)
+                      notify(t('scene.rendering_scene', { index: scene.index + 1 }))
                       await projectsApi.renderScene(id, scene.id)
                       load(true)
                     } catch {
-                      notify('Tạo cảnh thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                      notify(t('scene.render_scene_failed'), 'error')
                     }
                   }}><Play size={14} /></button>
                 )}
                 {st === 'done' && scene.video_file && (
                   <DownloadMenu base={`/projects/${id}/scenes/${scene.id}/download`} filename={`canh_${scene.index + 1}.mp4`} iconOnly />
                 )}
-                <button className="btn btn-ghost btn-sm" title="Sửa mô tả & lời thoại" onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt); setEditNarration(scene.narration || '') }}>
+                <button className="btn btn-ghost btn-sm" title={t('scene.edit_desc_dialogue')} onClick={() => { setEditingScene(scene.id); setEditPrompt(scene.prompt); setEditNarration(scene.narration || '') }}>
                   <Pencil size={14} />
                 </button>
-                <button className="btn btn-ghost btn-sm" title="Tạo lại cảnh" onClick={() => rerenderScene(scene.id)}>
+                <button className="btn btn-ghost btn-sm" title={t('scene.rerender_scene')} onClick={() => rerenderScene(scene.id)}>
                   <RefreshCw size={14} />
                 </button>
-                <button className="btn btn-ghost btn-sm" title="Thêm thao tác"
+                <button className="btn btn-ghost btn-sm" title={t('scene.more_actions')}
                   onClick={() => setMenuScene(m => m === scene.id ? null : scene.id)}
                   style={{ marginLeft: 'auto', color: open ? 'var(--accent2)' : undefined }}>
                   <MoreHorizontal size={15} />
@@ -489,36 +491,36 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   {st === 'done' && scene.video_file && (
                     <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}
                       onClick={async () => {
-                        try { await navigator.clipboard.writeText(scene.prompt); notify('Đã sao chép mô tả cảnh') }
-                        catch { notify('Sao chép thất bại. Thử lại nhé.', 'error') }
-                      }}><Copy size={13} /> Sao chép mô tả</button>
+                        try { await navigator.clipboard.writeText(scene.prompt); notify(t('scene.copied_desc')) }
+                        catch { notify(t('scene.copy_failed'), 'error') }
+                      }}><Copy size={13} /> {t('scene.copy_desc')}</button>
                   )}
                   <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', justifyContent: 'flex-start' }}>
-                    <Upload size={13} /> Tải video lên thay thế
+                    <Upload size={13} /> {t('scene.upload_replace_video')}
                     <input type="file" accept="video/*" style={{ display: 'none' }}
                       onChange={async e => {
                         const f = e.target.files?.[0]; if (!f || !id) return
                         try {
-                          notify(`Đang tải video lên cảnh ${scene.index + 1}...`)
+                          notify(t('scene.uploading_video', { index: scene.index + 1 }))
                           await projectsApi.importVideo(id, scene.id, f)
-                          notify(`Đã tải video lên cảnh ${scene.index + 1}`)
+                          notify(t('scene.uploaded_video', { index: scene.index + 1 }))
                           load(true)
                         } catch {
-                          notify('Tải video thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                          notify(t('scene.upload_video_failed'), 'error')
                         }
                       }} />
                   </label>
-                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', justifyContent: 'flex-start' }} title="Dùng ảnh này làm khung đầu (i2v)">
-                    <ImagePlus size={13} /> Dùng ảnh làm khung đầu
+                  <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', justifyContent: 'flex-start' }} title={t('scene.use_image_i2v_tooltip')}>
+                    <ImagePlus size={13} /> {t('scene.use_image_first_frame')}
                     <input type="file" accept="image/*" style={{ display: 'none' }}
                       onChange={async e => {
                         const f = e.target.files?.[0]; if (!f || !id) return
                         try {
                           await projectsApi.setStartImage(id, scene.id, f)
-                          notify(`Đã đặt ảnh khung đầu cho cảnh ${scene.index + 1}`)
+                          notify(t('scene.set_start_image', { index: scene.index + 1 }))
                           load(true)
                         } catch {
-                          notify('Đặt ảnh khung đầu thất bại. Thử lại hoặc kiểm tra extension đã đăng nhập chưa.', 'error')
+                          notify(t('scene.set_start_image_failed'), 'error')
                         }
                       }} />
                   </label>
@@ -526,31 +528,31 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     onClick={async () => {
                       if (!id) return
                       try {
-                        notify('Đang chèn cảnh mới lên trước...')
+                        notify(t('scene.inserting_before'))
                         const res = await projectsApi.insertScene(id, scene.index, scene.part)
                         setMenuScene(null)
                         await load(true)
                         if (res.scene_id) { setEditingScene(res.scene_id); setEditPrompt(''); setEditNarration('') }
-                      } catch { notify('Chèn cảnh thất bại', 'error') }
-                    }} title="Chèn một cảnh trống mới lên ngay phía trước cảnh này">
-                    <Plus size={13} /> Chèn cảnh lên trước
+                      } catch { notify(t('scene.insert_failed'), 'error') }
+                    }} title={t('scene.insert_before_tooltip')}>
+                    <Plus size={13} /> {t('scene.insert_before')}
                   </button>
                   <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start' }}
                     onClick={async () => {
                       if (!id) return
                       try {
-                        notify('Đang chèn cảnh mới xuống sau...')
+                        notify(t('scene.inserting_after'))
                         const res = await projectsApi.insertScene(id, scene.index + 1, scene.part)
                         setMenuScene(null)
                         await load(true)
                         if (res.scene_id) { setEditingScene(res.scene_id); setEditPrompt(''); setEditNarration('') }
-                      } catch { notify('Chèn cảnh thất bại', 'error') }
-                    }} title="Chèn một cảnh trống mới xuống ngay phía sau cảnh này">
-                    <Plus size={13} /> Chèn cảnh xuống sau
+                      } catch { notify(t('scene.insert_failed'), 'error') }
+                    }} title={t('scene.insert_after_tooltip')}>
+                    <Plus size={13} /> {t('scene.insert_after')}
                   </button>
                   <button className="btn btn-ghost btn-sm" style={{ justifyContent: 'flex-start', color: 'var(--red)' }}
-                    onClick={() => deleteScene(scene.id, scene.index)} title="Xoá hẳn cảnh này khỏi dự án">
-                    <Trash2 size={13} /> Xoá cảnh
+                    onClick={() => deleteScene(scene.id, scene.index)} title={t('scene.delete_scene_tooltip')}>
+                    <Trash2 size={13} /> {t('scene.delete_scene')}
                   </button>
                 </div>
               )}
@@ -590,13 +592,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       <div className="page-header" style={{ flexWrap: 'wrap', gap: 12 }}>
         <div>
           <button className="btn btn-ghost btn-sm" onClick={() => nav('/projects')} style={{ marginBottom: 8 }}>
-            <ArrowLeft size={13} /> Dự án
+            <ArrowLeft size={13} /> {t('scene.projects')}
           </button>
           <div className="page-title">{project.name}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="badge badge-done">{doneCount}/{totalCount} cảnh</span>
-          {multiPart && <span className="badge" style={{ background: 'rgba(168,85,247,0.14)', color: 'var(--accent3)' }}>{partNums.length} phần</span>}
+          <span className="badge badge-done">{t('scene.scene_badge', { done: doneCount, total: totalCount })}</span>
+          {multiPart && <span className="badge" style={{ background: 'rgba(168,85,247,0.14)', color: 'var(--accent3)' }}>{t('scene.parts_badge', { count: partNums.length })}</span>}
           <div className="progress-bar" style={{ width: 100 }}>
             <div className="progress-fill" style={{ width: `${totalCount ? (doneCount / totalCount) * 100 : 0}%` }} />
           </div>
@@ -604,29 +606,29 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             <FileText size={13} /> Export prompts
           </button>
           {hasActive ? (
-            <button className="btn btn-danger btn-sm" onClick={stopProject} title="Dừng render các cảnh chưa xong">
-              <Pause size={13} /> Dừng
+            <button className="btn btn-danger btn-sm" onClick={stopProject} title={t('scene.stop_render_tooltip')}>
+              <Pause size={13} /> {t('scene.stop')}
             </button>
           ) : (project.stopped || hasUnrendered) && totalCount > 0 ? (
-            <button className="btn btn-ghost btn-sm" onClick={resumeProject} title="Render lại các cảnh chưa xong">
-              <Play size={13} /> Tiếp tục
+            <button className="btn btn-ghost btn-sm" onClick={resumeProject} title={t('scene.resume_tooltip')}>
+              <Play size={13} /> {t('scene.resume')}
             </button>
           ) : null}
           {totalCount > 0 && project?.scenes?.some((s: any) => s.status === 'failed') && (
             <button className="btn btn-ghost btn-sm" onClick={() => doRerenderBatch(null, true)}
-              title="Tạo lại các cảnh bị lỗi">
-              <RefreshCw size={13} style={{ color: 'var(--red)' }} /> Tạo lại lỗi
+              title={t('scene.rerender_failed_tooltip')}>
+              <RefreshCw size={13} style={{ color: 'var(--red)' }} /> {t('scene.rerender_failed')}
             </button>
           )}
           {totalCount > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={() => doRerenderBatch(null)}
-              title="Tạo lại TẤT CẢ cảnh (áp ảnh giữ mặt / kịch bản mới cho cả cảnh đã xong)">
-              <RefreshCw size={13} /> Tạo lại tất cả
+              title={t('scene.rerender_all_tooltip')}>
+              <RefreshCw size={13} /> {t('scene.rerender_all')}
             </button>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={renameProject} title="Đổi tên dự án"><Pencil size={13} /> Đổi tên</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setAddPartOpen(true)} title="Thêm kịch bản / phần tiếp theo (giữ nhân vật)">
-            <Plus size={13} /> Thêm kịch bản
+          <button className="btn btn-ghost btn-sm" onClick={renameProject} title={t('scene.rename_tooltip')}><Pencil size={13} /> {t('scene.rename')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAddPartOpen(true)} title={t('scene.add_script_tooltip')}>
+            <Plus size={13} /> {t('scene.add_script')}
           </button>
           {multiPart ? (
             <>
@@ -634,18 +636,18 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                 className="btn btn-primary btn-sm"
                 onClick={() => doMerge(selectedPart)}
                 disabled={merging || partStatusOf(scenesOfPart(selectedPart || 1)) !== 'done'}
-                title="Chỉ ghép các cảnh của phần đang chọn"
+                title={t('scene.merge_part_tooltip')}
               >
-                {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép Phần {selectedPart}</>}
+                {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.merging')}</> : <><Film size={13} /> {t('scene.merge_part', { part: selectedPart })}</>}
               </button>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={() => doMerge(null)}
                 disabled={merging || !allDone}
-                title={!allDone ? 'Chờ tất cả cảnh xong' : 'Ghép tất cả các phần thành 1 video dài'}
+                title={!allDone ? t('scene.wait_all_done') : t('scene.merge_all_tooltip')}
                 style={{ border: '1px solid var(--border)' }}
               >
-                <Film size={13} /> Ghép tất cả
+                <Film size={13} /> {t('scene.merge_all')}
               </button>
             </>
           ) : (
@@ -653,19 +655,19 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
               className="btn btn-primary btn-sm"
               onClick={() => doMerge(null)}
               disabled={merging || !allDone}
-              title={!allDone ? 'Chờ tất cả scene xong' : 'Ghép tất cả scene thành final.mp4'}
+              title={!allDone ? t('scene.wait_all_done') : t('scene.merge_final_tooltip')}
             >
-              {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang ghép...</> : <><Film size={13} /> Ghép phim</>}
+              {merging ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.merging')}</> : <><Film size={13} /> {t('scene.merge_film')}</>}
             </button>
           )}
-          <button className="btn btn-danger btn-sm" onClick={removeProject} title="Xoá dự án"><Trash2 size={13} /> Xoá</button>
+          <button className="btn btn-danger btn-sm" onClick={removeProject} title={t('scene.delete_project_tooltip')}><Trash2 size={13} /> {t('scene.delete')}</button>
         </div>
       </div>
 
       {/* Merge result */}
       {mergeUrl && (
         <div className="alert alert-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Check size={15} /> Ghép xong!
+          <Check size={15} /> {t('scene.merge_complete')}
           <video src={mergeUrl} controls style={{ maxWidth: 400, borderRadius: 8 }} />
           <DownloadMenu base={`/projects/${id}/download-merged`} filename={mergeFilename || 'phim.mp4'} />
         </div>
@@ -675,11 +677,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {([
-            [Cpu, 'Chất lượng', project.model_key.replace(/_/g, ' ')],
-            [RectangleHorizontal, 'Tỉ lệ', project.aspect_ratio],
-            [Clock, 'Thời lượng', `${project.duration_seconds}s/cảnh`],
-            [Languages, 'Ngôn ngữ', project.language === 'vi' ? 'Tiếng Việt' : 'English'],
-            [Calendar, 'Tạo lúc', new Date(project.created_at).toLocaleDateString('vi-VN')],
+            [Cpu, t('scene.meta_quality'), project.model_key.replace(/_/g, ' ')],
+            [RectangleHorizontal, t('scene.meta_ratio'), project.aspect_ratio],
+            [Clock, t('scene.meta_duration'), `${project.duration_seconds}s/${t('scene.per_scene')}`],
+            [Languages, t('scene.meta_language'), project.language === 'vi' ? 'Tiếng Việt' : 'English'],
+            [Calendar, t('scene.meta_created'), new Date(project.created_at).toLocaleDateString('vi-VN')],
           ] as const).map(([Icon, k, v]) => (
             <div key={k} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Icon size={13} style={{ color: 'var(--text3)' }} />
@@ -693,10 +695,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       {/* Nhân vật giữ mặt của dự án */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>👤 Nhân vật giữ mặt của dự án</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>👤 {t('scene.project_chars')}</div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setCharMode(m => m === 'upload' ? '' : 'upload')}><Upload size={12} /> Upload</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => charMode === 'pick' ? setCharMode('') : openPick()}><FolderOpen size={12} /> Lấy từ kho</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => charMode === 'pick' ? setCharMode('') : openPick()}><FolderOpen size={12} /> {t('scene.from_library')}</button>
           </div>
         </div>
 
@@ -707,32 +709,32 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                 <img src={c.image_url} style={{ height: '100%', width: 'auto', display: 'block' }} />
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '40%' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>@{c.name}</span>
-                  <button onClick={() => delProjChar(c.id)} title="Gỡ khỏi dự án"
+                  <button onClick={() => delProjChar(c.id)} title={t('scene.remove_from_project')}
                     style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: 'var(--text2)' }}>Chưa có nhân vật riêng. Thêm để dùng <strong>@tên</strong> trong prompt nhằm giữ mặt nhân vật.</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('scene.no_chars_yet')}</div>
         )}
 
         {charMode === 'upload' && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-            <input className="form-input" placeholder="Tên (vd: hero)" value={pcName} onChange={e => setPcName(e.target.value)} style={{ flex: '0 0 160px', fontSize: 12 }} />
+            <input className="form-input" placeholder={t('project.char_name_placeholder')} value={pcName} onChange={e => setPcName(e.target.value)} style={{ flex: '0 0 160px', fontSize: 12 }} />
             <label className="btn btn-ghost btn-sm" style={{ cursor: 'pointer', fontSize: 12 }}>
-              {pcFile ? `📷 ${pcFile.name.slice(0, 16)}` : '📁 Chọn ảnh'}
+              {pcFile ? `📷 ${pcFile.name.slice(0, 16)}` : t('project.select_photo')}
               <input ref={pcFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setPcFile(e.target.files?.[0] || null)} />
             </label>
             <button className="btn btn-primary btn-sm" onClick={uploadProjChar} disabled={pcBusy || !pcName.trim() || !pcFile} style={{ fontSize: 12 }}>
-              {pcBusy ? '...' : 'Lưu'}
+              {pcBusy ? '...' : t('scene.save')}
             </button>
           </div>
         )}
 
         {charMode === 'pick' && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Chọn từ kho chung để copy vào dự án:</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>{t('scene.pick_from_library')}</div>
             {globalChars.length ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {globalChars.map(c => (
@@ -742,7 +744,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   </button>
                 ))}
               </div>
-            ) : <div style={{ fontSize: 12, color: 'var(--text2)' }}>Kho chung trống.</div>}
+            ) : <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('scene.library_empty')}</div>}
           </div>
         )}
       </div>
@@ -755,15 +757,14 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         }}>
           <AlertCircle size={16} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 220, fontSize: 12.5, lineHeight: 1.55 }}>
-            <b style={{ color: 'var(--yellow)' }}>Nhân vật chưa có ảnh giữ mặt</b> — mặt dễ <b>lệch giữa các cảnh / phần</b>.
-            Bấm tạo ảnh: cảnh chưa render sẽ tự dùng, cảnh đã xong thì bấm <b>Tạo lại</b> để áp.
+            <b style={{ color: 'var(--yellow)' }}>{t('scene.missing_portraits_title')}</b> — {t('scene.missing_portraits_desc')}
           </div>
           {user?.google_connected ? (
             <button className="btn btn-primary btn-sm" onClick={doGenPortraits} disabled={genningPortraits}>
-              {genningPortraits ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang tạo...</> : <><ImagePlus size={13} /> Tạo ảnh giữ mặt</>}
+              {genningPortraits ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.generating')}</> : <><ImagePlus size={13} /> {t('scene.gen_portraits_btn')}</>}
             </button>
           ) : (
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>Kết nối Google Ultra ở Cài đặt để tạo.</span>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('scene.connect_google_for_portraits')}</span>
           )}
         </div>
       )}
@@ -774,10 +775,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           {/* Chip lọc phần */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
             {([
-              ['all', 'Tất cả phần', ''],
-              ['active', 'Đang tạo', 'var(--accent)'],
-              ['failed', 'Có lỗi', 'var(--red)'],
-              ['unrendered', 'Chưa render', 'var(--border2)'],
+              ['all', t('scene.filter_all'), ''],
+              ['active', t('scene.filter_active'), 'var(--accent)'],
+              ['failed', t('scene.filter_failed'), 'var(--red)'],
+              ['unrendered', t('scene.filter_unrendered'), 'var(--border2)'],
             ] as const).map(([key, label, dot]) => {
               const count = key === 'all' ? partNums.length : partNums.filter(p => {
                 const ps = scenesOfPart(p)
@@ -814,11 +815,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
             {/* Cột trái: danh sách Phần */}
             <div className="card tp-left" style={{ padding: 0, maxHeight: 'calc(100dvh - 96px)', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>Các phần</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{t('scene.parts_list')}</span>
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>{partNums.length}</span>
               </div>
               <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                <input className="form-input" placeholder="Tìm phần…" value={partSearch}
+                <input className="form-input" placeholder={t('scene.search_parts')} value={partSearch}
                   onChange={e => setPartSearch(e.target.value)} style={{ fontSize: 12, padding: '6px 10px', width: '100%' }} />
               </div>
               <div className="tp-list" style={{ overflowY: 'auto', padding: 6, flex: 1 }}>
@@ -843,7 +844,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                       <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dotColor(st) }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                          <span style={{ fontSize: 12.5, fontWeight: 700, color: sel ? 'var(--accent2)' : 'var(--text)' }}>Phần {p}</span>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: sel ? 'var(--accent2)' : 'var(--text)' }}>{t('scene.part_num', { part: p })}</span>
                           <span style={{ fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{done}/{ps.length}</span>
                         </span>
                         {title && <span style={{ display: 'block', fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{title}</span>}
@@ -865,19 +866,19 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                 return (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 Phần {selectedPart}</span>
-                      <span className="badge badge-done">{done}/{ps.length} cảnh</span>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 {t('scene.part_num', { part: selectedPart })}</span>
+                      <span className="badge badge-done">{t('scene.scene_badge', { done, total: ps.length })}</span>
                       {ps.some(s => s.status === 'failed') && (
                         <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
                           onClick={() => doRerenderBatch(selectedPart, true)}
-                          title="Tạo lại các cảnh bị lỗi của phần này">
-                          <RefreshCw size={13} style={{ color: 'var(--red)' }} /> Tạo lại lỗi
+                          title={t('scene.rerender_failed_part_tooltip')}>
+                          <RefreshCw size={13} style={{ color: 'var(--red)' }} /> {t('scene.rerender_failed')}
                         </button>
                       )}
                       <button className="btn btn-ghost btn-sm" style={{ marginLeft: ps.some(s => s.status === 'failed') ? 0 : 'auto' }}
                         onClick={() => doRerenderBatch(selectedPart)}
-                        title="Tạo lại tất cả cảnh của phần này (áp ảnh giữ mặt / kịch bản mới)">
-                        <RefreshCw size={13} /> Tạo lại phần
+                        title={t('scene.rerender_part_tooltip')}>
+                        <RefreshCw size={13} /> {t('scene.rerender_part')}
                       </button>
                     </div>
                     {renderPartScript(selectedPart)}
@@ -903,7 +904,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <AddPartPanel
           project={project}
           onClose={() => setAddPartOpen(false)}
-          onDone={() => { setAddPartOpen(false); notify('Đã thêm phần mới — đang render...'); load(true) }}
+          onDone={() => { setAddPartOpen(false); notify(t('scene.part_added')); load(true) }}
         />
       )}
     </div>

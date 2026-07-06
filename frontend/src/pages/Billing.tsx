@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { billingApi } from '../api/client'
 import { useToast } from '../components/Toast'
+import { useT } from '../i18n'
 import PaymentModal, { type PaymentOrder } from '../components/PaymentModal'
 import WelcomeCelebration from '../components/WelcomeCelebration'
 import {
@@ -10,15 +11,9 @@ import {
 
 type PayMethod = 'payos' | 'binance'
 
-const BASE_FEATURES = [
-  'Tạo video không giới hạn',
-  'Mọi model: Lite, Fast, Quality',
-  'Ưu tiên hàng đợi render',
-  'Giữ mặt nhân vật xuyên cảnh',
-]
-
 export default function Billing() {
   const toast = useToast()
+  const t = useT()
   const [plans, setPlans] = useState<any[]>([])
   const [sub, setSub] = useState<any>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -26,6 +21,13 @@ export default function Billing() {
   const [order, setOrder] = useState<PaymentOrder | null>(null)
   const [orderPlanLabel, setOrderPlanLabel] = useState('')
   const [celebration, setCelebration] = useState<{ planLabel: string; giftCount: number } | null>(null)
+
+  const BASE_FEATURES = [
+    t('billing.feature_unlimited_videos'),
+    t('billing.feature_all_models'),
+    t('billing.feature_priority_queue'),
+    t('billing.feature_face_lock'),
+  ]
 
   function load() {
     billingApi.plans().then(d => setPlans(d.plans || [])).catch(() => {})
@@ -40,7 +42,7 @@ export default function Billing() {
       setOrderPlanLabel(label)
       setOrder(r as PaymentOrder)
     } catch (e: any) {
-      toast(e.response?.data?.detail || 'Lỗi tạo đơn hàng', 'error')
+      toast(e.response?.data?.detail || t('billing.error_create_order'), 'error')
     } finally {
       setBusy(null)
     }
@@ -63,9 +65,9 @@ export default function Billing() {
       <div className="page-header">
         <div>
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Crown size={22} color="#fbbf24" /> Nâng gói
+            <Crown size={22} color="#fbbf24" /> {t('billing.title')}
           </div>
-          <div className="page-subtitle">Mua một lần, dùng bao lâu. Không tự gia hạn.</div>
+          <div className="page-subtitle">{t('billing.subtitle')}</div>
         </div>
       </div>
 
@@ -90,17 +92,17 @@ export default function Billing() {
             {sub.active ? (
               <>
                 <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 2, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                  Gói đang dùng
+                  {t('billing.current_plan')}
                 </div>
                 <div style={{ fontSize: 14.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: '#fbbf24' }}>{sub.plan}</span>
                   <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 12 }}>|</span>
-                  <span style={{ color: 'var(--text2)', fontWeight: 500 }}>còn {sub.days_left} ngày</span>
+                  <span style={{ color: 'var(--text2)', fontWeight: 500 }}>{t('billing.days_left', { days: String(sub.days_left) })}</span>
                 </div>
               </>
             ) : (
               <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-                Chưa có gói hoạt động — chọn gói bên dưới
+                {t('billing.no_active_plan')}
               </div>
             )}
           </div>
@@ -111,7 +113,7 @@ export default function Billing() {
               borderRadius: 9, padding: '5px 12px', fontSize: 11.5, color: 'var(--text3)',
             }}>
               <CalendarCheck size={12} />
-              Hết hạn {String(sub.expires_at).slice(0, 10)}
+              {t('billing.expires_at', { date: String(sub.expires_at).slice(0, 10) })}
             </div>
           )}
         </div>
@@ -132,11 +134,11 @@ export default function Billing() {
           }}>
             {sub.in_trial && !sub.active && (
               <div style={{ fontSize: 12.5, color: '#fbbf24', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Sparkles size={14} /> Dùng thử miễn phí — còn <b>{trialHrs} giờ</b> để tạo video. Hết 24h cần nâng gói.
+                <Sparkles size={14} /> {t('billing.trial_info', { hours: String(trialHrs) })}
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
-              <span style={{ color: 'var(--text2)' }}>Dung lượng lưu trữ</span>
+              <span style={{ color: 'var(--text2)' }}>{t('billing.storage_label')}</span>
               <span style={{ color: near ? '#f87171' : 'var(--text3)' }}>
                 {mb(used)} / {mb(limit)}{sub.active ? '' : ' (free)'}
               </span>
@@ -146,7 +148,7 @@ export default function Billing() {
             </div>
             {near && (
               <div style={{ fontSize: 11.5, color: '#f87171', marginTop: 6 }}>
-                Sắp đầy! {sub.active ? 'Xóa bớt video cũ.' : 'Nâng gói để có 1.5GB.'}
+                {sub.active ? t('billing.storage_near_full_paid') : t('billing.storage_near_full_free')}
               </div>
             )}
           </div>
@@ -155,11 +157,11 @@ export default function Billing() {
 
       {/* ── Buy Storage ── */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header"><Shield size={15} /> Mua thêm dung lượng lưu trữ (Vĩnh viễn)</div>
+        <div className="card-header"><Shield size={15} /> {t('billing.buy_storage_header')}</div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ fontSize: 13, color: 'var(--text2)', flex: 1, minWidth: 200 }}>
-            Dung lượng mua thêm sẽ không bao giờ hết hạn. Giá: <b style={{ color: '#fbbf24' }}>1 T coin / 1 GB</b> (tương đương 10.000đ).
-            {sub && sub.extra_storage_gb > 0 && <div style={{ marginTop: 4, color: '#34d399' }}>Đã mua thêm: {sub.extra_storage_gb} GB</div>}
+            {t('billing.buy_storage_desc')}
+            {sub && sub.extra_storage_gb > 0 && <div style={{ marginTop: 4, color: '#34d399' }}>{t('billing.extra_storage_bought', { gb: String(sub.extra_storage_gb) })}</div>}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input 
@@ -177,20 +179,20 @@ export default function Billing() {
               onClick={async () => {
                 const el = document.getElementById('storage-gb') as HTMLInputElement
                 const gb = parseInt(el.value || '0', 10)
-                if (gb < 1) return toast('Số GB không hợp lệ', 'error')
+                if (gb < 1) return toast(t('billing.invalid_gb'), 'error')
                 setBusy('storage')
                 try {
                   const r = await billingApi.buyStorage(gb)
-                  toast(`Mua thành công ${gb} GB dung lượng`, 'success')
+                  toast(t('billing.storage_bought_success', { gb: String(gb) }), 'success')
                   load()
                 } catch (e: any) {
-                  toast(e.response?.data?.detail || 'Không đủ T coin trong ví, hãy nạp thêm', 'error')
+                  toast(e.response?.data?.detail || t('billing.not_enough_tcoin'), 'error')
                 } finally {
                   setBusy(null)
                 }
               }}
             >
-              {busy === 'storage' ? <Loader2 size={13} className="spin" /> : 'Mua ngay'}
+              {busy === 'storage' ? <Loader2 size={13} className="spin" /> : t('billing.buy_now')}
             </button>
           </div>
         </div>
@@ -199,11 +201,11 @@ export default function Billing() {
       {/* ── Payment method selector ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11.5, color: 'var(--text3)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-          Phương thức thanh toán
+          {t('billing.payment_method')}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {([
-            { id: 'payos',   Icon: CreditCard, label: 'Chuyển khoản VN', sub: 'Banking / Ví điện tử' },
+            { id: 'payos',   Icon: CreditCard, label: t('billing.method_banking'), sub: 'Banking / Ví điện tử' },
             { id: 'binance', Icon: Coins,      label: 'USDT Binance',    sub: 'Binance Pay' },
           ] as const).map(m => (
             <button
@@ -251,12 +253,12 @@ export default function Billing() {
             const featured = p.id === 'm6'
             const annual = p.id === 'm12'
             const hasDiscount = (p.discount_pct ?? 0) > 0
-            const period = p.days >= 365 ? '/năm' : p.days >= 180 ? '/6 tháng' : '/tháng'
+            const period = p.days >= 365 ? t('billing.per_year') : p.days >= 180 ? t('billing.per_6months') : t('billing.per_month')
 
             const features = [
               ...BASE_FEATURES,
-              `Tặng ${p.assistants} trợ lí AI`,
-              ...(hasDiscount ? [`Tiết kiệm ${p.discount_pct}% so với mua tháng`] : []),
+              t('billing.feature_gift_assistants', { count: String(p.assistants) }),
+              ...(hasDiscount ? [t('billing.feature_save_pct', { pct: String(p.discount_pct) })] : []),
             ]
 
             return (
@@ -294,7 +296,7 @@ export default function Billing() {
                       ? '0 6px 18px -6px rgba(249,115,22,0.55)'
                       : '0 6px 18px -6px rgba(139,92,246,0.55)',
                   }}>
-                    {featured ? 'Phổ biến nhất' : `Tiết kiệm ${p.discount_pct}%`}
+                    {featured ? t('billing.most_popular') : t('billing.save_pct', { pct: String(p.discount_pct) })}
                   </div>
                 )}
 
@@ -328,7 +330,7 @@ export default function Billing() {
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
-                  {period} · {p.days} ngày
+                  {period} · {t('billing.days_count', { days: String(p.days) })}
                 </div>
 
                 {/* Divider */}
@@ -340,8 +342,8 @@ export default function Billing() {
                 {/* Features */}
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {features.map((f, i) => {
-                    const isGift = f.startsWith('Tặng')
-                    const isSaving = f.startsWith('Tiết kiệm')
+                    const isGift = f.startsWith(t('billing.feature_gift_prefix'))
+                    const isSaving = f.startsWith(t('billing.feature_save_prefix'))
                     return (
                       <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: 'var(--text2)', lineHeight: 1.45 }}>
                         <span style={{
@@ -400,8 +402,8 @@ export default function Billing() {
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1)' }}
                 >
                   {busy === p.id
-                    ? <><Loader2 size={13} className="spin" /> Đang xử lý...</>
-                    : <><Zap size={13} /> {sub?.active ? 'Gia hạn / Mua thêm' : 'Bắt đầu ngay'}</>
+                    ? <><Loader2 size={13} className="spin" /> {t('billing.processing')}</>
+                    : <><Zap size={13} /> {sub?.active ? t('billing.renew_or_buy') : t('billing.start_now')}</>
                   }
                 </button>
               </div>
@@ -413,9 +415,9 @@ export default function Billing() {
       {/* ── Trust signals ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 28 }}>
         {[
-          { icon: RefreshCw,  text: 'Mua thêm = cộng dồn ngày' },
-          { icon: Shield,     text: 'Không tự động gia hạn' },
-          { icon: Sparkles,   text: 'Tặng trợ lí AI lần đầu mua' },
+          { icon: RefreshCw,  text: t('billing.trust_stack_days') },
+          { icon: Shield,     text: t('billing.trust_no_auto_renew') },
+          { icon: Sparkles,   text: t('billing.trust_gift_first_buy') },
         ].map(({ icon: Icon, text }) => (
           <div key={text} style={{
             display: 'flex', alignItems: 'center', gap: 7,

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { toolsApi, projectsApi, charactersApi } from '../api/client'
 import { Loader2, X, Sparkles, PenLine, List, Clapperboard, Plus } from 'lucide-react'
+import { useT } from '../i18n'
 
 const ASPECTS = ['16:9', '9:16', '1:1']
 
@@ -14,16 +15,17 @@ const MODELS = [
   { key: 'abra_t2v_10s', label: 'Omni Flash (10s) — 15💎', cost: 15 },
 ]
 const DURATIONS = [4, 6, 8, 10]
-const AUDIO = [
-  { v: 'voiceover', t: '🎙️ Lồng tiếng (AI đọc)' },
-  { v: 'character_speak', t: '👄 Nhân vật tự nói' },
-  { v: 'off', t: '🔇 Không tiếng' },
-] as const
 
 /** Panel thêm 1 KỊCH BẢN / PHẦN mới vào dự án đang có. Giữ nhân vật + tỉ lệ của dự án. */
 export default function AddPartPanel({ project, onDone, onClose }: {
   project: any; onDone: () => void; onClose: () => void
 }) {
+  const t = useT()
+  const AUDIO = [
+    { v: 'voiceover', t: '🎙️ ' + t('addpart.audio_voiceover') },
+    { v: 'character_speak', t: '👄 ' + t('addpart.audio_character') },
+    { v: 'off', t: '🔇 ' + t('addpart.audio_off') },
+  ] as const
   const isSellVideo = (project.name || '').startsWith('Bán hàng:')
 
   const nextPart = Math.max(1, ...(project.scenes || []).map((s: any) => s.part || 1)) + 1
@@ -66,7 +68,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
       setChars(list || [])
       setSelectedChars(prev => new Set([...prev, list[0].id]))
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Lỗi thêm nhân vật')
+      setError(e.response?.data?.detail || t('addpart.error_add_character'))
     }
     setAddingChar(false)
   }
@@ -108,7 +110,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
 
     try {
       if (isSellVideo) {
-        if (!idea.trim()) { setError('Nhập ý tưởng hoặc dán kịch bản'); setBusy(''); return }
+        if (!idea.trim()) { setError(t('addpart.enter_idea_or_paste')); setBusy(''); return }
         if (hasStructure(idea) || isPromptish(idea)) {
           res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
         } else {
@@ -116,22 +118,22 @@ export default function AddPartPanel({ project, onDone, onClose }: {
         }
       } else {
         if (mode === 'prompts') {
-          if (!idea.trim()) { setError('Dán prompts của bạn trước'); setBusy(''); return }
+          if (!idea.trim()) { setError(t('addpart.paste_prompts_first')); setBusy(''); return }
           const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-          if (!lines.length) { setError('Không tìm thấy prompt hợp lệ'); setBusy(''); return }
+          if (!lines.length) { setError(t('addpart.no_valid_prompt')); setBusy(''); return }
           res = { prompts: lines, narrations: new Array(lines.length).fill('') }
         } else if (mode === 'storyboard') {
-          if (!sbFiles.length) { setError('Chọn ảnh storyboard hoặc PDF trước'); setBusy(''); return }
+          if (!sbFiles.length) { setError(t('addpart.select_storyboard')); setBusy(''); return }
           res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style })
         } else if (mode === 'manual') {
-          if (!idea.trim()) { setError('Dán kịch bản phần mới'); setBusy(''); return }
+          if (!idea.trim()) { setError(t('addpart.paste_script_new_part')); setBusy(''); return }
           res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast })
         } else {
-          if (!idea.trim()) { setError('Nhập ý tưởng phần mới'); setBusy(''); return }
+          if (!idea.trim()) { setError(t('addpart.enter_idea_new_part')); setBusy(''); return }
           res = await toolsApi.autoprompt({ idea: continuationIdea(), scene_count: sceneCount, language, aspect_ratio: aspect, style, cast })
         }
       }
-    } catch (e: any) { setError(e.response?.data?.detail || 'Tạo kịch bản thất bại'); setBusy(''); return }
+    } catch (e: any) { setError(e.response?.data?.detail || t('addpart.script_gen_failed')); setBusy(''); return }
 
 
     const scns: any[] = res.scenes || []
@@ -140,10 +142,10 @@ export default function AddPartPanel({ project, onDone, onClose }: {
       ? scns.map((s: any) => ((s.speaker || '').trim() ? `${s.speaker}: ` : '') + (s.dialogue || ''))
       : (res.narrations || [])
     const valid = basePrompts.filter(p => (p || '').trim())
-    if (!valid.length) { setError('AI chưa viết được cảnh nào, thử lại.'); setBusy(''); return }
+    if (!valid.length) { setError(t('addpart.ai_no_scenes')); setBusy(''); return }
 
     const cost = modelObj.cost * valid.length
-    if (cost > 0 && !window.confirm(`Thêm ${valid.length} cảnh (Phần ${nextPart}) — tốn khoảng ${cost} 💎. Tiếp tục?`)) { setBusy(''); return }
+    if (cost > 0 && !window.confirm(t('addpart.confirm_add_scenes', { count: valid.length, part: nextPart, cost: cost }))) { setBusy(''); return }
 
     setBusy('create')
     try {
@@ -154,7 +156,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
         character_ids: Array.from(selectedChars)
       })
       onDone()
-    } catch (e: any) { setError(e.response?.data?.detail || 'Thêm phần thất bại'); setBusy('') }
+    } catch (e: any) { setError(e.response?.data?.detail || t('addpart.add_part_failed')); setBusy('') }
   }
 
   return (
@@ -164,44 +166,44 @@ export default function AddPartPanel({ project, onDone, onClose }: {
     }}>
       <div onClick={e => e.stopPropagation()} className="card" style={{ maxWidth: 720, width: '100%', margin: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>➕ Thêm kịch bản — <span style={{ color: 'var(--accent2)' }}>Phần {nextPart}</span></div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>➕ {t('addpart.title')} — <span style={{ color: 'var(--accent2)' }}>{t('addpart.part_number', { part: nextPart })}</span></div>
           <button onClick={onClose} className="btn btn-ghost btn-sm btn-icon" style={{ marginLeft: 'auto' }}><X size={15} /></button>
         </div>
 
         {error && <div className="alert alert-error" style={{ marginBottom: 14 }}>{error}</div>}
 
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>
-            Nối tiếp dự án — {isSellVideo ? <strong>giữ nguyên các nhân vật & sản phẩm</strong> : <strong>giữ nguyên {charNames.length} nhân vật</strong>}
-            {(!isSellVideo && charNames.length > 0) && <> ({charNames.map(n => '@' + n).join(', ')})</>} để ghép phim liền mạch.
-            <em>Tỉ lệ {project.aspect_ratio} sẽ được khoá cứng cho phần mới.</em>
+            {t('addpart.continue_project')} — {isSellVideo ? <strong>{t('addpart.keep_chars_products')}</strong> : <strong>{t('addpart.keep_characters', { count: charNames.length })}</strong>}
+            {(!isSellVideo && charNames.length > 0) && <> ({charNames.map(n => '@' + n).join(', ')})</>} {t('addpart.seamless_merge')}
+            <em>{t('addpart.aspect_locked', { ratio: project.aspect_ratio })}</em>
           </div>
 
           {!isSellVideo && (
             <div className="cmp-tabs" style={{ marginBottom: 12 }}>
-              <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> AI viết</button>
-              <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> Tự nhập kịch bản</button>
-              <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> Dán Prompts</button>
-              <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> Đọc storyboard</button>
+              <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> {t('addpart.mode_ai')}</button>
+              <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> {t('addpart.mode_manual')}</button>
+              <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> {t('addpart.mode_prompts')}</button>
+              <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> {t('addpart.mode_storyboard')}</button>
             </div>
           )}
 
           {isSellVideo ? (
             <div style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
-                <label className="form-label" style={{ margin: 0 }}>Ý tưởng · kịch bản · hoặc prompt</label>
+                <label className="form-label" style={{ margin: 0 }}>{t('addpart.idea_script_prompt')}</label>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setIdea('Cận cảnh chi tiết sản phẩm, nhấn mạnh độ bền và kết thúc bằng lời kêu gọi mua hàng chốt sale.')} title="Điền nhanh một ý tưởng mẫu"><Sparkles size={12} /> Gợi ý</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setIdea('Cận cảnh chi tiết sản phẩm, nhấn mạnh độ bền và kết thúc bằng lời kêu gọi mua hàng chốt sale.')} title={t('addpart.suggest_tooltip')}><Sparkles size={12} /> {t('addpart.suggest')}</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => {
                     const txt = `Viết PHẦN TIẾP THEO cho kịch bản video bán hàng affiliate, dọc 9:16, kiểu UGC quay tay, gồm ${sceneCount} cảnh.\n\nQUY TẮC:\n- Giữ NGUYÊN sản phẩm và KOL (gọi là "the exact product from the @Product reference image" và "the person from the @KOL reference image").\n- BẮT BUỘC chèn: keep the product the EXACT same... và Keep the person's face 100% identical...\n- Hình ảnh viết TIẾNG ANH, Lời thoại viết TIẾNG VIỆT.`
                     navigator.clipboard.writeText(txt)
                     setCopied(true); setTimeout(() => setCopied(false), 2000)
-                  }} title="Copy câu lệnh để dán vào trợ lý GPT">
-                    {copied ? 'Đã chép' : 'Lệnh cho GPT'}
+                  }} title={t('addpart.gpt_cmd_tooltip')}>
+                    {copied ? t('addpart.copied') : t('addpart.gpt_command')}
                   </button>
                 </div>
               </div>
               <textarea className="form-textarea" rows={5} style={{ width: '100%' }} value={idea} onChange={e => setIdea(e.target.value)} disabled={busy !== ''}
-                placeholder={'Gõ ý tưởng diễn biến tiếp theo → AI tự viết kịch bản.\nHoặc dán prompt / kịch bản có sẵn → dùng luôn.\n\nVD: Mở đầu quay sát logo sản phẩm, sau đó nhân vật dùng thử và khen nức nở...'} />
+                placeholder={t('addpart.sell_placeholder')} />
             </div>
           ) : mode === 'storyboard' ? (
             <div style={{ marginBottom: 14 }}>
@@ -211,10 +213,9 @@ export default function AddPartPanel({ project, onDone, onClose }: {
                 border: '1.5px dashed var(--line, #2a2740)', borderRadius: 14, background: 'rgba(255,255,255,0.02)',
               }}>
                 <Clapperboard size={26} style={{ color: 'var(--accent2)' }} />
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Chọn ảnh storyboard hoặc PDF</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('addpart.storyboard_select')}</div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 420 }}>
-                  1 ảnh nhiều khung (grid), nhiều ảnh rời, hoặc PDF. AI đọc từng khung → tự viết prompt + lời thoại.
-                  <strong> Số cảnh = số khung.</strong> Tối đa 10 file, ~18MB.
+                  {t('addpart.storyboard_desc')}
                 </div>
                 <input id="sb-input" ref={sbFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }}
                   onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) setSbFiles(prev => [...prev, ...fs].slice(0, 10)); if (sbFileRef.current) sbFileRef.current.value = '' }} />
@@ -233,14 +234,14 @@ export default function AddPartPanel({ project, onDone, onClose }: {
           ) : (
             <textarea className="form-textarea" style={{ minHeight: mode === 'manual' ? 150 : 90, marginBottom: 14 }}
               value={idea} onChange={e => setIdea(e.target.value)} disabled={busy !== ''}
-              placeholder={mode === 'prompts' ? 'Dán danh sách prompt của bạn (1 dòng = 1 prompt = 1 cảnh)...\nVD:\nA cinematic shot of a mountain at sunset\nA person walking in the snow\n...'
-                : mode === 'manual' ? 'Dán kịch bản phần tiếp theo (kèm lời thoại + tên nhân vật)...'
-                : 'Phần này diễn biến tiếp thế nào? (VD: Mẹ và Nam mở rộng spa, gặp khó khăn mới...)'} />
+              placeholder={mode === 'prompts' ? t('addpart.prompts_placeholder')
+                : mode === 'manual' ? t('addpart.manual_placeholder')
+                : t('addpart.ai_placeholder')} />
           )}
 
           <div className="cmp-settings" style={{ marginBottom: 12 }}>
             <div className="cmp-ctrl" style={{ padding: '8px 12px' }}>
-              <div className="cmp-label">Số cảnh</div>
+              <div className="cmp-label">{t('addpart.scene_count')}</div>
               <div className="stepper">
                 <button type="button" onClick={() => setSceneCount(c => Math.max(1, c - 1))}>−</button>
                 <input type="number" min={1} max={600} value={sceneCount}
@@ -249,7 +250,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
               </div>
             </div>
             <div className="cmp-ctrl" style={{ padding: '8px 12px' }}>
-              <div className="cmp-label">Thời lượng</div>
+              <div className="cmp-label">{t('addpart.duration')}</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={duration} onChange={e => setDuration(+e.target.value)}>
                   {DURATIONS.map(d => <option key={d} value={d}>{d}s</option>)}
@@ -258,7 +259,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
               </div>
             </div>
             <div className="cmp-ctrl" style={{ padding: '8px 12px' }}>
-              <div className="cmp-label">Chất lượng</div>
+              <div className="cmp-label">{t('addpart.quality')}</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={model} onChange={e => setModel(e.target.value)}>
                   {MODELS.map(m => <option key={m.key} value={m.key}>{m.label.split(' — ')[0]}</option>)}
@@ -267,7 +268,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
               </div>
             </div>
             <div className="cmp-ctrl" style={{ padding: '8px 12px' }}>
-              <div className="cmp-label">Tỉ lệ</div>
+              <div className="cmp-label">{t('addpart.aspect_ratio')}</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={aspect} onChange={e => setAspect(e.target.value)}>
                   {ASPECTS.map(a => <option key={a}>{a}</option>)}
@@ -286,7 +287,7 @@ export default function AddPartPanel({ project, onDone, onClose }: {
               </div>
             </div>
             <div className="cmp-ctrl" style={{ padding: '8px 12px' }}>
-              <div className="cmp-label">Ngôn ngữ</div>
+              <div className="cmp-label">{t('addpart.language')}</div>
               <div className="selwrap">
                 <select className="cmp-sel" value={language} onChange={e => setLanguage(e.target.value)}>
                   <option value="vi">🇻🇳 Việt</option>
@@ -298,9 +299,9 @@ export default function AddPartPanel({ project, onDone, onClose }: {
           </div>
 
           <div className="cmp-chiprow" style={{ marginBottom: 16 }}>
-            <span className="cmp-clab" style={{ fontSize: 13, marginRight: 8 }}>Giữ mặt</span>
+            <span className="cmp-clab" style={{ fontSize: 13, marginRight: 8 }}>{t('addpart.keep_face')}</span>
             {chars.length === 0 && (
-              <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm ảnh để AI giữ nguyên mặt qua các cảnh.</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('addpart.keep_face_hint')}</span>
             )}
             {chars.map(c => (
               <div key={c.id} className={selectedChars.has(c.id) ? 'cmp-chip on' : 'cmp-chip'}
@@ -309,26 +310,26 @@ export default function AddPartPanel({ project, onDone, onClose }: {
               </div>
             ))}
             <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)}>
-              {addCharOpen ? <><X size={13} /> đóng</> : <><Plus size={13} /> thêm nhân vật mới</>}
+              {addCharOpen ? <><X size={13} /> {t('addpart.close')}</> : <><Plus size={13} /> {t('addpart.add_new_char')}</>}
             </div>
           </div>
           {addCharOpen && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
               <input className="cmp-sel" placeholder="Tên (vd: hero)" value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
               <label className="cmp-ghost" style={{ cursor: 'pointer', flex: 1, padding: '9px 12px' }}>
-                {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : '📁 Chọn ảnh (nhìn thẳng, rõ mặt)'}
+                {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : t('addpart.select_photo')}
                 <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
               </label>
               <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px', margin: 0 }}>
-                {addingChar ? <Loader2 size={13} className="spin" /> : 'Lưu'}
+                {addingChar ? <Loader2 size={13} className="spin" /> : t('addpart.save')}
               </button>
             </div>
           )}
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={preview} disabled={!!busy || (mode === 'storyboard' ? !sbFiles.length : !idea.trim())}>
-            {busy === 'gen' ? <><Loader2 size={14} className="spin" /> Đang viết kịch bản...</>
-              : busy === 'create' ? <><Loader2 size={14} className="spin" /> Đang thêm...</>
-              : (mode === 'manual' || mode === 'storyboard' || mode === 'prompts' ? 'Phân tích & Thêm phần mới →' : 'AI viết & Thêm phần mới →')}
+            {busy === 'gen' ? <><Loader2 size={14} className="spin" /> {t('addpart.writing_script')}</>
+              : busy === 'create' ? <><Loader2 size={14} className="spin" /> {t('addpart.adding')}</>
+              : (mode === 'manual' || mode === 'storyboard' || mode === 'prompts' ? t('addpart.analyze_and_add') : t('addpart.ai_write_and_add'))}
           </button>
       </div>
     </div>

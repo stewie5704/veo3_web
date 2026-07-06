@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LifeBuoy, Copy, Check, ExternalLink, Users } from 'lucide-react'
+import { useT } from '../i18n'
 
 // Liên hệ hỗ trợ — sửa tại đây khi đổi.
 const TELEGRAM = 'thaidem57'
@@ -20,6 +21,7 @@ export default function Support() {
   const copy = async (text: string, key: string) => {
     try { await navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 1800) } catch { /* ignore */ }
   }
+  const t = useT()
 
   const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }
 
@@ -28,9 +30,9 @@ export default function Support() {
       <div className="page-header">
         <div>
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <LifeBuoy size={22} color="#fb923c" /> Hỗ trợ
+            <LifeBuoy size={22} color="#fb923c" /> {t('support.title')}
           </div>
-          <div className="page-subtitle">Liên hệ đội ngũ AI AutoCut — phản hồi nhanh qua Telegram / Zalo</div>
+          <div className="page-subtitle">{t('support.subtitle')}</div>
         </div>
       </div>
 
@@ -43,10 +45,10 @@ export default function Support() {
             <div style={{ fontSize: 13, color: 'var(--text2)', fontFamily: 'var(--mono)' }}>@{TELEGRAM}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => copy('@' + TELEGRAM, 'tg')}>
-            {copied === 'tg' ? <><Check size={13} /> Đã chép</> : <><Copy size={13} /> Chép</>}
+            {copied === 'tg' ? <><Check size={13} /> {t('support.copied')}</> : <><Copy size={13} /> {t('support.copy')}</>}
           </button>
           <a className="btn btn-primary btn-sm" href={`https://t.me/${TELEGRAM}`} target="_blank" rel="noreferrer">
-            <ExternalLink size={13} /> Nhắn
+            <ExternalLink size={13} /> {t('support.message')}
           </a>
         </div>
 
@@ -58,10 +60,10 @@ export default function Support() {
             <div style={{ fontSize: 13, color: 'var(--text2)', fontFamily: 'var(--mono)' }}>{ZALO_PHONE}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => copy(ZALO_PHONE, 'zalo')}>
-            {copied === 'zalo' ? <><Check size={13} /> Đã chép</> : <><Copy size={13} /> Chép</>}
+            {copied === 'zalo' ? <><Check size={13} /> {t('support.copied')}</> : <><Copy size={13} /> {t('support.copy')}</>}
           </button>
           <a className="btn btn-primary btn-sm" href={`https://zalo.me/${ZALO_PHONE}`} target="_blank" rel="noreferrer">
-            <ExternalLink size={13} /> Nhắn
+            <ExternalLink size={13} /> {t('support.message')}
           </a>
         </div>
 
@@ -69,17 +71,17 @@ export default function Support() {
         <div className="card" style={row}>
           <div style={{ width: 46, height: 46, borderRadius: 13, background: 'rgba(0,104,255,.15)', display: 'grid', placeItems: 'center', flexShrink: 0, color: '#4d9bff' }}><Users size={20} /></div>
           <div style={{ flex: 1, minWidth: 120 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700 }}>Nhóm Zalo hỗ trợ</div>
-            <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ZALO_GROUP ? 'Tham gia nhóm để được hỗ trợ & cập nhật nhanh' : 'Đang cập nhật — sắp có'}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t('support.zalo_group')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ZALO_GROUP ? t('support.zalo_group_desc') : t('support.coming_soon')}</div>
           </div>
           {ZALO_GROUP
-            ? <a className="btn btn-primary btn-sm" href={ZALO_GROUP} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Vào nhóm</a>
-            : <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text3)' }}>Sắp có</span>}
+            ? <a className="btn btn-primary btn-sm" href={ZALO_GROUP} target="_blank" rel="noreferrer"><ExternalLink size={13} /> {t('support.join_group')}</a>
+            : <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text3)' }}>{t('support.coming_soon_badge')}</span>}
         </div>
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 18, lineHeight: 1.6, textAlign: 'center' }}>
-        Khi nhắn hỗ trợ, gửi kèm <b>email tài khoản</b> của bạn để được tra cứu nhanh.
+        {t('support.footer')}
       </div>
     </div>
   )
