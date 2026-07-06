@@ -162,19 +162,22 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
         import shutil
         upload_copy = UPLOAD_PATH / out_name
         shutil.copy2(out_path, upload_copy)
-        async with AsyncSessionLocal() as db2:
-            from app.projects.models import Project
-            proj2 = await db2.get(Project, body.project_id)
-            if proj2:
-                # Xoá file ghép cũ
-                if proj2.merged_file and proj2.merged_file != out_name:
-                    for old_dir in (UPLOAD_PATH, MERGED_PATH):
-                        old_f = old_dir / proj2.merged_file
-                        if old_f.exists():
-                            try: old_f.unlink()
-                            except OSError: pass
-                proj2.merged_file = out_name
-                await db2.commit()
+        
+        # Chỉ cập nhật proj.merged_file nếu ghép TOÀN BỘ phim (không phải ghép phần)
+        if body.part is None:
+            async with AsyncSessionLocal() as db2:
+                from app.projects.models import Project
+                proj2 = await db2.get(Project, body.project_id)
+                if proj2:
+                    # Xoá file ghép cũ
+                    if proj2.merged_file and proj2.merged_file != out_name:
+                        for old_dir in (UPLOAD_PATH, MERGED_PATH):
+                            old_f = old_dir / proj2.merged_file
+                            if old_f.exists():
+                                try: old_f.unlink()
+                                except OSError: pass
+                    proj2.merged_file = out_name
+                    await db2.commit()
         return {"ok": True, "filename": out_name, "url": f"/merged/{out_name}"}
     finally:
         if concat_file.exists():

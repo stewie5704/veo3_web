@@ -805,15 +805,19 @@ async def download_scene(
 async def download_merged(
     project_id: str,
     res: str = "720",
+    filename: str | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
-    if not proj.merged_file:
-        raise HTTPException(404, "Dự án chưa được ghép")
-    path = UPLOAD_PATH / proj.merged_file
+        
+    target_file = filename if filename else proj.merged_file
+    if not target_file:
+        raise HTTPException(404, "Dự án chưa được ghép hoặc file không tồn tại")
+        
+    path = UPLOAD_PATH / target_file
     if not path.exists():
         raise HTTPException(404, "File đã bị xóa")
     tag = "720p"

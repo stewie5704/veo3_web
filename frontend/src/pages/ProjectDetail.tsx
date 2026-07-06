@@ -669,7 +669,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         <div className="alert alert-success" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
           <Check size={15} /> {t('scene.merge_complete')}
           <video src={mergeUrl} controls style={{ maxWidth: 400, borderRadius: 8 }} />
-          <DownloadMenu base={`/projects/${id}/download-merged`} filename={mergeFilename || 'phim.mp4'} />
+          <DownloadMenu base={`/projects/${id}/download-merged?${mergeFilename ? `filename=${mergeFilename}&` : ''}_t=${Date.now()}`} filename={mergeFilename || 'phim.mp4'} />
         </div>
       )}
 

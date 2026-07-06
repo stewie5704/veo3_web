@@ -389,7 +389,7 @@ LỜI THOẠI: ...
           <div className="video-card-prompt">🛍️ {p.name}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {p.merged_file
-              ? <DownloadMenu base={`/projects/${id}/download-merged`} filename="video_ban_hang.mp4" />
+              ? <DownloadMenu base={`/projects/${id}/download-merged?_t=${Date.now()}`} filename="video_ban_hang.mp4" />
               : <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t('sell.scenes_done', { done, total })}</span>}
             <button className="btn btn-ghost btn-sm" onClick={() => rerenderSell(id)} title={t('sell.recreate_tooltip')}>
               🔄 {t('sell.recreate')}
