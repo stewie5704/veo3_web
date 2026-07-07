@@ -226,18 +226,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
       
-      const proj = await projectApi.create({
-        name: projName || `Dự án AI ${new Date().toISOString().slice(0,10)}`,
+      const proj = await projectsApi.create({
+        name: name || `Dự án AI ${new Date().toISOString().slice(0,10)}`,
         idea: idea,
         style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
         prompts: [], narrations: [], 
-        chain_mode: chainMode, audio_mode: audioMode, voice, 
+        chain_mode: false, audio_mode: audioMode, voice, 
         character_ids: castObjs.map(c => c.id),
-        i2v_fix: i2vFix,
-        auto_render: autoRender
+        i2v_fix: false,
+        auto_render: false
       })
       
-      await toolsApi.extractOutline(proj.id)
+      await projectsApi.extractOutline(proj.id)
       
       // Fake loading 3s cho nguy hiểm
       pushLog("Đang phân tích kịch bản và chuẩn bị tài nguyên...")
@@ -245,7 +245,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog("Khởi tạo không gian làm việc thành công!")
       await new Promise(r => setTimeout(r, 1000))
       
-      navigate(`/project/${proj.id}`)
+      nav(`/project/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
@@ -256,25 +256,25 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
       
-      const proj = await projectApi.create({
-        name: projName || `Dự án Kịch bản ${new Date().toISOString().slice(0,10)}`,
+      const proj = await projectsApi.create({
+        name: name || `Dự án Kịch bản ${new Date().toISOString().slice(0,10)}`,
         idea: idea,
         style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
         prompts: [], narrations: [], 
-        chain_mode: chainMode, audio_mode: audioMode, voice, 
+        chain_mode: false, audio_mode: audioMode, voice, 
         character_ids: castObjs.map(c => c.id),
-        i2v_fix: i2vFix,
-        auto_render: autoRender
+        i2v_fix: false,
+        auto_render: false
       })
       
-      await toolsApi.extractOutline(proj.id)
+      await projectsApi.extractOutline(proj.id)
       
       pushLog("Đang đọc kịch bản chi tiết và bóc tách nhân vật...")
       await new Promise(r => setTimeout(r, 2000))
       pushLog("Chuyển hướng đến bảng điều khiển...")
       await new Promise(r => setTimeout(r, 1000))
       
-      navigate(`/project/${proj.id}`)
+      nav(`/project/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_parse_script')); setLoadingPrompts(false) }
   }
 

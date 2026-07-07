@@ -439,10 +439,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   onClick={async () => {
                     // Update the voices in the project if needed, but for now we'll just trigger the scenes generation
                     // since backend will create scenes. The backend needs voices.
-                    // Wait, currently backend doesn't know about `charVoices` during generate_scenes?
-                    // Ah, backend uses project.voice. If we want custom character voices, we should save `charVoices` somewhere.
-                    // Or we just continue, because the characters are already in DB.
-                    await projectsApi.generateScenes(id as string)
+                    await projectsApi.generateScenes(id as string, charVoices)
                     load(true)
                   }}
                 >

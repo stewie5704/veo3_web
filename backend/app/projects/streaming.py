@@ -54,8 +54,13 @@ async def sse_event_generator(project_id: str, request: Request) -> AsyncGenerat
                 
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message:
-                # SSE format requires "data: <content>\n\n"
-                yield f"data: {message['data']}\n\n"
+                try:
+                    payload = json.loads(message['data'])
+                    evt_type = payload.get("type", "message")
+                    data_str = json.dumps(payload.get("data", {})) if isinstance(payload.get("data"), (dict, list)) else str(payload.get("data"))
+                    yield f"event: {evt_type}\ndata: {data_str}\n\n"
+                except Exception as e:
+                    log.error(f"Error parsing SSE message: {e}")
             else:
                 # Send a comment to keep connection alive
                 yield ": keep-alive\n\n"

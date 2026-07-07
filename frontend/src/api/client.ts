@@ -133,8 +133,8 @@ export const projectsApi = {
   },
   extractOutline: (projectId: string) => 
     api.post(`/projects/${projectId}/extract-outline`).then(r => r.data),
-  generateScenes: (projectId: string) => 
-    api.post(`/projects/${projectId}/generate-scenes`).then(r => r.data),
+  generateScenes: (projectId: string, charVoices?: Record<string, string>) => 
+    api.post(`/projects/${projectId}/generate-scenes`, { charVoices }).then(r => r.data),
 }
 
 

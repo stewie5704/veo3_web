@@ -18,7 +18,13 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
         api_key = dec(gemini_key_enc)
         idea = _sanitize(idea)
         lang_label = "tiếng Việt" if language == "vi" else "English"
-        
+        # Process cast from DB if not provided
+        if cast is None:
+            from app.projects.router import _project_chars
+            async with AsyncSessionLocal() as db:
+                chars = await _project_chars(db, project_id)
+                cast = [{"name": c.name, "anchor": c.image_url} for c in chars]
+                
         await publish_project_event(project_id, "LOG_UPDATE", "Đang phân tích kịch bản và trích xuất nhân vật...")
         
         # Chạy outline
@@ -55,7 +61,7 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
                 await db.commit()
 
 
-async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str, language: str, aspect_ratio: str):
+async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str, language: str, aspect_ratio: str, charVoices: dict[str, str] = {}):
     """Background task: Chạy _mr_expand song song, tạo Scene vào DB và bắn event liên tục"""
     try:
         api_key = dec(gemini_key_enc)
@@ -103,14 +109,24 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
                     async with AsyncSessionLocal() as db:
                         p = await db.get(Project, project_id)
                         for k, r_sc in enumerate(reduced.scenes):
+                            # Xác định giọng nói
+                            assigned_voice = p.voice
+                            narration = reduced.narrations[k] if k < len(reduced.narrations) else None
+                            if narration:
+                                # Nếu narration bắt đầu bằng "Tên Nhân Vật: ", chúng ta gán giọng tương ứng
+                                for c_name, c_voice in charVoices.items():
+                                    if narration.startswith(f"{c_name}:") or narration.startswith(f"{c_name} :"):
+                                        assigned_voice = c_voice
+                                        break
+                                        
                             db_sc = Scene(
                                 project_id=project_id, user_id=user_id, index=start_i+k, part=1,
                                 prompt=r_sc.prompt,
-                                narration=reduced.narrations[k] if k < len(reduced.narrations) else None,
+                                narration=narration,
                                 model_key=p.model_key, aspect_ratio=p.aspect_ratio,
                                 duration_seconds=p.duration_seconds,
                                 status=SceneStatus.pending,
-                                voice=p.voice # Sẽ được override từ UI list character giọng nếu có
+                                voice=assigned_voice
                             )
                             db.add(db_sc)
                             await db.flush()

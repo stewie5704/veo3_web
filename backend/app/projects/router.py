@@ -450,9 +450,13 @@ async def extract_outline(
     )
     return {"ok": True, "status": "generating_outline"}
 
+class GenerateScenesRequest(BaseModel):
+    charVoices: dict[str, str] = {}
+
 @router.post("/{project_id}/generate-scenes")
 async def generate_scenes(
     project_id: str,
+    body: GenerateScenesRequest,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -473,7 +477,7 @@ async def generate_scenes(
     background_tasks.add_task(
         run_generate_scenes, 
         project_id, user.id, user.gemini_api_key, 
-        proj.language, proj.aspect_ratio
+        proj.language, proj.aspect_ratio, body.charVoices
     )
     return {"ok": True, "status": "generating_scenes"}
 
