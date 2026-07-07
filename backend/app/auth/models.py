@@ -20,7 +20,7 @@ class User(Base):
     google_connected: Mapped[bool] = mapped_column(Boolean, default=False)
     google_cookies: Mapped[str | None] = mapped_column(String(8192), nullable=True)
     google_project_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    gemini_api_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    gemini_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_gemini_key: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Quota & usage

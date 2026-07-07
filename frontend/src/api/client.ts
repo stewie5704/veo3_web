@@ -131,6 +131,10 @@ export const projectsApi = {
     return api.post(`/projects/${projectId}/scenes/${sceneId}/set-start-image`, fd,
       { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
+  extractOutline: (projectId: string) => 
+    api.post(`/projects/${projectId}/extract-outline`).then(r => r.data),
+  generateScenes: (projectId: string) => 
+    api.post(`/projects/${projectId}/generate-scenes`).then(r => r.data),
 }
 
 

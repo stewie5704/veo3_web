@@ -67,9 +67,14 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
   }
   async function saveGeminiKey() {
     if (!geminiKey.trim()) return
+    const keys = geminiKey.split(/[\r\n,]+/).map(k => k.trim()).filter(Boolean)
+    if (keys.length > 5) {
+      toast('Chỉ hỗ trợ tối đa 5 API Keys cá nhân', 'error')
+      return
+    }
     setKeySaving(true)
     try {
-      await authApi.saveGeminiKey(geminiKey)
+      await authApi.saveGeminiKey(keys.join(','))
       onUpdate(await authApi.me())
       toast(t('settings.gemini_key_saved'), 'success'); setGeminiKey('')
     } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
@@ -353,19 +358,19 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
             <div className="card-header"><KeyRound size={15} /> Gemini API Key</div>
             {user?.has_gemini_key && (
               <div className="alert alert-success" style={{ marginBottom: 12, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Check size={13} /> {t('settings.has_api_key')}
+                <Check size={13} /> Đã có API Key cá nhân trong hệ thống
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">API Key</label>
-              <input className="form-input" type="password" placeholder="AIzaSy..."
-                value={geminiKey} onChange={e => setGeminiKey(e.target.value)} />
+              <label className="form-label">Cấu hình Pool Cá Nhân (Tối đa 5 Keys)</label>
+              <textarea className="form-input" placeholder="AIzaSy...\nAIzaSy...\n(Mỗi key 1 dòng, tối đa 5 keys)"
+                value={geminiKey} onChange={e => setGeminiKey(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
             </div>
             <div className="alert alert-info" style={{ fontSize: 12, marginBottom: 12 }}>
-              {t('settings.gemini_key_info')} <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
+              Hệ thống sẽ tự động xoay vòng (round-robin) các key của bạn để tránh lỗi Rate Limit. Nếu tất cả key của bạn đều cạn Quota, hệ thống mới tự động fallback sang máy chủ chung. Lấy key tại: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent2)' }}>aistudio.google.com</a>
             </div>
             <button className="btn btn-primary" onClick={saveGeminiKey} disabled={keySaving || !geminiKey.trim()}>
-              {keySaving ? <><Loader2 size={13} className="spin" /> {t('settings.saving')}</> : <><Save size={13} /> {t('settings.save_api_key')}</>}
+              {keySaving ? <><Loader2 size={13} className="spin" /> {t('settings.saving')}</> : <><Save size={13} /> Lưu Pool Keys</>}
             </button>
           </div>
         </div>

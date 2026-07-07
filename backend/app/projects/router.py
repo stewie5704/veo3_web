@@ -11,8 +11,8 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, delete
 from pydantic import BaseModel
@@ -23,6 +23,8 @@ from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
 from app.characters.models import Character
 from app.pipeline.runner import dispatch_scene, generate_images_flow, _try_auto_merge
+from app.projects.streaming import sse_event_generator
+from app.projects.generator import run_extract_outline, run_generate_scenes
 from app.styles_catalog import style_description
 from app.config import UPLOAD_PATH
 from app.crypto import dec
@@ -239,6 +241,7 @@ class SceneResponse(BaseModel):
 class ProjectResponse(BaseModel):
     id: str
     name: str
+    status: str = "draft"
     idea: str | None
     style: str | None
     model_key: str
@@ -309,7 +312,7 @@ def scene_to_resp(s: Scene) -> SceneResponse:
 
 def proj_to_resp(p: Project) -> ProjectResponse:
     return ProjectResponse(
-        id=p.id, name=p.name, idea=p.idea, style=p.style,
+        id=p.id, name=p.name, status=getattr(p, "status", "draft") or "draft", idea=p.idea, style=p.style,
         model_key=p.model_key, aspect_ratio=p.aspect_ratio,
         duration_seconds=p.duration_seconds, language=p.language,
         scene_count=p.scene_count, chain_mode=p.chain_mode,
@@ -379,12 +382,9 @@ async def create_project(
 
     if body.auto_render:
         scene_ids = [s.id for s in scenes]
-        # 2b: nếu có bible nhân vật -> sinh chân dung AI trước rồi mới dispatch
-        # (kể cả khi đã có character_ids là sản phẩm, ta vẫn cần sinh mặt AI ảo nếu thiếu)
         if body.character_bible:
             asyncio.create_task(_prep_portraits_and_dispatch(proj.id, user.id, body.character_bible, scene_ids))
         else:
-            # Không có bible -> dispatch ngay.
             for sid in scene_ids:
                 dispatch_scene(sid, user.id)
 
@@ -393,6 +393,90 @@ async def create_project(
         scenes=[scene_to_resp(s) for s in scenes],
         characters=await _project_chars(db, proj.id),
     )
+
+async def get_user_from_token_query(token: str, db: AsyncSession = Depends(get_db)):
+    from app.auth.utils import decode_token
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+    user = await db.get(User, payload.get("sub"))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User không tồn tại")
+    return user
+
+@router.get("/{project_id}/stream")
+async def stream_project_events(
+    project_id: str,
+    request: Request,
+    user: User = Depends(get_user_from_token_query),
+    db: AsyncSession = Depends(get_db)
+):
+    """SSE endpoint to stream project generation events and logs."""
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    
+    return StreamingResponse(
+        sse_event_generator(project_id, request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+    )
+
+class ExtractOutlineRequest(BaseModel):
+    parse_mode: bool = True
+
+@router.post("/{project_id}/extract-outline")
+async def extract_outline(
+    project_id: str,
+    body: ExtractOutlineRequest,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key")
+        
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+        
+    proj.status = "generating_outline"
+    await db.commit()
+    
+    background_tasks.add_task(
+        run_extract_outline, 
+        project_id, user.id, user.gemini_api_key, 
+        proj.idea, proj.scene_count, proj.language, proj.aspect_ratio, body.parse_mode
+    )
+    return {"ok": True, "status": "generating_outline"}
+
+@router.post("/{project_id}/generate-scenes")
+async def generate_scenes(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key")
+        
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+        
+    if proj.status != "waiting_review":
+        raise HTTPException(400, "Dự án chưa có outline để sinh cảnh")
+        
+    proj.status = "generating_scenes"
+    await db.commit()
+    
+    background_tasks.add_task(
+        run_generate_scenes, 
+        project_id, user.id, user.gemini_api_key, 
+        proj.language, proj.aspect_ratio
+    )
+    return {"ok": True, "status": "generating_scenes"}
+
 
 
 @router.get("/", response_model=list[ProjectResponse])

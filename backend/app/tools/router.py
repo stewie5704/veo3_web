@@ -210,30 +210,45 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
     # 1. Gemini của khách
     if gemini_key:
         import google.generativeai as genai
-        genai.configure(api_key=gemini_key)
+        import random
+        import re
+        keys = [k.strip() for k in re.split(r'[\r\n,]+', gemini_key) if k.strip()]
+        random.shuffle(keys)
         cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
         ropts = {"timeout": 35}
         last = None
         quota_hit = False
-        for mname in GEMINI_MODELS:
-            try:
-                txt = genai.GenerativeModel(mname).generate_content(
-                    prompt, generation_config=cfg, request_options=ropts).text.strip()
-                return _loads_lenient(txt)
-            except Exception as e:
-                last = e
-                if _is_quota(e):
-                    quota_hit = True
-                    continue
+        
+        for k in keys:
+            genai.configure(api_key=k)
+            key_quota_hit = False
+            for mname in GEMINI_MODELS:
                 try:
-                    txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
+                    txt = genai.GenerativeModel(mname).generate_content(
+                        prompt, generation_config=cfg, request_options=ropts).text.strip()
                     return _loads_lenient(txt)
-                except Exception as e2:
-                    last = e2
-                    if _is_quota(e2): quota_hit = True
+                except Exception as e:
+                    last = e
+                    if _is_quota(e):
+                        key_quota_hit = True
+                        continue
+                    try:
+                        txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
+                        return _loads_lenient(txt)
+                    except Exception as e2:
+                        last = e2
+                        if _is_quota(e2): key_quota_hit = True
+                        
+            if key_quota_hit:
+                quota_hit = True
+                log.warning("Key %s... hết quota, thử key tiếp theo", k[:8])
+                continue
+            else:
+                break
+                
         if not quota_hit:
             raise last if last else RuntimeError("Gemini không phản hồi")
-        log.warning("Gemini key hết quota, tự động fallback sang 9Router")
+        log.warning("Tất cả Gemini keys cá nhân hết quota, tự động fallback sang 9Router")
         
     # 3. System 9Router fallback (Khách thường hoặc lười điền key)
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
@@ -277,31 +292,46 @@ def _gemini_vision_json(gemini_key: str | None, prompt: str, media: list[tuple[s
     # 1. Gemini của khách
     if gemini_key:
         import google.generativeai as genai
-        genai.configure(api_key=gemini_key)
+        import random
+        import re
+        keys = [k.strip() for k in re.split(r'[\r\n,]+', gemini_key) if k.strip()]
+        random.shuffle(keys)
         cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
         ropts = {"timeout": 60}
         blobs = [{"mime_type": m, "data": b} for (m, b) in media]
         last = None
         quota_hit = False
-        for mname in GEMINI_VISION_MODELS:
-            try:
-                txt = genai.GenerativeModel(mname).generate_content(
-                    [*blobs, prompt], generation_config=cfg, request_options=ropts).text.strip()
-                return _loads_lenient(txt)
-            except Exception as e:
-                last = e
-                if _is_quota(e):
-                    quota_hit = True
-                    continue
+        
+        for k in keys:
+            genai.configure(api_key=k)
+            key_quota_hit = False
+            for mname in GEMINI_VISION_MODELS:
                 try:
-                    txt = genai.GenerativeModel(mname).generate_content([*blobs, prompt], request_options=ropts).text.strip()
+                    txt = genai.GenerativeModel(mname).generate_content(
+                        [*blobs, prompt], generation_config=cfg, request_options=ropts).text.strip()
                     return _loads_lenient(txt)
-                except Exception as e2:
-                    last = e2
-                    if _is_quota(e2): quota_hit = True
+                except Exception as e:
+                    last = e
+                    if _is_quota(e):
+                        key_quota_hit = True
+                        continue
+                    try:
+                        txt = genai.GenerativeModel(mname).generate_content([*blobs, prompt], request_options=ropts).text.strip()
+                        return _loads_lenient(txt)
+                    except Exception as e2:
+                        last = e2
+                        if _is_quota(e2): key_quota_hit = True
+            
+            if key_quota_hit:
+                quota_hit = True
+                log.warning("Vision Key %s... hết quota, thử key tiếp theo", k[:8])
+                continue
+            else:
+                break
+                
         if not quota_hit:
             raise last if last else RuntimeError("Gemini không phản hồi")
-        log.warning("Gemini vision key hết quota, tự động fallback sang 9Router")
+        log.warning("Tất cả Gemini vision keys cá nhân hết quota, tự động fallback sang 9Router")
 
     # 3. 9Router fallback
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]

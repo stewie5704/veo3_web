@@ -225,26 +225,27 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setError(''); setLoadingPrompts(true)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
-      const res = await toolsApi.autoprompt({ idea, scene_count: sceneCount, style: style || undefined, language, aspect_ratio: aspect, cast: castObjs })
-      const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
-      const mappedScenes = (res.scenes || []).map((s: any) => ({ ...s, narration: s.dialogue || s.narration || '' }))
-      setScenes(mappedScenes); setBibleChars(bc); setCharVoices(cv)
-      const n = (res.scenes?.length || res.prompts?.length || 0)
-      pushLog(`Đã viết kịch bản ${n} cảnh`)
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
-        let extraCharMap = {}
-        if (bc && bc.length > 0) {
-          extraCharMap = await autoGeneratePortraits(bc) || {}
-        }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-        autoGeneratePortraits(bc)
-      }
+      
+      const proj = await projectApi.create({
+        name: projName || `Dự án AI ${new Date().toISOString().slice(0,10)}`,
+        idea: idea,
+        style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
+        prompts: [], narrations: [], 
+        chain_mode: chainMode, audio_mode: audioMode, voice, 
+        character_ids: castObjs.map(c => c.id),
+        i2v_fix: i2vFix,
+        auto_render: autoRender
+      })
+      
+      await toolsApi.extractOutline(proj.id)
+      
+      // Fake loading 3s cho nguy hiểm
+      pushLog("Đang phân tích kịch bản và chuẩn bị tài nguyên...")
+      await new Promise(r => setTimeout(r, 2000))
+      pushLog("Khởi tạo không gian làm việc thành công!")
+      await new Promise(r => setTimeout(r, 1000))
+      
+      navigate(`/project/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
@@ -254,26 +255,26 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     setError(''); setLoadingPrompts(true)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
-      const res = await toolsApi.parseScript({ script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: castObjs })
-      const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || 'Kore']))
-      const mappedScenes = (res.scenes || []).map((s: any) => ({ ...s, narration: s.dialogue || s.narration || '' }))
-      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(mappedScenes); setBibleChars(bc); setCharVoices(cv)
-      const n = (res.scenes?.length || res.prompts?.length || 0)
-      pushLog(`Đã phân tích kịch bản ${n} cảnh`)
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
-        let extraCharMap = {}
-        if (bc && bc.length > 0) {
-          extraCharMap = await autoGeneratePortraits(bc) || {}
-        }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-        autoGeneratePortraits(bc)
-      }
+      
+      const proj = await projectApi.create({
+        name: projName || `Dự án Kịch bản ${new Date().toISOString().slice(0,10)}`,
+        idea: idea,
+        style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
+        prompts: [], narrations: [], 
+        chain_mode: chainMode, audio_mode: audioMode, voice, 
+        character_ids: castObjs.map(c => c.id),
+        i2v_fix: i2vFix,
+        auto_render: autoRender
+      })
+      
+      await toolsApi.extractOutline(proj.id)
+      
+      pushLog("Đang đọc kịch bản chi tiết và bóc tách nhân vật...")
+      await new Promise(r => setTimeout(r, 2000))
+      pushLog("Chuyển hướng đến bảng điều khiển...")
+      await new Promise(r => setTimeout(r, 1000))
+      
+      navigate(`/project/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_parse_script')); setLoadingPrompts(false) }
   }
 
