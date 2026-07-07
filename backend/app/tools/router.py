@@ -187,14 +187,15 @@ def _is_quota(e) -> bool:
 
 def _call_openai_json(api_key: str, base_url: str, models: list[str], prompt: str, max_tokens: int) -> dict:
     from openai import OpenAI
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=180)
     last = None
     for mname in models:
         try:
             resp = client.chat.completions.create(
                 model=mname,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                timeout=180
             )
             txt = resp.choices[0].message.content.strip()
             return _loads_lenient(txt)

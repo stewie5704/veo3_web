@@ -172,13 +172,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     return () => { window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
   }, [])
 
-  // Overlay "đang tạo" (manual): cuộn qua các bước ~1.8s để cảm giác đang chạy
-  const overlayOn = tab === 'new' && (loadingPrompts || creating)
-  useEffect(() => {
-    if (!overlayOn) { setLoadStep(0); return }
-    const id = setInterval(() => setLoadStep(s => Math.min(s + 1, CREATE_STEPS.length - 1)), 1800)
-    return () => clearInterval(id)
-  }, [overlayOn])
+  // Overlay đã tắt — chỉ giữ loading trên nút
 
   // Credit cost estimate
   const modelObj = MODELS.find(m => m.key === bModel) || MODELS[0]
@@ -507,22 +501,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   return (
     <div style={{ maxWidth: tab === 'sell' ? '100%' : 760, margin: '0 auto' }}>
       <div className="fx-grain" aria-hidden="true" />
-      {/* Overlay tiến trình khi phân tích + tạo (manual) — đỡ cảm giác chờ lâu */}
-      {overlayOn && (() => {
-        const StepIcon = CREATE_STEPS[loadStep].icon
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(11,9,17,0.8)', backdropFilter: 'blur(7px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div style={{ textAlign: 'center', maxWidth: 400 }}>
-              <div className="creating-orb"><StepIcon size={30} color="#fff" /></div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 22, marginBottom: 6, color: 'var(--text)' }}>
-                {CREATE_STEPS[loadStep].text}
-              </div>
-              <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('project.overlay_building')}</div>
-              <div className="load-bar"><div className="load-bar-fill" /></div>
-            </div>
-          </div>
-        )
-      })()}
+      {/* Overlay đã tắt */}
       {/* Header — chế độ chọn ở sidebar (mục con của "Tạo video") */}
       <div className="page-header">
         <div>
