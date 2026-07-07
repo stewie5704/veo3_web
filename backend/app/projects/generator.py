@@ -6,10 +6,10 @@ from app.projects.models import Project, Scene, SceneStatus
 from app.projects.streaming import publish_project_event
 from app.tools.router import _mr_outline, _mr_expand, _alloc_bible, _overlay_cast, _resolve_style_lock, _bible_blob, _reduce_scenes, _sanitize
 from app.crypto import dec
-from app.utils.logger import get_logger
+import logging
 from app.auth.models import User
 
-log = get_logger("veo3.generator")
+log = logging.getLogger("veo3.generator")
 MAX_MR_CONCURRENCY = 3
 
 async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str, idea: str, scene_count: int, language: str, aspect_ratio: str, parse_mode: bool, cast: list | None = None):

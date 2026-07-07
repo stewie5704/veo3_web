@@ -4,9 +4,9 @@ from typing import AsyncGenerator
 from fastapi import Request
 import redis.asyncio as aioredis
 from app.config import settings
-from app.utils.logger import get_logger
+import logging
 
-log = get_logger(__name__)
+log = logging.getLogger(__name__)
 
 # Singleton redis client for pub/sub
 _redis = None
