@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db, AsyncSessionLocal
 from app.auth.router import get_current_user
 from app.auth.models import User
-from app.config import UPLOAD_PATH
+from app.config import UPLOAD_PATH, settings
 from app.crypto import dec
 from app import subscription
 from app.styles_catalog import list_styles, style_description
