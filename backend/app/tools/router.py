@@ -620,7 +620,7 @@ CHỈ JSON hợp lệ, KHÔNG markdown.
 <{fence}>
 {source}
 </{fence}>"""
-    return _gemini_json(gemini_key, system, max_tokens=65536)
+    return _gemini_json(api_key, system, max_tokens=65536)
 
 
 def _mr_expand(api_key: str, beats_slice: list, start_index: int, style_lock: str,
@@ -637,7 +637,7 @@ Mỗi cảnh: beat ({lang_label} - BẤT KỂ GỐC LÀ GÌ), chars (list KHÓA 
 CHỈ JSON hợp lệ, KHÔNG markdown.
 BEATS (cảnh đầu tiên là index {start_index}):
 {beats_json}"""
-    return _gemini_json(gemini_key, system, max_tokens=16384)
+    return _gemini_json(api_key, system, max_tokens=16384)
 
 
 async def _scenes_mapreduce(api_key: str, source: str, n: int, style: str | None,
