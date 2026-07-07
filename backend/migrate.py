@@ -33,6 +33,7 @@ MIGRATIONS = [
     # projects table
     "ALTER TABLE projects ADD COLUMN chain_mode BOOLEAN DEFAULT 0",
     "ALTER TABLE projects ADD COLUMN merged_file VARCHAR(300)",
+    "ALTER TABLE projects ADD COLUMN status VARCHAR(30) DEFAULT 'draft'",
     # scenes table
     "ALTER TABLE scenes ADD COLUMN start_image VARCHAR(300)",
     "ALTER TABLE scenes ADD COLUMN wait_for_prev BOOLEAN DEFAULT 0",
