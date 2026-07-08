@@ -365,7 +365,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   if (project.status === 'generating_outline' || project.status === 'generating_scenes' || project.status === 'waiting_review') {
     const isGenerating = project.status === 'generating_outline' || project.status === 'generating_scenes'
     const isReviewing = project.status === 'waiting_review'
-    const currentChars = isReviewing ? JSON.parse(project.character_bible || '[]') : streamChars
+    // API trả character_bible dạng array; phòng cả trường hợp string cũ -> không JSON.parse mù để tránh crash render
+    const parseBible = (b: any): any[] => {
+      if (Array.isArray(b)) return b
+      if (typeof b === 'string') { try { const v = JSON.parse(b || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+      return []
+    }
+    const currentChars = isReviewing ? parseBible(project.character_bible) : streamChars
     
     return (
       <div style={{ maxWidth: 800, margin: '40px auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
