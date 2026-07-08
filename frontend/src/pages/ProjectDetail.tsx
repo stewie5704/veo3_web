@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { projectsApi, mediaApi, charactersApi, removeDeletedSellId } from '../api/client'
 import { pushLog } from './Dashboard'
+import { VOICES } from './Projects'
 import {
   Pencil, RefreshCw, Play, Copy, Upload, ImagePlus, Save, ChevronDown, ChevronUp, Plus,
   FileText, Film, Trash2, Pause, FolderOpen, ArrowLeft, Check, Cpu, RectangleHorizontal, Clock,
@@ -420,11 +421,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                         value={charVoices[c.name] || 'Kore'}
                         onChange={(e) => setCharVoices(prev => ({ ...prev, [c.name]: e.target.value }))}
                       >
-                        <option value="Kore">Kore (Nữ trầm - VN)</option>
-                        <option value="HoaiMy">Hoài My (Nữ Nam - VN)</option>
-                        <option value="ThanhLoc">Thành Lộc (Nam - VN)</option>
-                        <option value="Alloy">Alloy (Nam Mỹ - EN)</option>
-                        <option value="Nova">Nova (Nữ Mỹ - EN)</option>
+                        {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
                       </select>
                     </div>
                   )}

@@ -17,7 +17,7 @@ const MODELS = [
 ]
 const ASPECTS = ['16:9', '9:16', '1:1']   // Veo chỉ hỗ trợ 3 tỉ lệ thật (4:3/3:4 bị map về ngang/dọc)
 const DURATIONS = [4, 6, 8, 10]
-const VOICES = [
+export const VOICES = [
   { id: 'Kore', label: 'Kore (Nữ)' },
   { id: 'Aoede', label: 'Aoede (Nữ)' },
   { id: 'Leda', label: 'Leda (Nữ)' },
