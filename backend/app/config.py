@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     system_9router_models: str = "gemini-2.5-flash"
 
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).parent.parent / ".env")
 
 
 settings = Settings()
