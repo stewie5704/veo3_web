@@ -33,13 +33,15 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
         # Process bible
         bible, name_index = _alloc_bible(data.get("characters") or [])
         _overlay_cast(bible, name_index, cast)
-        
+        # bible.values() là CharacterBible (Pydantic) -> dump sang dict trước khi JSON hóa / gửi event
+        bible_dicts = [c.model_dump() for c in bible.values()]
+
         # Save to DB
         async with AsyncSessionLocal() as db:
             proj = await db.get(Project, project_id)
             if proj:
                 proj.status = "waiting_review"
-                proj.character_bible = json.dumps(list(bible.values()), ensure_ascii=False)
+                proj.character_bible = json.dumps(bible_dicts, ensure_ascii=False)
                 # Save beats temporarily in part_scripts so we can use them in phase 2
                 proj.part_scripts = json.dumps({
                     "beats": data.get("beats") or [],
@@ -49,7 +51,7 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
                 await db.commit()
                 
         await publish_project_event(project_id, "LOG_UPDATE", "Trích xuất nhân vật hoàn tất.")
-        await publish_project_event(project_id, "OUTLINE_READY", {"characters": list(bible.values())})
+        await publish_project_event(project_id, "OUTLINE_READY", {"characters": bible_dicts})
         
     except Exception as e:
         log.exception(f"Error in extract outline for project {project_id}: {e}")
