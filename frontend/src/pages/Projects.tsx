@@ -230,15 +230,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         name: name || `Dự án AI ${new Date().toISOString().slice(0,10)}`,
         idea: idea,
         style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
-        prompts: [], narrations: [], 
-        chain_mode: false, audio_mode: audioMode, voice, 
+        scene_count: sceneCount,
+        prompts: [], narrations: [],
+        chain_mode: false, audio_mode: audioMode, voice,
         character_ids: castObjs.map(c => c.id),
         i2v_fix: false,
         auto_render: false
       })
-      
-      await projectsApi.extractOutline(proj.id)
-      
+
+      // AI viết: bung ý tưởng thành cảnh (parse_mode=false)
+      await projectsApi.extractOutline(proj.id, false)
+
       // Fake loading 3s cho nguy hiểm
       pushLog("Đang phân tích kịch bản và chuẩn bị tài nguyên...")
       await new Promise(r => setTimeout(r, 2000))
@@ -260,15 +262,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         name: name || `Dự án Kịch bản ${new Date().toISOString().slice(0,10)}`,
         idea: idea,
         style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
-        prompts: [], narrations: [], 
-        chain_mode: false, audio_mode: audioMode, voice, 
+        scene_count: sceneCount,
+        prompts: [], narrations: [],
+        chain_mode: false, audio_mode: audioMode, voice,
         character_ids: castObjs.map(c => c.id),
         i2v_fix: false,
         auto_render: false
       })
-      
-      await projectsApi.extractOutline(proj.id)
-      
+
+      // Tự nhập kịch bản: giữ nguyên văn (parse_mode=true)
+      await projectsApi.extractOutline(proj.id, true)
+
       pushLog("Đang đọc kịch bản chi tiết và bóc tách nhân vật...")
       await new Promise(r => setTimeout(r, 2000))
       pushLog("Chuyển hướng đến bảng điều khiển...")

@@ -131,7 +131,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   useEffect(() => {
     if (!project || (project.status !== 'generating_outline' && project.status !== 'generating_scenes')) return
     
-    const token = localStorage.getItem('aiac_token')
+    const token = localStorage.getItem('token')
     const evtSource = new EventSource(`/api/v1/projects/${id}/stream?token=${token}`)
     
     evtSource.addEventListener('LOG_UPDATE', (e) => {

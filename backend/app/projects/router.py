@@ -184,6 +184,7 @@ class CreateProjectRequest(BaseModel):
     aspect_ratio: str = "16:9"
     duration_seconds: int = 8
     language: str = "vi"
+    scene_count: int = 0            # số cảnh mong muốn (0 = suy ra từ prompts)
     prompts: list[str] = []
     narrations: list[str] = []
     auto_render: bool = True        # False = manual (just save prompts, don't render)
@@ -345,7 +346,7 @@ async def create_project(
         user_id=user.id, name=body.name, idea=body.idea,
         style=body.style, model_key=body.model_key,
         aspect_ratio=body.aspect_ratio, duration_seconds=body.duration_seconds,
-        language=body.language, scene_count=len(body.prompts),
+        language=body.language, scene_count=(body.scene_count or len(body.prompts)),
         chain_mode=body.chain_mode,
         audio_mode=body.audio_mode or "voiceover",
         voiceover=(body.audio_mode or "voiceover") == "voiceover",
@@ -428,18 +429,18 @@ class ExtractOutlineRequest(BaseModel):
 @router.post("/{project_id}/extract-outline")
 async def extract_outline(
     project_id: str,
-    body: ExtractOutlineRequest,
     background_tasks: BackgroundTasks,
+    body: ExtractOutlineRequest = ExtractOutlineRequest(),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     if not user.gemini_api_key:
         raise HTTPException(400, "Cần Gemini API key")
-        
+
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
-        
+
     proj.status = "generating_outline"
     await db.commit()
     
