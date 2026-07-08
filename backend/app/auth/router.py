@@ -207,6 +207,8 @@ async def save_gemini_key(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user.gemini_api_key = enc(body.api_key)
+    keys = [k.strip() for k in (body.api_key or "").split(",") if k.strip()]
+    user.gemini_api_key = enc(",".join(keys)) if keys else None
+    user.has_gemini_key = bool(keys)
     await db.commit()
-    return {"ok": True, "message": "Đã lưu Gemini API key"}
+    return {"ok": True, "count": len(keys), "message": f"Đã lưu {len(keys)} API Key vào Pool cá nhân"}

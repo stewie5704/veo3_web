@@ -74,9 +74,9 @@ export default function Settings({ user, onUpdate }: { user: any; onUpdate: (u: 
     }
     setKeySaving(true)
     try {
-      await authApi.saveGeminiKey(keys.join(','))
+      const res = await authApi.saveGeminiKey(keys.join(','))
       onUpdate(await authApi.me())
-      toast(t('settings.gemini_key_saved'), 'success'); setGeminiKey('')
+      toast(res?.message || `Đã lưu ${keys.length} API Key vào Pool cá nhân`, 'success'); setGeminiKey('')
     } catch (e: any) { toast(e.response?.data?.detail || t('common.error'), 'error') }
     finally { setKeySaving(false) }
   }
