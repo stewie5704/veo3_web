@@ -5,6 +5,7 @@ from app.database import AsyncSessionLocal
 from app.projects.models import Project, Scene, SceneStatus
 from app.projects.streaming import publish_project_event
 from app.tools.router import _mr_outline, _mr_expand, _alloc_bible, _overlay_cast, _resolve_style_lock, _bible_blob, _reduce_scenes, _sanitize
+from app.pipeline.runner import dispatch_scene
 from app.crypto import dec
 import logging
 from app.auth.models import User
@@ -155,7 +156,21 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
         
         tasks = [_do_chunk(i, sl) for i, sl in chunks]
         await asyncio.gather(*tasks)
-        
+
+        # Auto-start render cho từng cảnh vừa tạo — user không cần bấm tay.
+        async with AsyncSessionLocal() as db:
+            from sqlalchemy import select as sa_select
+            from app.projects.models import Scene as SceneModel, SceneStatus as SS
+            res = await db.execute(
+                sa_select(SceneModel.id).where(
+                    SceneModel.project_id == project_id,
+                    SceneModel.status == SS.pending,
+                )
+            )
+            scene_ids = [r[0] for r in res.all()]
+        for sid in scene_ids:
+            dispatch_scene(sid, user_id)
+
         async with AsyncSessionLocal() as db:
             p = await db.get(Project, project_id)
             if p:
