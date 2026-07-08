@@ -132,6 +132,56 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
     return made
 
 
+_regen_inflight: set[str] = set()   # "{project_id}:{norm_name}" đang tạo lại -> chống bấm 2 lần
+
+async def _regen_one_portrait(project_db_id: str, user_id: str, char: dict) -> bool:
+    """Tạo LẠI chân dung cho MỘT nhân vật (user chưa ưng ảnh cũ): sinh ảnh mới rồi thay ảnh của
+    Character trùng tên (xoá file cũ). Nhân vật khác giữ NGUYÊN. Trả True nếu tạo được ảnh mới."""
+    from ..tools.router import _norm_name
+    name = str(char.get("name") or "").strip()
+    if not name:
+        return False
+    key = f"{project_db_id}:{_norm_name(name)}"
+    if key in _regen_inflight:
+        return False
+    _regen_inflight.add(key)
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, user_id)
+            cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
+            gproj = (user.google_project_id if user else "") or ""
+            proj = await db.get(Project, project_db_id)
+            style_desc = style_description(proj.style if proj else None)
+            nat = "Vietnamese" if (proj and (proj.language or "vi") == "vi") else ""
+        if not (cookies and gproj):
+            return False
+        files = await generate_images_flow(
+            user_id=user_id, cookies=cookies, project_id=gproj,
+            prompt=build_portrait_prompt(char, style_desc, nationality=nat), count=1, aspect_ratio="16:9",
+            out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
+        if not files:
+            return False
+        # Thay ảnh: xoá Character cũ trùng tên (+ file) rồi thêm bản mới -> _project_chars trả ảnh mới
+        async with AsyncSessionLocal() as db:
+            res = await db.execute(select(Character).where(Character.project_id == project_db_id))
+            for c in res.scalars().all():
+                if _norm_name(c.name) == _norm_name(name):
+                    try:
+                        (CHAR_PATH / c.image_file).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    await db.delete(c)
+            db.add(Character(user_id=user_id, name=name, image_file=files[0], project_id=project_db_id))
+            await db.commit()
+        log.info("portrait regen ok: %s -> %s", name, files[0])
+        return True
+    except Exception as e:
+        log.warning("portrait regen failed for %s: %s", name, e)
+        return False
+    finally:
+        _regen_inflight.discard(key)
+
+
 async def _prep_portraits_and_dispatch(project_db_id: str, user_id: str, bible: list, scene_ids: list):
     """2b (tạo dự án): bù chân dung cho từng nhân vật bible CHƯA có ảnh -> run_scene_job tự đính làm
     reference MỌI cảnh (giữ mặt + đồng bộ). (Trước đây bỏ qua TẤT CẢ nếu dự án đã có 1 nhân vật bất kỳ
@@ -997,6 +1047,34 @@ async def gen_portraits(
         return {"generating": 0, "detail": "Đang tạo ảnh chân dung, đợi chút rồi tải lại trang"}
     asyncio.create_task(_gen_portraits_for_bible(project_id, user.id, bible))
     return {"generating": min(len(missing), 8)}
+
+
+class RegenPortraitRequest(BaseModel):
+    name: str   # tên nhân vật (khớp bible) cần tạo lại ảnh
+
+@router.post("/{project_id}/portraits/regenerate")
+async def regen_portrait(
+    project_id: str,
+    body: RegenPortraitRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tạo LẠI ảnh model sheet cho MỘT nhân vật (user chưa ưng). Chạy nền; poll GET project để lấy ảnh mới."""
+    from ..tools.router import _norm_name
+    proj = await db.get(Project, project_id)
+    if not proj or proj.user_id != user.id:
+        raise HTTPException(404, "Không tìm thấy dự án")
+    if not (user.google_connected and user.google_cookies and user.google_project_id):
+        raise HTTPException(400, "Phiên Google chưa đầy đủ — kết nối lại Google Ultra (extension) rồi thử lại")
+    bible = _safe_bible(proj.character_bible)
+    target = next((c for c in bible if isinstance(c, dict)
+                   and _norm_name(c.get("name") or "") == _norm_name(body.name)), None)
+    if not target:
+        raise HTTPException(400, "Không tìm thấy nhân vật trong hồ sơ dự án")
+    if f"{project_id}:{_norm_name(body.name)}" in _regen_inflight:
+        return {"generating": 0, "detail": "Đang tạo lại ảnh, đợi chút rồi tải lại"}
+    asyncio.create_task(_regen_one_portrait(project_id, user.id, target))
+    return {"generating": 1}
 
 
 @router.post("/{project_id}/add-scenes", response_model=ProjectDetailResponse)

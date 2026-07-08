@@ -100,6 +100,8 @@ export const projectsApi = {
   rename: (id: string, name: string) => api.patch(`/projects/${id}`, { name }).then(r => r.data),
   addScenes: (id: string, data: any) => api.post(`/projects/${id}/add-scenes`, data).then(r => r.data),
   genPortraits: (id: string) => api.post(`/projects/${id}/portraits`).then(r => r.data),
+  regenPortrait: (id: string, name: string) =>
+    api.post(`/projects/${id}/portraits/regenerate`, { name }).then(r => r.data),
   rerenderBatch: (id: string, part?: number | null, failed_only?: boolean) => {
     let q = []
     if (part != null) q.push(`part=${part}`)

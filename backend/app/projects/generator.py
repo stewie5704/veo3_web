@@ -52,7 +52,12 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
                 
         await publish_project_event(project_id, "LOG_UPDATE", "Trích xuất nhân vật hoàn tất.")
         await publish_project_event(project_id, "OUTLINE_READY", {"characters": bible_dicts})
-        
+
+        # Sinh sẵn ẢNH MODEL SHEET ngay ở bước duyệt -> user xem/tạo lại mặt trước khi phê duyệt.
+        # Chạy nền (single-flight tự lo trùng); thiếu Google thì _gen_portraits_for_bible trả 0, không sao.
+        from app.projects.router import _gen_portraits_for_bible
+        asyncio.create_task(_gen_portraits_for_bible(project_id, user_id, bible_dicts))
+
     except Exception as e:
         log.exception(f"Error in extract outline for project {project_id}: {e}")
         await publish_project_event(project_id, "ERROR", str(e))

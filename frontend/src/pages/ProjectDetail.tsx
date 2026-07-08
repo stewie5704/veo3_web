@@ -59,6 +59,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [streamScenes, setStreamScenes] = useState<any[]>([])
   const [streamChars, setStreamChars] = useState<any[]>([])
   const [charVoices, setCharVoices] = useState<Record<string, string>>({})
+  const [regenChars, setRegenChars] = useState<Set<string>>(new Set())   // tên nhân vật đang tạo lại ảnh model sheet
 
   async function load(silent = false) {
     if (!id) return
@@ -126,6 +127,17 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     const tm = setInterval(() => load(true), 4000)
     return () => clearInterval(tm)
   }, [project])
+
+  // Ở bước duyệt (waiting_review): poll để ảnh model sheet hiện dần khi backend sinh xong.
+  // Dừng khi mọi nhân vật trong bible đã có ảnh VÀ không còn ai đang tạo lại (đỡ gọi API vô ích).
+  useEffect(() => {
+    if (!project || project.status !== 'waiting_review') return
+    const bible = Array.isArray(project.character_bible) ? project.character_bible : []
+    const haveAll = bible.length > 0 && (project.characters?.length || 0) >= bible.length
+    if (haveAll && regenChars.size === 0) return
+    const tm = setInterval(() => load(true), 5000)
+    return () => clearInterval(tm)
+  }, [project, regenChars])
 
   // Lắng nghe SSE khi đang sinh kịch bản
   useEffect(() => {
@@ -283,6 +295,38 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
   }
 
+  // Chuẩn hoá tên khớp backend (_norm_name): NFC + bỏ dấu câu + gộp khoảng trắng + casefold.
+  const normName = (s: string) => (s || '').normalize('NFC').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toLowerCase()
+  // Ảnh model sheet của nhân vật theo tên (từ project.characters do backend sinh).
+  const portraitOf = (name: string): string | undefined =>
+    project?.characters?.find((c: any) => normName(c.name) === normName(name))?.image_url
+
+  // Tạo lại ảnh model sheet cho 1 nhân vật khi user chưa ưng.
+  async function doRegenPortrait(name: string) {
+    if (!id || !name) return
+    setRegenChars(prev => new Set(prev).add(name))
+    try {
+      const r = await projectsApi.regenPortrait(id, name)
+      if (!r.generating) { notify(r.detail || t('scene.portrait_gen_failed'), 'error'); return }
+      const before = portraitOf(name)
+      let changed = false
+      for (let i = 0; i < 12; i++) {
+        await new Promise(res => setTimeout(res, 5000))
+        try {
+          const p = await projectsApi.get(id)
+          setProject(p)
+          const now = p.characters?.find((c: any) => normName(c.name) === normName(name))?.image_url
+          if (now && now !== before) { changed = true; break }
+        } catch { /* thử vòng sau */ }
+      }
+      notify(changed ? t('scene.portraits_created') : t('scene.portraits_failed_check'), changed ? 'success' : 'error')
+    } catch (e: any) {
+      notify(e?.response?.data?.detail || t('scene.portrait_gen_failed'), 'error')
+    } finally {
+      setRegenChars(prev => { const n = new Set(prev); n.delete(name); return n })
+    }
+  }
+
   async function uploadProjChar() {
     if (!id || !pcName.trim() || !pcFile) return
     setPcBusy(true)
@@ -410,14 +454,48 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         {/* Danh sách nhân vật (Review) */}
         {(isReviewing || currentChars.length > 0) && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Thiết lập Giọng Nói (TTS Voice)</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Nhân Vật & Ảnh Mẫu (Model Sheet) + Giọng Nói</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-              {currentChars.map((c: any, i: number) => (
+              {currentChars.map((c: any, i: number) => {
+                const portrait = isReviewing ? portraitOf(c.name) : undefined
+                const regenning = regenChars.has(c.name)
+                return (
                 <div key={i} style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg2)' }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent2)', marginBottom: 4 }}>@{c.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {c.age && `${c.age}, `}{c.gender_presentation && `${c.gender_presentation}, `}{c.anchor || c.face}
                   </div>
+                  {isReviewing && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{
+                        position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 8, overflow: 'hidden',
+                        background: 'var(--bg)', border: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {portrait
+                          ? <img src={portrait} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: regenning ? 0.4 : 1 }} />
+                          : <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', padding: 8 }}>
+                              <ImagePlus size={20} style={{ opacity: 0.5, marginBottom: 4 }} /><br />
+                              {regenning ? 'Đang tạo ảnh mẫu...' : 'Đang tạo ảnh mẫu (model sheet)...'}
+                            </div>}
+                        {(regenning || (!portrait)) && (
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="spinner" style={{ width: 20, height: 20 }} />
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        className="btn btn-sm"
+                        style={{ width: '100%', marginTop: 6, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        disabled={regenning}
+                        onClick={() => doRegenPortrait(c.name)}
+                      >
+                        {regenning
+                          ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Đang tạo lại...</>
+                          : <><RefreshCw size={13} /> {portrait ? 'Tạo lại ảnh (chưa ưng)' : 'Tạo ảnh mẫu'}</>}
+                      </button>
+                    </div>
+                  )}
                   {isReviewing && (
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>CHỌN GIỌNG NÓI</div>
@@ -432,7 +510,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                     </div>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
             {isReviewing && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
