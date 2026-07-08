@@ -61,6 +61,34 @@ def _lightweight_migrate(conn):
     for table, col, ddl in adds:
         if table in existing and col not in existing[table]:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+            existing[table].add(col)   # tránh auto-derive bên dưới thêm trùng
+    # Auto-derive: bắt MỌI cột model khai nhưng bảng đã có còn thiếu (danh sách tay ở trên
+    # luôn lệch với model -> đây là lưới an toàn, tự suy DDL từ metadata cho cả SQLite & Postgres).
+    for tbl in Base.metadata.sorted_tables:
+        if tbl.name not in existing:
+            continue   # bảng chưa tồn tại -> create_all đã lo
+        for column in tbl.columns:
+            if column.name in existing[tbl.name]:
+                continue
+            type_sql = column.type.compile(dialect=conn.dialect)
+            # DEFAULT cho hàng cũ: ưu tiên python default vô hướng, rồi server_default,
+            # cuối cùng suy 0/FALSE/'' cho cột NOT NULL để ALTER không vỡ trên Postgres.
+            default_sql = ""
+            d = column.default
+            if d is not None and getattr(d, "is_scalar", False):
+                v = d.arg
+                lit = "TRUE" if v is True else "FALSE" if v is False else \
+                      str(v) if isinstance(v, (int, float)) else f"'{v}'"
+                default_sql = f" DEFAULT {lit}"
+            elif column.server_default is not None:
+                default_sql = f" DEFAULT {column.server_default.arg.text}"
+            elif not column.nullable:
+                base = type_sql.upper()
+                lit = "0" if any(k in base for k in ("INT", "NUMERIC", "FLOAT", "REAL")) \
+                      else "FALSE" if "BOOL" in base else "''"
+                default_sql = f" DEFAULT {lit}"
+            conn.execute(text(f'ALTER TABLE {tbl.name} ADD COLUMN {column.name} {type_sql}{default_sql}'))
+            existing[tbl.name].add(column.name)
     # Affiliate 2 tầng: bảng commissions trước đây unique(payment_id) = 1 hoa hồng/đơn. Giờ cho phép
     # F1 (level 1) + F2 (level 2) cùng 1 đơn -> BỎ ràng buộc unique đơn-cột cũ, thay bằng unique
     # (payment_id, level). Drop động theo tên thật (Postgres tự đặt tên) để chắc tay, tránh F2 insert
