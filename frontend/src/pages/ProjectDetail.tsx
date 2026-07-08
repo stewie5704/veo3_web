@@ -174,6 +174,15 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     return () => evtSource.close()
   }, [project?.status, id])
 
+  // Lưới đỡ cho SSE: Redis pub/sub là fire-and-forget, nếu event OUTLINE_READY/GENERATION_COMPLETE
+  // trượt (client subscribe trễ, hoặc nginx buffer/ngắt SSE) thì UI kẹt ở "đang tạo" tới khi F5.
+  // Poll status trong lúc đang tạo -> tự chuyển sang waiting_review/hoàn tất mà không cần F5.
+  useEffect(() => {
+    if (!project || (project.status !== 'generating_outline' && project.status !== 'generating_scenes')) return
+    const tm = setInterval(() => load(true), 4000)
+    return () => clearInterval(tm)
+  }, [project?.status, id])
+
   // Giữ "phần đang chọn" luôn hợp lệ khi dự án đổi (mặc định phần đầu tiên)
   useEffect(() => {
     if (!project) return
