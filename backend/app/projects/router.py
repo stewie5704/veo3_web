@@ -100,7 +100,10 @@ async def _gen_portraits_for_bible(project_db_id: str, user_id: str, bible: list
                 seen.add(nk)
                 need.append(c)
         if not (cookies and gproj and need):
+            log.info("portrait skip (project %s): cookies=%s gproj=%s need=%d",
+                     project_db_id, bool(cookies), bool(gproj), len(need))
             return 0
+        log.info("portrait start (project %s): generating %d character(s)", project_db_id, len(need[:8]))
 
         async def _one(ch: dict):
             nonlocal made
