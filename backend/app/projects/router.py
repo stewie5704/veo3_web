@@ -522,9 +522,12 @@ async def generate_scenes(
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
         
-    if proj.status != "waiting_review":
+    # 'failed' cũng cho sinh lại: outline+beats đã lưu, chỉ bước expand hỏng -> retry mà không phải phân tích lại.
+    if proj.status not in ("waiting_review", "failed"):
         raise HTTPException(400, "Dự án chưa có outline để sinh cảnh")
-        
+    if not _safe_bible(proj.character_bible):
+        raise HTTPException(400, "Dự án chưa có hồ sơ nhân vật để sinh cảnh")
+
     proj.status = "generating_scenes"
     await db.commit()
     

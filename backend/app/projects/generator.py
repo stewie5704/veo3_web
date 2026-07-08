@@ -79,10 +79,11 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
             proj = await db.get(Project, project_id)
             if not proj: return
             
-            bible = json.loads(proj.character_bible or "[]")
-            bible_dict = {c["name"]: c for c in bible}
-            name_index = {c["name"].lower(): c["name"] for c in bible}
-            
+            # Dựng lại bible dạng {CHAR_n: CharacterBible} + name_index {norm_name: CHAR_n} qua _alloc_bible
+            # (KHÔNG build dict thuần keyed-by-name — _bible_blob/_reduce_scenes cần object CHAR_n, dùng c.anchor).
+            bible_raw = json.loads(proj.character_bible or "[]")
+            bible_dict, name_index = _alloc_bible(bible_raw)
+
             part_scripts = json.loads(proj.part_scripts or "{}")
             beats = part_scripts.get("beats", [])
             style_lock = _resolve_style_lock(proj.style, part_scripts.get("suggested_style", ""), part_scripts.get("style_lock", ""))
