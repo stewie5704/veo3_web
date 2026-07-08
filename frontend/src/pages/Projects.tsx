@@ -246,8 +246,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       await new Promise(r => setTimeout(r, 2000))
       pushLog("Khởi tạo không gian làm việc thành công!")
       await new Promise(r => setTimeout(r, 1000))
-      
-      nav(`/project/${proj.id}`)
+
+      nav(`/projects/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
@@ -277,8 +277,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       await new Promise(r => setTimeout(r, 2000))
       pushLog("Chuyển hướng đến bảng điều khiển...")
       await new Promise(r => setTimeout(r, 1000))
-      
-      nav(`/project/${proj.id}`)
+
+      nav(`/projects/${proj.id}`)
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_parse_script')); setLoadingPrompts(false) }
   }
 
