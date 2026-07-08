@@ -118,6 +118,11 @@ def _lightweight_migrate(conn):
     # Grandfather: user tồn tại TRƯỚC khi có xác minh email -> coi như đã xác minh (chỉ chạy 1 lần, lúc cột vừa thêm).
     if "users" in existing and "email_verified" not in existing["users"]:
         conn.execute(text("UPDATE users SET email_verified = TRUE"))
+    # Sửa kiểu cột đã tồn tại nhưng lệch model (auto-derive chỉ THÊM cột thiếu, không ALTER TYPE).
+    # gemini_api_key từng là VARCHAR(200) -> chuỗi Fernet (~216 ký tự, nhiều key nối phẩy còn dài hơn)
+    # vượt giới hạn -> StringDataRightTruncationError khi lưu. Nâng lên TEXT (idempotent trên Postgres).
+    if "users" in existing and conn.dialect.name == "postgresql":
+        conn.execute(text("ALTER TABLE users ALTER COLUMN gemini_api_key TYPE TEXT"))
 
 
 async def init_db():
