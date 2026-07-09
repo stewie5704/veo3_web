@@ -17,6 +17,7 @@ import asyncio
 import base64
 import json
 import logging
+import threading
 import os
 import random
 import re
@@ -34,6 +35,9 @@ from app.videos.models import VideoJob, JobStatus
 from app.crypto import dec
 
 log = logging.getLogger("veo3.pipeline")
+
+# Lock để serialize genai.configure() + generate_content — hàm này set global state
+_tts_lock = threading.Lock()
 
 API_BASE = "https://aisandbox-pa.googleapis.com/v1"
 AUTH_SESSION_URL = "https://labs.google/fx/api/auth/session"
@@ -885,14 +889,14 @@ def _pcm_to_wav(pcm: bytes, path: Path, *, rate: int = 24000, channels: int = 1,
 
 def _tts_pcm(api_key: str, text: str, voice: str):
     """Gemini TTS -> (audio_bytes, is_wav). is_wav=True nếu có RIFF header; else raw PCM s16le 24kHz mono."""
-    import base64
     import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    m = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
-    resp = m.generate_content(text, generation_config={
-        "response_modalities": ["AUDIO"],
-        "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": voice or "Kore"}}},
-    })
+    with _tts_lock:
+        genai.configure(api_key=api_key)
+        m = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
+        resp = m.generate_content(text, generation_config={
+            "response_modalities": ["AUDIO"],
+            "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": voice or "Kore"}}},
+        })
     data = resp.candidates[0].content.parts[0].inline_data.data
     raw = base64.b64decode(data) if isinstance(data, str) else bytes(data)
     return raw, raw[:4] == b"RIFF"

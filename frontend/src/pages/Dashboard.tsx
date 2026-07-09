@@ -130,8 +130,8 @@ export default function Dashboard() {
   useEffect(() => {
     const poll = () => statusApi.get().then(setWorkerStatus).catch(() => {})
     poll()
-    const t = setInterval(poll, 5000)
-    return () => clearInterval(t)
+    const timer = setInterval(poll, 5000)
+    return () => clearInterval(timer)
   }, [])
 
 
@@ -140,8 +140,8 @@ export default function Dashboard() {
   useEffect(() => {
     const poll = () => extensionApi.status().then(s => setExtConnected(!!s.connected)).catch(() => setExtConnected(false))
     poll()
-    const t = setInterval(poll, 5000)
-    return () => clearInterval(t)
+    const timer = setInterval(poll, 5000)
+    return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {

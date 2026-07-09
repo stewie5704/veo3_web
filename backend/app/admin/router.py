@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, update
 from pydantic import BaseModel
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.config import UPLOAD_PATH
 
@@ -64,7 +64,7 @@ async def get_stats(admin: User = Depends(require_admin), db: AsyncSession = Dep
     admin_users = await count(User, User.is_admin == True)    # noqa: E712
     google_users = await count(User, User.google_connected == True)  # noqa: E712
     active_subs = await count(User, User.plan != "free", User.plan_expires_at > now)
-    new_users_7d = await count(User, User.created_at >= datetime(now.year, now.month, now.day))
+    new_users_7d = await count(User, User.created_at >= now - timedelta(days=7))
 
     total_videos = await count(VideoJob)
     done_videos = await count(VideoJob, VideoJob.status == "done")

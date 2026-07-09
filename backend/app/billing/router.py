@@ -48,6 +48,7 @@ async def my_subscription(user: User = Depends(get_current_user), db: AsyncSessi
         "in_trial": subscription.in_trial(user),
         "trial_ends_at": trial_end.isoformat() if trial_end else None,
         "can_generate": subscription.can_generate(user),
+        "extra_storage_gb": int(getattr(user, "extra_storage_gb", 0) or 0),
     }
 
 

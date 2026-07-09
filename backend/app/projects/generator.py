@@ -11,7 +11,7 @@ import logging
 from app.auth.models import User
 
 log = logging.getLogger("veo3.generator")
-MAX_MR_CONCURRENCY = 3
+MAX_MR_CONCURRENCY = 5
 
 async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str, idea: str, scene_count: int, language: str, aspect_ratio: str, parse_mode: bool, cast: list | None = None):
     """Background task: Chạy _mr_outline, lưu nhân vật vào Project và bắn event OUTLINE_READY"""
@@ -29,7 +29,10 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
         await publish_project_event(project_id, "LOG_UPDATE", "Đang phân tích kịch bản và trích xuất nhân vật...")
         
         # Chạy outline
-        data = await asyncio.to_thread(_mr_outline, api_key, idea, scene_count, lang_label, aspect_ratio, parse_mode, cast)
+        data = await asyncio.wait_for(
+            asyncio.to_thread(_mr_outline, api_key, idea, scene_count, lang_label, aspect_ratio, parse_mode, cast),
+            timeout=120,
+        )
         
         # Process bible
         bible, name_index = _alloc_bible(data.get("characters") or [])
@@ -93,17 +96,20 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
             await db.commit()
             
         bible_blob = _bible_blob(bible_dict)
-        chunk_size = 10
+        chunk_size = 20
         chunks = [(i, beats[i:i+chunk_size]) for i in range(0, len(beats), chunk_size)]
         sem = asyncio.Semaphore(MAX_MR_CONCURRENCY)
-        
+
         await publish_project_event(project_id, "LOG_UPDATE", f"Bắt đầu sinh {len(beats)} cảnh chia làm {len(chunks)} luồng song song...")
-        
+
         async def _do_chunk(start_i: int, sl: list):
             async with sem:
                 await publish_project_event(project_id, "LOG_UPDATE", f"[Luồng {start_i//chunk_size + 1}] Đang sinh cảnh {start_i+1} đến {start_i+len(sl)}...")
                 try:
-                    d = await asyncio.to_thread(_mr_expand, api_key, sl, start_i, style_lock, bible_blob, lang_label, aspect_ratio, True)
+                    d = await asyncio.wait_for(
+                        asyncio.to_thread(_mr_expand, api_key, sl, start_i, style_lock, bible_blob, lang_label, aspect_ratio, True),
+                        timeout=120,
+                    )
                     scs = d.get("scenes") or []
                     
                     # Giảm cấu trúc cảnh
@@ -120,7 +126,7 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
                         p = await db.get(Project, project_id)
                         for k, r_sc in enumerate(reduced.scenes):
                             # Xác định giọng nói
-                            assigned_voice = p.voice
+                            assigned_voice = p.voice or "Kore"
                             narration = reduced.narrations[k] if k < len(reduced.narrations) else None
                             if narration:
                                 # Nếu narration bắt đầu bằng "Tên Nhân Vật: ", chúng ta gán giọng tương ứng

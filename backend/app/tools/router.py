@@ -29,6 +29,27 @@ from app.styles_catalog import list_styles, style_description
 log = logging.getLogger("veo3.tools")
 router = APIRouter(prefix="/tools", tags=["tools"])
 
+import itertools
+import threading
+
+# Round-robin pool cho system 9Router keys (comma-separated trong settings.system_9router_key)
+_9router_lock = threading.Lock()
+_9router_cycle: "itertools.cycle | None" = None
+_9router_keys_snapshot: str = ""
+
+
+def _next_9router_key() -> str:
+    global _9router_cycle, _9router_keys_snapshot
+    raw = settings.system_9router_key
+    with _9router_lock:
+        if raw != _9router_keys_snapshot:
+            keys = [k.strip() for k in raw.split(",") if k.strip()]
+            if not keys:
+                keys = [raw]
+            _9router_cycle = itertools.cycle(keys)
+            _9router_keys_snapshot = raw
+        return next(_9router_cycle)
+
 IMG_PATH = UPLOAD_PATH.parent / "images"
 IMG_PATH.mkdir(parents=True, exist_ok=True)
 AUDIO_PATH = UPLOAD_PATH.parent / "audio"
@@ -111,7 +132,7 @@ MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-redu
 MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song
 CHUNK_SIZE = 20          # số cảnh mỗi chunk bung song song
-MAX_MR_CONCURRENCY = 3   # số call Gemini song song tối đa (giữ trong RPM)
+MAX_MR_CONCURRENCY = 5   # số call Gemini song song tối đa — match ~5 key user
 # Mỏ neo chuyển động — TRUNG TÍNH phong cách (đúng cho cả live-action lẫn anime/claymation): nhắc Veo
 # giữ chuyển động mạch lạc + phơi sáng/ánh sáng ổn định cả cảnh -> chống nhấp nháy & "thở sáng" giữa cảnh.
 _MOTION_ANCHOR = (" Smooth, coherent motion throughout; lighting and exposure stay consistent for the whole shot.")
@@ -215,7 +236,7 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
         keys = [k.strip() for k in re.split(r'[\r\n,]+', gemini_key) if k.strip()]
         random.shuffle(keys)
         cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
-        ropts = {"timeout": 35}
+        ropts = {"timeout": 20}
         last = None
         quota_hit = False
         
@@ -253,7 +274,7 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
     # 3. System 9Router fallback (Khách thường hoặc lười điền key)
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
     if not models: models = ["gemini-2.5-flash"]
-    return _call_openai_json(settings.system_9router_key, settings.system_9router_url, models, prompt, max_tokens)
+    return _call_openai_json(_next_9router_key(), settings.system_9router_url, models, prompt, max_tokens)
 
 
 # Vision: ưu tiên flash (đọc tài liệu/ảnh tốt hơn lite), 2.0-flash, cuối là lite (đỡ khi flash hết quota).
@@ -336,7 +357,7 @@ def _gemini_vision_json(gemini_key: str | None, prompt: str, media: list[tuple[s
     # 3. 9Router fallback
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
     if not models: models = ["gemini-2.5-flash"]
-    return _call_openai_vision_json(settings.system_9router_key, settings.system_9router_url, models, prompt, media, max_tokens)
+    return _call_openai_vision_json(_next_9router_key(), settings.system_9router_url, models, prompt, media, max_tokens)
 
 
 # ── Bible: cấp khoá CHAR_n, dựng mô tả khoá, sửa tham chiếu, ghép vào prompt ──────
