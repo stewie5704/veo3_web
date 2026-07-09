@@ -251,35 +251,52 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
-  // Tự nhập kịch bản
-  async function parseScript(directCreate = true) {
+  // Tự nhập kịch bản — LUÔN qua review (chốt nhân vật + giọng trước khi tạo project)
+  async function parseScript(_directCreate = false) {
     if (!idea.trim()) { setError(t('project.paste_script_first')); return }
     setError(''); setLoadingPrompts(true)
+    const t0 = Date.now()
+    const chars_ct = idea.length
+    pushLog(`Đang đọc kịch bản (${chars_ct.toLocaleString('vi')} ký tự)...`)
+    const phases = [
+      'Đang phân tích cấu trúc kịch bản...',
+      'Đang bóc tách nhân vật và vai diễn...',
+      'Đang xây hồ sơ diện mạo nhân vật...',
+      'Đang chia cảnh và viết prompt Veo...',
+      'Đang gán giọng cho từng nhân vật...',
+      'Sắp xong, đang tổng hợp kết quả...',
+    ]
+    let phaseIdx = 0
+    const ticker = window.setInterval(() => {
+      const sec = Math.round((Date.now() - t0) / 1000)
+      pushLog(`⏳ ${phases[Math.min(phaseIdx, phases.length - 1)]} (${sec}s)`)
+      phaseIdx += 1
+    }, 5000)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
-      
-      const proj = await projectsApi.create({
-        name: name || `Dự án Kịch bản ${new Date().toISOString().slice(0,10)}`,
-        idea: idea,
-        style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
-        scene_count: sceneCount,
-        prompts: [], narrations: [],
-        chain_mode: false, audio_mode: audioMode, voice,
-        character_ids: castObjs.map(c => c.id),
-        i2v_fix: false,
-        auto_render: false
+      const res = await toolsApi.parseScript({
+        script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: castObjs,
       })
-
-      // Tự nhập kịch bản: giữ nguyên văn (parse_mode=true)
-      await projectsApi.extractOutline(proj.id, true)
-
-      pushLog("Đang đọc kịch bản chi tiết và bóc tách nhân vật...")
-      await new Promise(r => setTimeout(r, 2000))
-      pushLog("Chuyển hướng đến bảng điều khiển...")
-      await new Promise(r => setTimeout(r, 1000))
-
-      nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_parse_script')); setLoadingPrompts(false) }
+      const bc = res.characters || []
+      const cv = Object.fromEntries(bc.map((c: any) =>
+        [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
+      setPrompts(res.prompts || [])
+      setNarrations(res.narrations || [])
+      setScenes(res.scenes || [])
+      setBibleChars(bc)
+      setCharVoices(cv)
+      const n = (res.scenes?.length || res.prompts?.length || 0)
+      if (!n) { setError(t('project.error_parse_script')); return }
+      const sec = Math.round((Date.now() - t0) / 1000)
+      pushLog(`✓ Đã bóc tách ${n} cảnh · ${bc.length} nhân vật (${sec}s) — vui lòng chốt giọng`)
+      setStep('review')
+    } catch (e: any) {
+      pushLog(`✗ Lỗi phân tích: ${e.response?.data?.detail || e.message || 'không rõ'}`, 'error')
+      setError(e.response?.data?.detail || t('project.error_parse_script'))
+    } finally {
+      window.clearInterval(ticker)
+      setLoadingPrompts(false)
+    }
   }
 
   // Dán Prompts
@@ -698,11 +715,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
               <div style={{ flex: 1 }} />
               
-              {mode !== 'prompts' && (
+              {mode !== 'prompts' && mode !== 'manual' && (
                 <button className="cmp-ghost" style={{ marginRight: 8 }}
                   onClick={() => {
                     if (mode === 'storyboard') readStoryboard(false)
-                    else if (mode === 'manual') parseScript(false)
                     else genPrompts(false)
                   }}
                   disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
@@ -713,7 +729,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <button className="cmp-cta"
                 onClick={() => {
                   if (mode === 'storyboard') readStoryboard(true)
-                  else if (mode === 'manual') parseScript(true)
+                  else if (mode === 'manual') parseScript()
                   else if (mode === 'prompts') parsePromptsLocally(true)
                   else genPrompts(true)
                 }}
