@@ -263,13 +263,14 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
             if key_quota_hit:
                 quota_hit = True
                 log.warning("Key %s... hết quota, thử key tiếp theo", k[:8])
-                continue
             else:
-                break
-                
-        if not quota_hit:
-            raise last if last else RuntimeError("Gemini không phản hồi")
-        log.warning("Tất cả Gemini keys cá nhân hết quota, tự động fallback sang 9Router")
+                log.warning("Key %s... lỗi không phải quota, thử key tiếp theo", k[:8])
+
+        if last and not quota_hit:
+            raise last
+        if not keys:
+            raise RuntimeError("Gemini không phản hồi")
+        log.warning("Tất cả Gemini keys cá nhân hết quota/lỗi, tự động fallback sang 9Router")
         
     # 3. System 9Router fallback (Khách thường hoặc lười điền key)
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
@@ -346,13 +347,14 @@ def _gemini_vision_json(gemini_key: str | None, prompt: str, media: list[tuple[s
             if key_quota_hit:
                 quota_hit = True
                 log.warning("Vision Key %s... hết quota, thử key tiếp theo", k[:8])
-                continue
             else:
-                break
-                
-        if not quota_hit:
-            raise last if last else RuntimeError("Gemini không phản hồi")
-        log.warning("Tất cả Gemini vision keys cá nhân hết quota, tự động fallback sang 9Router")
+                log.warning("Vision Key %s... lỗi không phải quota, thử key tiếp theo", k[:8])
+
+        if last and not quota_hit:
+            raise last
+        if not keys:
+            raise RuntimeError("Gemini vision không phản hồi")
+        log.warning("Tất cả Gemini vision keys cá nhân hết quota/lỗi, tự động fallback sang 9Router")
 
     # 3. 9Router fallback
     models = [m.strip() for m in settings.system_9router_models.split(",") if m.strip()]
@@ -1266,22 +1268,25 @@ async def tts(
     if not user.gemini_api_key:
         raise HTTPException(400, "Cần Gemini API key để dùng TTS")
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=dec(user.gemini_api_key))
-        model = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
-        # chạy trong thread để KHÔNG khoá event loop (1 worker)
-        resp = await asyncio.to_thread(
-            lambda: model.generate_content(
-                body.text,
-                generation_config={"response_modalities": ["AUDIO"],
-                                   "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": body.voice}}}},
-            )
-        )
-        audio_data = resp.candidates[0].content.parts[0].inline_data.data
+        from app.pipeline.runner import _tts_pcm, _tts_lock
+        import base64
+        api_key = dec(user.gemini_api_key)
+        voice = body.voice or "Kore"
+        raw, is_wav = await asyncio.to_thread(_tts_pcm, api_key, body.text, voice)
         fname = f"{uuid.uuid4().hex[:12]}.wav"
         fpath = AUDIO_PATH / fname
-        import base64
-        fpath.write_bytes(base64.b64decode(audio_data))
+        if is_wav:
+            fpath.write_bytes(raw)
+        else:
+            # raw PCM s16le 24kHz mono -> wrap thành WAV
+            import wave, io
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(24000)
+                wf.writeframes(raw)
+            fpath.write_bytes(buf.getvalue())
         return TTSResponse(audio_url=f"/audio/{fname}", filename=fname)
     except Exception as e:
         log.exception("TTS error: %s", e)

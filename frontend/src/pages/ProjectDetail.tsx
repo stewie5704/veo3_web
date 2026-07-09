@@ -120,13 +120,12 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (project.status === 'generating_outline' || project.status === 'generating_scenes' || project.status === 'waiting_review') return
     const hasActive = project.scenes.some((s: any) => s.status === 'pending' || s.status === 'processing')
     if (!hasActive) return
-    // Xin quyền thông báo 1 lần khi đang render -> để báo lúc xong dù user đang ở tab/app khác.
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
     }
     const tm = setInterval(() => load(true), 4000)
     return () => clearInterval(tm)
-  }, [project])
+  }, [project?.id, project?.status, project?.scenes?.length])
 
   // Ở bước duyệt (waiting_review): poll để ảnh model sheet hiện dần khi backend sinh xong.
   // Dừng khi mọi nhân vật trong bible đã có ảnh VÀ không còn ai đang tạo lại (đỡ gọi API vô ích).
@@ -137,7 +136,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     if (haveAll && regenChars.size === 0) return
     const tm = setInterval(() => load(true), 5000)
     return () => clearInterval(tm)
-  }, [project, regenChars])
+  }, [project?.id, project?.status, project?.characters?.length, regenChars.size])
 
   // Lắng nghe SSE khi đang sinh kịch bản
   useEffect(() => {
@@ -528,10 +527,13 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   className="btn btn-primary" 
                   style={{ padding: '10px 24px', fontSize: 15 }}
                   onClick={async () => {
-                    // Update the voices in the project if needed, but for now we'll just trigger the scenes generation
-                    // since backend will create scenes. The backend needs voices.
-                    await projectsApi.generateScenes(id as string, charVoices)
-                    load(true)
+                    if (!id) return
+                    try {
+                      await projectsApi.generateScenes(id as string, charVoices)
+                      load(true)
+                    } catch (e: any) {
+                      alert(e?.response?.data?.detail || 'Lỗi khi sinh cảnh')
+                    }
                   }}
                 >
                   Phê Duyệt & Tiếp Tục Sinh Cảnh <Check size={16} style={{ marginLeft: 6 }} />
@@ -914,7 +916,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {([
-            [Cpu, t('scene.meta_quality'), project.model_key.replace(/_/g, ' ')],
+            [Cpu, t('scene.meta_quality'), (project.model_key ?? '').replace(/_/g, ' ')],
             [RectangleHorizontal, t('scene.meta_ratio'), project.aspect_ratio],
             [Clock, t('scene.meta_duration'), `${project.duration_seconds}s/${t('scene.per_scene')}`],
             [Languages, t('scene.meta_language'), project.language === 'vi' ? 'Tiếng Việt' : 'English'],

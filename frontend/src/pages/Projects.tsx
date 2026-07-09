@@ -49,7 +49,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   const nav = useNavigate()
   const [sp] = useSearchParams()
   const [tab, setTab] = useState<Tab>((sp.get('tab') as Tab) || 'new')
-  useEffect(() => { const t = sp.get('tab'); if (t) setTab(t as Tab) }, [sp])
+  useEffect(() => { const tab = sp.get('tab'); if (tab) setTab(tab as Tab) }, [sp])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [projects, setProjects] = useState<any[]>([])

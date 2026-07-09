@@ -124,6 +124,9 @@ async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str
                     scene_resps = []
                     async with AsyncSessionLocal() as db:
                         p = await db.get(Project, project_id)
+                        if not p:
+                            log.warning("Project %s bị xóa trong khi đang sinh cảnh, bỏ qua chunk", project_id)
+                            return False
                         for k, r_sc in enumerate(reduced.scenes):
                             # Xác định giọng nói
                             assigned_voice = p.voice or "Kore"

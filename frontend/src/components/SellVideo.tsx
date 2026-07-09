@@ -97,12 +97,12 @@ export default function SellVideo() {
       saveIds(validIds)
     }
   }
-  useEffect(() => { loadSell() }, [sellIds])
+  useEffect(() => { loadSell() }, [sellIds.join(',')])
   useEffect(() => {
     const active = sellIds.some(id => { const p = sellData[id]; return p && !p.merged_file })
     if (!active) return
-    const t = setInterval(loadSell, 6000)
-    return () => clearInterval(t)
+    const timer = setInterval(loadSell, 6000)
+    return () => clearInterval(timer)
   }, [sellData, sellIds])
 
   type RefPair = { id: string; product: File | null; kol: File | null; productPrev: string | null; kolPrev: string | null; name: string }

@@ -214,13 +214,14 @@ async def buy_storage(
     )
     if res.rowcount != 1:
         raise HTTPException(400, "Số dư T coin không đủ. Vui lòng nạp thêm T coin vào ví.")
-        
+
     db.add(WalletTxn(
         user_id=user.id, amount=-cost, kind="buy_storage", status="done",
         note=f"Mua thêm {body.gb} GB dung lượng lưu trữ",
     ))
     await db.commit()
-    return {"ok": True, "extra_storage_gb": user.extra_storage_gb + body.gb}
+    await db.refresh(user)
+    return {"ok": True, "extra_storage_gb": int(user.extra_storage_gb or 0)}
 
 
 @router.post("/webhook/{provider}")
