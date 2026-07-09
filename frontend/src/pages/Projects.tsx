@@ -251,50 +251,69 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
   }
 
-  // Tự nhập kịch bản — LUÔN qua review (chốt nhân vật + giọng trước khi tạo project)
+  // Tự nhập kịch bản — LUÔN qua review (chốt nhân vật + giọng trước khi tạo project).
+  // Dùng job nền + polling để không bị nginx 504 với kịch bản dài (>5 phút Gemini).
   async function parseScript(_directCreate = false) {
     if (!idea.trim()) { setError(t('project.paste_script_first')); return }
     setError(''); setLoadingPrompts(true)
     const t0 = Date.now()
-    const chars_ct = idea.length
-    pushLog(`Đang đọc kịch bản (${chars_ct.toLocaleString('vi')} ký tự)...`)
-    const phases = [
-      'Đang phân tích cấu trúc kịch bản...',
-      'Đang bóc tách nhân vật và vai diễn...',
-      'Đang xây hồ sơ diện mạo nhân vật...',
-      'Đang chia cảnh và viết prompt Veo...',
-      'Đang gán giọng cho từng nhân vật...',
-      'Sắp xong, đang tổng hợp kết quả...',
-    ]
-    let phaseIdx = 0
-    const ticker = window.setInterval(() => {
-      const sec = Math.round((Date.now() - t0) / 1000)
-      pushLog(`⏳ ${phases[Math.min(phaseIdx, phases.length - 1)]} (${sec}s)`)
-      phaseIdx += 1
-    }, 5000)
+    const secs = () => Math.round((Date.now() - t0) / 1000)
+    pushLog(`Đang đọc kịch bản (${idea.length.toLocaleString('vi')} ký tự)...`)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
-      const res = await toolsApi.parseScript({
+      const { job_id } = await toolsApi.parseScriptStart({
         script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: castObjs,
       })
-      const bc = res.characters || []
+      pushLog(`Đã khởi động phân tích (job ${job_id.slice(0, 8)})...`)
+
+      // Poll 3s/lần, log phase mới khi backend đổi note. Không có timeout FE — backend tự bảo vệ.
+      let lastNote = ''
+      let res: any = null
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        await new Promise(r => setTimeout(r, 3000))
+        let st
+        try {
+          st = await toolsApi.parseScriptStatus(job_id)
+        } catch (e: any) {
+          // Lỗi mạng lẻ tẻ -> tiếp tục poll; 404/403 mới bỏ cuộc
+          const code = e.response?.status
+          if (code === 404 || code === 403) throw e
+          pushLog(`⏳ Mạng chớp nháy, thử lại... (${secs()}s)`)
+          continue
+        }
+        if (st.status === 'running') {
+          const pct = st.total ? Math.round((st.done / st.total) * 100) : 0
+          const note = `${st.note || st.phase} · ${st.done}/${st.total} (${pct}%)`
+          if (note !== lastNote) {
+            pushLog(`⏳ ${note} — ${secs()}s`)
+            lastNote = note
+          }
+          continue
+        }
+        if (st.status === 'error') {
+          throw new Error(st.error || 'Lỗi không rõ khi phân tích kịch bản')
+        }
+        res = st.result
+        break
+      }
+      const bc = res?.characters || []
       const cv = Object.fromEntries(bc.map((c: any) =>
         [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
-      setPrompts(res.prompts || [])
-      setNarrations(res.narrations || [])
-      setScenes(res.scenes || [])
+      setPrompts(res?.prompts || [])
+      setNarrations(res?.narrations || [])
+      setScenes(res?.scenes || [])
       setBibleChars(bc)
       setCharVoices(cv)
-      const n = (res.scenes?.length || res.prompts?.length || 0)
+      const n = (res?.scenes?.length || res?.prompts?.length || 0)
       if (!n) { setError(t('project.error_parse_script')); return }
-      const sec = Math.round((Date.now() - t0) / 1000)
-      pushLog(`✓ Đã bóc tách ${n} cảnh · ${bc.length} nhân vật (${sec}s) — vui lòng chốt giọng`)
+      pushLog(`✓ Đã bóc tách ${n} cảnh · ${bc.length} nhân vật (${secs()}s) — vui lòng chốt giọng`)
       setStep('review')
     } catch (e: any) {
-      pushLog(`✗ Lỗi phân tích: ${e.response?.data?.detail || e.message || 'không rõ'}`, 'error')
+      const msg = e.response?.data?.detail || e.message || 'không rõ'
+      pushLog(`✗ Lỗi phân tích: ${msg}`, 'error')
       setError(e.response?.data?.detail || t('project.error_parse_script'))
     } finally {
-      window.clearInterval(ticker)
       setLoadingPrompts(false)
     }
   }

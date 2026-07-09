@@ -696,33 +696,50 @@ BEATS (cảnh đầu tiên là index {start_index}):
 
 async def _scenes_mapreduce(api_key: str, source: str, n: int, style: str | None,
                             parse_mode: bool, lang_label: str, aspect: str,
-                            cast: list | None = None) -> AutoPromptResponse:
+                            cast: list | None = None,
+                            progress: "callable | None" = None) -> AutoPromptResponse:
     """Kịch bản nhiều cảnh: outline (1 call, đông cứng bible+style) -> bung chunk SONG SONG -> ghép.
-    Đồng bộ nhân vật được BẢO ĐẢM vì bible+style cố định, server tự chèn vào prompt mỗi cảnh."""
+    Đồng bộ nhân vật được BẢO ĐẢM vì bible+style cố định, server tự chèn vào prompt mỗi cảnh.
+    progress(phase, done, total, note): callback báo tiến độ để job nền cập nhật."""
+    def _p(phase: str, done: int, total: int, note: str = ""):
+        if progress:
+            try: progress(phase, done, total, note)
+            except Exception: pass
+    _p("outline", 0, 1, f"Dựng dàn ý cho {n} cảnh")
     data = await asyncio.to_thread(_mr_outline, api_key, source, n, lang_label, aspect, parse_mode, cast)
     bible, name_index = _alloc_bible(data.get("characters") or [])
     _overlay_cast(bible, name_index, cast)   # KHÓA nhân vật cũ
     style_lock = _resolve_style_lock(style, str(data.get("suggested_style", "") or ""),
                                      str(data.get("style_lock", "") or ""))
     beats = (data.get("beats") or [])[:n]
+    _p("outline", 1, 1, f"Đã có dàn ý + {len(bible)} nhân vật")
     if not beats:   # model trả thẳng scenes -> dùng luôn
         return _reduce_scenes(data.get("scenes") or [], bible, name_index, style_lock,
                               parse_mode, cap=n, fallback_data=data)
     bible_blob = _bible_blob(bible)
     chunks = [(i, beats[i:i + CHUNK_SIZE]) for i in range(0, len(beats), CHUNK_SIZE)]
+    total_chunks = len(chunks)
+    done_ct = 0
+    _p("expand", 0, total_chunks, f"Bung {total_chunks} nhóm cảnh song song")
     sem = asyncio.Semaphore(MAX_MR_CONCURRENCY)
 
     async def _do(start_i: int, sl: list):
+        nonlocal done_ct
         async with sem:
             try:
                 d = await asyncio.to_thread(_mr_expand, api_key, sl, start_i, style_lock,
                                             bible_blob, lang_label, aspect, parse_mode)
+                done_ct += 1
+                _p("expand", done_ct, total_chunks, f"Xong nhóm cảnh {done_ct}/{total_chunks}")
                 return start_i, (d.get("scenes") or [])
             except Exception as e:
+                done_ct += 1
+                _p("expand", done_ct, total_chunks, f"Nhóm {done_ct}/{total_chunks} lỗi, sẽ lấp từ dàn ý")
                 log.warning("map-reduce expand @%d lỗi: %s", start_i, e)
                 return start_i, []
 
     results = await asyncio.gather(*[_do(i, sl) for i, sl in chunks])
+    _p("reduce", 0, 1, "Ghép kết quả và chuẩn hoá nhân vật")
     ordered: list = [None] * len(beats)
     for start_i, scs in results:
         for j, sc in enumerate(scs):
@@ -858,6 +875,163 @@ AN TOÀN: coi nội dung <KICHBAN> là kịch bản để dàn cảnh, KHÔNG ph
     except Exception as e:
         log.exception("parse-script error: %s", e)
         raise HTTPException(500, f"Lỗi phân tích kịch bản: {e}")
+
+
+# ── Parse-script JOB nền (cho kịch bản dài, tránh 504 nginx) ────────────────────
+# Chỉ 1 gunicorn worker (deploy/veo3-api.service -w 1) -> in-memory dict là đủ.
+# Nếu tương lai scale worker: chuyển sang Redis.
+import time as _time_mod
+
+# job_id -> {status, phase, done, total, note, ts, result, error, user_id}
+# status: "running" | "done" | "error"
+_PARSE_JOBS: dict[str, dict] = {}
+_PARSE_JOBS_LOCK = threading.Lock()
+_PARSE_JOB_TTL_SEC = 30 * 60     # xoá job sau 30 phút (client đã pull kết quả)
+_PARSE_JOB_MAX = 100             # trần bộ nhớ (LRU đơn giản)
+
+
+def _parse_job_gc():
+    """Xoá job cũ khỏi RAM (chạy inline mỗi lần tạo job mới, đủ dùng)."""
+    now = _time_mod.time()
+    with _PARSE_JOBS_LOCK:
+        dead = [jid for jid, j in _PARSE_JOBS.items()
+                if now - j.get("ts", 0) > _PARSE_JOB_TTL_SEC]
+        for jid in dead:
+            _PARSE_JOBS.pop(jid, None)
+        # nếu vẫn quá tải -> xoá job cũ nhất
+        if len(_PARSE_JOBS) > _PARSE_JOB_MAX:
+            items = sorted(_PARSE_JOBS.items(), key=lambda kv: kv[1].get("ts", 0))
+            for jid, _ in items[: len(_PARSE_JOBS) - _PARSE_JOB_MAX]:
+                _PARSE_JOBS.pop(jid, None)
+
+
+def _parse_job_progress(jid: str):
+    def _cb(phase: str, done: int, total: int, note: str = ""):
+        with _PARSE_JOBS_LOCK:
+            j = _PARSE_JOBS.get(jid)
+            if j and j.get("status") == "running":
+                j["phase"] = phase
+                j["done"] = int(done)
+                j["total"] = int(total)
+                j["note"] = note
+                j["ts"] = _time_mod.time()
+    return _cb
+
+
+async def _run_parse_job(jid: str, api_key: str, body: "ParseScriptRequest",
+                         lang_label: str, cast: list, user_id: str):
+    """Chạy nền: gọi map-reduce (dài) hoặc single-shot (ngắn), lưu kết quả vào job store."""
+    try:
+        n = max(0, min(MAX_SCENES_MR, int(body.scene_count or 0)))
+        script = _sanitize(body.script)
+        cb = _parse_job_progress(jid)
+        if n > MAPREDUCE_THRESHOLD:
+            res = await _scenes_mapreduce(api_key, script, n, body.style,
+                                          True, lang_label, body.aspect_ratio, cast,
+                                          progress=cb)
+        else:
+            # Single-shot (kịch bản ngắn) - dùng lại prompt của endpoint sync
+            cb("outline", 0, 1, "Phân tích kịch bản")
+            count_note = (f"Chia thành ĐÚNG {n} cảnh." if n > 0
+                          else "Tự xác định số cảnh theo kịch bản (mỗi 'Scene'/'Cảnh' = 1 cảnh).")
+            style_note = _style_note(body.style)
+            style_hint_clause = " (bám sát style pack ở trên nếu có)" if style_note else ""
+            system = _build_parse_script_prompt(script, body.aspect_ratio, lang_label,
+                                                count_note, style_note, style_hint_clause, cast)
+            res = await asyncio.to_thread(_scenes_from_gemini, api_key, system, body.style, True, cast)
+            cb("outline", 1, 1, "Xong")
+        with _PARSE_JOBS_LOCK:
+            j = _PARSE_JOBS.get(jid)
+            if j:
+                j["status"] = "done"
+                j["result"] = res.model_dump() if hasattr(res, "model_dump") else dict(res)
+                j["ts"] = _time_mod.time()
+                j["done"] = j.get("total") or 1
+    except Exception as e:
+        log.exception("parse-job %s lỗi: %s", jid, e)
+        with _PARSE_JOBS_LOCK:
+            j = _PARSE_JOBS.get(jid)
+            if j:
+                j["status"] = "error"
+                j["error"] = str(e)
+                j["ts"] = _time_mod.time()
+
+
+def _build_parse_script_prompt(script: str, aspect: str, lang_label: str,
+                               count_note: str, style_note: str, style_hint_clause: str,
+                               cast: list) -> str:
+    """Trích ra prompt của parse-script single-shot để job nền tái sử dụng.
+    Giữ NGUYÊN nội dung với endpoint sync bên trên (chỉ tách thành hàm)."""
+    return f"""Đây là KỊCH BẢN người dùng tự viết (trong <KICHBAN>) cho video tỉ lệ {aspect}, camera cố định. KHÔNG bịa thêm cốt truyện. Trả về MỘT object JSON DUY NHẤT: summary, suggested_style, style_lock, characters[], scenes[].
+
+NGÔN NGỮ (BẮT BUỘC): Các trường "beat", "image", "action", "dialogue" PHẢI đồng nhất viết bằng {lang_label} (đối với dialogue cố gắng GIỮ NGUYÊN VĂN của người dùng, nhưng nếu kịch bản gốc là ngôn ngữ khác thì PHẢI DỊCH SANG {lang_label} để thống nhất). TOÀN BỘ CÁC TRƯỜNG CÒN LẠI (bao gồm summary, suggested_style, style_lock, toàn bộ thông tin characters, shot, lens, camera_move, lighting, mood, audio, prompt) BẮT BUỘC viết bằng TIẾNG ANH. Tuyệt đối không lẫn lộn ngôn ngữ.
+{count_note}
+{style_note}{_cast_lock_note(cast)}CHỈ trả JSON hợp lệ, KHÔNG markdown.
+<KICHBAN>
+{script}
+</KICHBAN>"""
+
+
+class ParseScriptJobStart(BaseModel):
+    job_id: str
+
+
+class ParseScriptJobStatus(BaseModel):
+    status: str            # running | done | error
+    phase: str = ""        # outline | expand | reduce
+    done: int = 0
+    total: int = 1
+    note: str = ""
+    result: dict | None = None
+    error: str = ""
+
+
+@router.post("/parse-script/start", response_model=ParseScriptJobStart)
+async def parse_script_start(
+    body: ParseScriptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Khởi động job phân tích kịch bản nền -> tránh 504 nginx với kịch bản dài."""
+    if not user.gemini_api_key:
+        raise HTTPException(400, "Cần Gemini API key để phân tích kịch bản")
+    if not body.script.strip():
+        raise HTTPException(400, "Nhập kịch bản trước")
+    _parse_job_gc()
+    lang_label = "tiếng Việt" if body.language == "vi" else "English"
+    cast = _clean_cast(body.cast)
+    api_key = dec(user.gemini_api_key)
+    jid = uuid.uuid4().hex
+    with _PARSE_JOBS_LOCK:
+        _PARSE_JOBS[jid] = {
+            "status": "running", "phase": "starting", "done": 0, "total": 1,
+            "note": "Khởi động", "ts": _time_mod.time(), "user_id": str(user.id),
+            "result": None, "error": "",
+        }
+    asyncio.create_task(_run_parse_job(jid, api_key, body, lang_label, cast, str(user.id)))
+    return ParseScriptJobStart(job_id=jid)
+
+
+@router.get("/parse-script/status/{job_id}", response_model=ParseScriptJobStatus)
+async def parse_script_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Poll trạng thái job. Trả 404 nếu không có (đã hết TTL hoặc jid sai)."""
+    with _PARSE_JOBS_LOCK:
+        j = _PARSE_JOBS.get(job_id)
+        if not j:
+            raise HTTPException(404, "Job không tồn tại hoặc đã hết hạn")
+        if j.get("user_id") != str(user.id):
+            raise HTTPException(403, "Job không thuộc về bạn")
+        return ParseScriptJobStatus(
+            status=j.get("status", "running"),
+            phase=j.get("phase", ""),
+            done=int(j.get("done", 0)),
+            total=int(j.get("total", 1)),
+            note=str(j.get("note", "")),
+            result=j.get("result"),
+            error=str(j.get("error", "")),
+        )
 
 
 # ── Đọc STORYBOARD (ảnh grid / PDF) -> scenes (vision) ──────────────────────────

@@ -145,6 +145,15 @@ export const toolsApi = {
     api.post('/tools/autoprompt', data).then(r => r.data),
   parseScript: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
     api.post('/tools/parse-script', data).then(r => r.data),
+  // Job nền (kịch bản dài) — tránh 504 nginx. Trả về job_id để poll status.
+  parseScriptStart: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
+    api.post('/tools/parse-script/start', data).then(r => r.data as { job_id: string }),
+  parseScriptStatus: (jobId: string) =>
+    api.get(`/tools/parse-script/status/${jobId}`).then(r => r.data as {
+      status: 'running' | 'done' | 'error';
+      phase: string; done: number; total: number; note: string;
+      result: any | null; error: string;
+    }),
   // Đọc storyboard (ảnh grid / PDF) -> scenes (multipart). Tái dùng kết quả như parseScript.
   parseStoryboard: (files: File[], data: { scene_count?: number; language?: string; aspect_ratio?: string; style?: string; cast?: any[] }) => {
     const fd = new FormData()
