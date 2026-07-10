@@ -353,7 +353,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         } catch (e: any) {
           const code = e.response?.status
           if (code === 404 || code === 403) throw e
-          pushLog(`⏳ Mạng chớp nháy, thử lại... (${secs()}s)`)
+          // 504 = nginx timeout trên request poll (không phải lỗi logic) -> tiếp tục poll
+          // các lỗi mạng khác (ECONNRESET, ERR_NETWORK...) cũng tiếp tục
+          const is504 = code === 504
+          pushLog(`⏳ ${is504 ? 'Kết nối bị gián đoạn' : 'Mạng chớp nháy'}, thử lại... (${secs()}s)`)
           continue
         }
 
