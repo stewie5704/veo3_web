@@ -74,6 +74,9 @@ class ParseScriptRequest(BaseModel):
     aspect_ratio: str = "9:16"
     style: str | None = None
     cast: list[dict] = []    # nhân vật đã có (phần trước) -> KHÓA dùng lại y nguyên
+    # mode: "script" (default) = parse như kịch bản có sẵn (giữ nguyên tên/lời thoại)
+    #       "idea"              = AI bung ý tưởng thành cảnh (giống autoprompt)
+    mode: str = "script"
 
 
 # ── Character bible: đồng bộ nhân vật bằng MÔ TẢ (không cần ảnh tham chiếu) ──────
@@ -701,9 +704,9 @@ async def _scenes_mapreduce(api_key: str, source: str, n: int, style: str | None
     """Kịch bản nhiều cảnh: outline (1 call, đông cứng bible+style) -> bung chunk SONG SONG -> ghép.
     Đồng bộ nhân vật được BẢO ĐẢM vì bible+style cố định, server tự chèn vào prompt mỗi cảnh.
     progress(phase, done, total, note): callback báo tiến độ để job nền cập nhật."""
-    def _p(phase: str, done: int, total: int, note: str = ""):
+    def _p(phase: str, done: int, total: int, note: str = "", extra: dict | None = None):
         if progress:
-            try: progress(phase, done, total, note)
+            try: progress(phase, done, total, note, extra or {})
             except Exception: pass
     _p("outline", 0, 1, f"Dựng dàn ý cho {n} cảnh")
     data = await asyncio.to_thread(_mr_outline, api_key, source, n, lang_label, aspect, parse_mode, cast)
@@ -712,7 +715,9 @@ async def _scenes_mapreduce(api_key: str, source: str, n: int, style: str | None
     style_lock = _resolve_style_lock(style, str(data.get("suggested_style", "") or ""),
                                      str(data.get("style_lock", "") or ""))
     beats = (data.get("beats") or [])[:n]
-    _p("outline", 1, 1, f"Đã có dàn ý + {len(bible)} nhân vật")
+    # Trả PARTIAL: nhân vật + style đã có -> FE bắt đầu vẽ portrait song song với expand scenes.
+    _p("outline", 1, 1, f"Đã có dàn ý + {len(bible)} nhân vật",
+       extra={"characters": list(bible.values())})
     if not beats:   # model trả thẳng scenes -> dùng luôn
         return _reduce_scenes(data.get("scenes") or [], bible, name_index, style_lock,
                               parse_mode, cap=n, fallback_data=data)
@@ -906,7 +911,7 @@ def _parse_job_gc():
 
 
 def _parse_job_progress(jid: str):
-    def _cb(phase: str, done: int, total: int, note: str = ""):
+    def _cb(phase: str, done: int, total: int, note: str = "", extra: dict | None = None):
         with _PARSE_JOBS_LOCK:
             j = _PARSE_JOBS.get(jid)
             if j and j.get("status") == "running":
@@ -915,31 +920,32 @@ def _parse_job_progress(jid: str):
                 j["total"] = int(total)
                 j["note"] = note
                 j["ts"] = _time_mod.time()
+                if extra and "characters" in extra:
+                    # Lộ nhân vật SỚM ra status endpoint để FE render grid + song song vẽ portrait.
+                    j["characters"] = extra["characters"]
     return _cb
 
 
 async def _run_parse_job(jid: str, api_key: str, body: "ParseScriptRequest",
                          lang_label: str, cast: list, user_id: str):
-    """Chạy nền: gọi map-reduce (dài) hoặc single-shot (ngắn), lưu kết quả vào job store."""
+    """Chạy nền: outline nhanh -> partial characters -> expand chunks song. Hỗ trợ 2 mode:
+    - script: giữ nguyên văn kịch bản có sẵn (parse_mode=True)
+    - idea  : bung ý tưởng ngắn thành N cảnh (parse_mode=False, giống autoprompt cũ)"""
     try:
-        n = max(0, min(MAX_SCENES_MR, int(body.scene_count or 0)))
-        script = _sanitize(body.script)
+        text = _sanitize(body.script)
+        parse_mode = (body.mode != "idea")
+        # Với idea: scene_count > 0 là bắt buộc (mặc định 6 nếu = 0)
+        # Với script: 0 = AI tự suy
+        n_default = 0 if parse_mode else 6
+        n = max(0, min(MAX_SCENES_MR, int(body.scene_count or n_default)))
         cb = _parse_job_progress(jid)
-        if n > MAPREDUCE_THRESHOLD:
-            res = await _scenes_mapreduce(api_key, script, n, body.style,
-                                          True, lang_label, body.aspect_ratio, cast,
-                                          progress=cb)
-        else:
-            # Single-shot (kịch bản ngắn) - dùng lại prompt của endpoint sync
-            cb("outline", 0, 1, "Phân tích kịch bản")
-            count_note = (f"Chia thành ĐÚNG {n} cảnh." if n > 0
-                          else "Tự xác định số cảnh theo kịch bản (mỗi 'Scene'/'Cảnh' = 1 cảnh).")
-            style_note = _style_note(body.style)
-            style_hint_clause = " (bám sát style pack ở trên nếu có)" if style_note else ""
-            system = _build_parse_script_prompt(script, body.aspect_ratio, lang_label,
-                                                count_note, style_note, style_hint_clause, cast)
-            res = await asyncio.to_thread(_scenes_from_gemini, api_key, system, body.style, True, cast)
-            cb("outline", 1, 1, "Xong")
+
+        # Route: n lớn -> luôn map-reduce (có progress + partial characters SỚM).
+        # n nhỏ -> single-shot NHƯNG vẫn cần expose characters sớm cho FE render casting stage.
+        # Giải pháp: dù n nhỏ vẫn dùng map-reduce (chỉ 1-2 chunk, không chậm hơn đáng kể) để có partial.
+        res = await _scenes_mapreduce(api_key, text, n or 6, body.style,
+                                      parse_mode, lang_label, body.aspect_ratio, cast,
+                                      progress=cb)
         with _PARSE_JOBS_LOCK:
             j = _PARSE_JOBS.get(jid)
             if j:
@@ -982,6 +988,7 @@ class ParseScriptJobStatus(BaseModel):
     done: int = 0
     total: int = 1
     note: str = ""
+    characters: list[dict] | None = None   # có ngay sau outline (partial) để FE vẽ portrait song song
     result: dict | None = None
     error: str = ""
 
@@ -991,11 +998,12 @@ async def parse_script_start(
     body: ParseScriptRequest,
     user: User = Depends(get_current_user),
 ):
-    """Khởi động job phân tích kịch bản nền -> tránh 504 nginx với kịch bản dài."""
+    """Khởi động job phân tích nền cho: kịch bản có sẵn (mode=script) hoặc ý tưởng ngắn (mode=idea).
+    Tránh 504 nginx với input dài."""
     if not user.gemini_api_key:
-        raise HTTPException(400, "Cần Gemini API key để phân tích kịch bản")
+        raise HTTPException(400, "Cần Gemini API key để phân tích")
     if not body.script.strip():
-        raise HTTPException(400, "Nhập kịch bản trước")
+        raise HTTPException(400, "Nhập nội dung trước")
     _parse_job_gc()
     lang_label = "tiếng Việt" if body.language == "vi" else "English"
     cast = _clean_cast(body.cast)
@@ -1029,6 +1037,7 @@ async def parse_script_status(
             done=int(j.get("done", 0)),
             total=int(j.get("total", 1)),
             note=str(j.get("note", "")),
+            characters=j.get("characters"),
             result=j.get("result"),
             error=str(j.get("error", "")),
         )

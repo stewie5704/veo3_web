@@ -109,64 +109,100 @@ async def delete_character(
     return {"status": "ok"}
 
 
+async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False) -> CharacterResponse | None:
+    """Sinh 1 ảnh chân dung + lưu vào DB. Trả về CharacterResponse khi xong, raise nếu lỗi.
+    Được dùng bởi 2 endpoint: batch (legacy) và single (FE gọi song song từng nhân vật)."""
+    from app.projects.router import build_portrait_prompt
+    from app.pipeline.runner import generate_images_flow
+    from app.crypto import dec
+    from app.database import AsyncSessionLocal
+
+    name = str(ch.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Nhân vật thiếu name")
+
+    cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
+    gproj = (user.google_project_id if user else "") or ""
+    if not (cookies and gproj):
+        raise HTTPException(400, "Cần kết nối Google Flow (Nano Banana Pro) trong Cài đặt để tạo chân dung tự động.")
+
+    files = await generate_images_flow(
+        user_id=user.id, cookies=cookies, project_id=gproj,
+        prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="16:9",
+        out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}",
+    )
+    if not files:
+        raise HTTPException(502, f"Flow không trả về ảnh cho '{name}'")
+
+    async with AsyncSessionLocal() as db:
+        existing = await db.execute(select(Character).where(
+            Character.user_id == user.id, Character.name == name, Character.project_id.is_(None)))
+        char = existing.scalar_one_or_none()
+        if char and not overwrite:
+            # Đã có -> xóa ảnh mới sinh cho gọn, trả về nhân vật cũ
+            p = CHAR_PATH / files[0]
+            if p.exists():
+                try: p.unlink()
+                except OSError: pass
+            return _char_resp(char)
+        if char and overwrite:
+            if char.image_file:
+                p = CHAR_PATH / char.image_file
+                if p.exists():
+                    try: p.unlink()
+                    except OSError: pass
+            char.image_file = files[0]
+        else:
+            char = Character(user_id=user.id, name=name, image_file=files[0], project_id=None)
+            db.add(char)
+        await db.commit()
+        await db.refresh(char)
+        return _char_resp(char)
+
+
+@router.post("/generate-ai-portrait", response_model=CharacterResponse)
+async def generate_ai_portrait_one(
+    character: dict,
+    overwrite: bool = False,
+    user: User = Depends(get_current_user),
+):
+    """Sinh 1 ảnh chân dung cho 1 nhân vật (FE gọi song song từng nhân vật để tạo grid loading UX).
+    Lỗi được trả 4xx/5xx với chi tiết — KHÔNG nuốt exception im lặng nữa."""
+    return await _generate_one_portrait(user, character, overwrite)
+
+
 @router.post("/generate-ai-portraits", response_model=list[CharacterResponse])
 async def generate_ai_portraits(
     characters: list[dict],
     overwrite: bool = False,
     user: User = Depends(get_current_user),
 ):
-    """Tự động sinh ảnh chân dung cho danh sách nhân vật (dùng Nano Banana Pro flow) và lưu vào kho chung."""
-    from app.projects.router import build_portrait_prompt
-    from app.pipeline.runner import generate_images_flow
-    from app.crypto import dec
-    from app.database import AsyncSessionLocal
-
-    cookies = (dec(user.google_cookies) if user and user.google_cookies else "") or ""
-    gproj = (user.google_project_id if user else "") or ""
-    if not (cookies and gproj):
-        raise HTTPException(400, "Cần thiết lập Nano Banana Pro (cookies + project id) trong phần Cài đặt.")
-
-    results = []
-    
-    async def _one(ch: dict):
-        name = str(ch.get("name") or "").strip()
-        if not name: return
-        try:
-            files = await generate_images_flow(
-                user_id=user.id, cookies=cookies, project_id=gproj,
-                prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="16:9",
-                out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}")
-            if files:
-                async with AsyncSessionLocal() as db:
-                    # Chặn trùng tên trong kho chung nếu không overwrite
-                    existing = await db.execute(select(Character).where(Character.user_id == user.id, Character.name == name, Character.project_id.is_(None)))
-                    char = existing.scalar_one_or_none()
-                    
-                    if char and not overwrite:
-                        return # Đã tồn tại, bỏ qua
-                    
-                    if char and overwrite:
-                        # Ghi đè file ảnh cũ
-                        if char.image_file:
-                            p = CHAR_PATH / char.image_file
-                            if p.exists():
-                                p.unlink()
-                        char.image_file = files[0]
-                    else:
-                        char = Character(user_id=user.id, name=name, image_file=files[0], project_id=None)
-                        db.add(char)
-                        
-                    await db.commit()
-                    await db.refresh(char)
-                    results.append(_char_resp(char))
-        except Exception as e:
-            pass
-
+    """Legacy batch endpoint: sinh nhiều nhân vật SONG SONG (hạn chế đồng thời để tránh
+    quá tải Flow). Không còn cap 8 nhân vật. Lỗi lẻ được log, các nhân vật khác vẫn tiếp tục."""
     import asyncio
-    import random
-    for i, c in enumerate(characters[:8]):
-        await _one(c)
-        if i < len(characters[:8]) - 1:
-            await asyncio.sleep(random.uniform(2.0, 4.0))
+    import logging
+    log = logging.getLogger("veo3.characters")
 
-    return results
+    if not characters:
+        return []
+    # Xác nhận sớm Google Flow đã kết nối để trả 400 rõ ràng thay vì fail im lặng.
+    cookies = user.google_cookies or ""
+    gproj = user.google_project_id or ""
+    if not (cookies and gproj):
+        raise HTTPException(400, "Cần kết nối Google Flow (Nano Banana Pro) trong Cài đặt để tạo chân dung tự động.")
+
+    sem = asyncio.Semaphore(3)  # 3 song song — cân bằng tốc độ vs rate-limit Flow
+
+    async def _do(ch: dict):
+        async with sem:
+            try:
+                return await _generate_one_portrait(user, ch, overwrite)
+            except HTTPException as e:
+                log.warning("portrait '%s' lỗi: %s", ch.get("name"), e.detail)
+                return None
+            except Exception as e:
+                log.exception("portrait '%s' lỗi bất ngờ: %s", ch.get("name"), e)
+                return None
+
+    results = await asyncio.gather(*[_do(c) for c in characters])
+    return [r for r in results if r is not None]

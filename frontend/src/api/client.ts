@@ -145,13 +145,15 @@ export const toolsApi = {
     api.post('/tools/autoprompt', data).then(r => r.data),
   parseScript: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
     api.post('/tools/parse-script', data).then(r => r.data),
-  // Job nền (kịch bản dài) — tránh 504 nginx. Trả về job_id để poll status.
-  parseScriptStart: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[] }) =>
+  // Job nền (kịch bản dài / ý tưởng) — tránh 504 nginx. Trả về job_id để poll status.
+  // mode: "script" giữ nguyên kịch bản có sẵn (default) | "idea" bung ý tưởng thành N cảnh
+  parseScriptStart: (data: { script: string; scene_count?: number; language?: string; aspect_ratio?: string; cast?: any[]; mode?: 'script' | 'idea' }) =>
     api.post('/tools/parse-script/start', data).then(r => r.data as { job_id: string }),
   parseScriptStatus: (jobId: string) =>
     api.get(`/tools/parse-script/status/${jobId}`).then(r => r.data as {
       status: 'running' | 'done' | 'error';
       phase: string; done: number; total: number; note: string;
+      characters?: any[] | null;
       result: any | null; error: string;
     }),
   // Đọc storyboard (ảnh grid / PDF) -> scenes (multipart). Tái dùng kết quả như parseScript.
@@ -200,6 +202,7 @@ export const charactersApi = {
     return api.post('/characters/', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
   generateAIPortraits: (characters: any[], overwrite: boolean = false) => api.post(`/characters/generate-ai-portraits?overwrite=${overwrite}`, characters).then(r => r.data),
+  generateAIPortraitOne: (character: any, overwrite: boolean = false) => api.post(`/characters/generate-ai-portrait?overwrite=${overwrite}`, character).then(r => r.data),
   delete: (id: string) => api.delete(`/characters/${id}`).then(r => r.data),
 }
 

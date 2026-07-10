@@ -95,8 +95,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   // NEW tab
-  const [step, setStep] = useState<'setup' | 'review'>('setup')  // wizard: thiết lập -> duyệt kịch bản
-  const [mode, setMode] = useState<'ai' | 'manual' | 'storyboard' | 'prompts'>('ai')   // AI viết | Tự nhập kịch bản | Đọc storyboard | Dán Prompts
+  const [step, setStep] = useState<'setup' | 'casting' | 'review'>('setup')  // wizard: thiết lập -> đang tạo nhân vật + phân tích cảnh -> duyệt kịch bản
   const [name, setName] = useState('')
   const [idea, setIdea] = useState('')
   const [sceneCount, setSceneCount] = useState(6)
@@ -193,6 +192,63 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   const [generatingPortraits, setGeneratingPortraits] = useState(false)
 
+  // Casting stage: mỗi nhân vật có state riêng để render grid cards với shimmer/thumb.
+  // 'pending' = chờ tới lượt · 'generating' = đang gọi Flow · 'done' = có url · 'error' = fail
+  type CastCardState = 'pending' | 'generating' | 'done' | 'error'
+  type CastCard = { name: string; state: CastCardState; url?: string; error?: string; charId?: string }
+  const [castCards, setCastCards] = useState<CastCard[]>([])
+  const [scenePhase, setScenePhase] = useState<{ note: string; done: number; total: number }>({ note: '', done: 0, total: 1 })
+  const [swapPickerIdx, setSwapPickerIdx] = useState<number | null>(null)  // index card đang mở picker
+  const swapUploadRef = useRef<HTMLInputElement>(null)
+
+  // Swap ảnh AI vẽ bằng ảnh user có sẵn / upload mới (Cách C).
+  async function swapCastCardFromLibrary(cardIdx: number, libCharId: string) {
+    const libChar = chars.find(c => c.id === libCharId)
+    if (!libChar) return
+    const cardName = castCards[cardIdx]?.name
+    setCastCards(prev => prev.map((c, i) => i === cardIdx
+      ? { ...c, state: 'done', url: libChar.image_url, charId: libChar.id, error: undefined }
+      : c))
+    if (cardName) setCharIdsMap(m => ({ ...m, [cardName]: libChar.id }))
+    setSwapPickerIdx(null)
+    pushLog(`🔁 "${cardName}" dùng ảnh có sẵn "${libChar.name}"`)
+  }
+
+  async function swapCastCardFromUpload(cardIdx: number, file: File) {
+    const card = castCards[cardIdx]
+    if (!card) return
+    try {
+      // Dùng lại flow upload thư viện — tự tạo character với ảnh này.
+      const newChar = await charactersApi.add(card.name, file)
+      setChars(prev => [...prev, newChar])
+      setCastCards(prev => prev.map((c, i) => i === cardIdx
+        ? { ...c, state: 'done', url: newChar.image_url, charId: newChar.id, error: undefined }
+        : c))
+      setCharIdsMap(m => ({ ...m, [card.name]: newChar.id }))
+      setSwapPickerIdx(null)
+      pushLog(`📷 "${card.name}" đã dùng ảnh upload`)
+    } catch (e: any) {
+      pushLog(`✗ Upload ảnh cho "${card.name}" lỗi: ${e.message || 'không rõ'}`, 'error')
+    }
+  }
+
+  // Vẽ lại 1 nhân vật (khi user không hài lòng với ảnh AI đầu tiên).
+  async function reGenerateCastCard(cardIdx: number, bibleObj: any) {
+    setCastCards(prev => prev.map((c, i) => i === cardIdx ? { ...c, state: 'generating' } : c))
+    try {
+      const resp = await charactersApi.generateAIPortraitOne(bibleObj, true)  // overwrite = true
+      setCastCards(prev => prev.map((c, i) => i === cardIdx
+        ? { ...c, state: 'done', url: resp.image_url, charId: resp.id, error: undefined }
+        : c))
+      const card = castCards[cardIdx]
+      if (card) setCharIdsMap(m => ({ ...m, [card.name]: resp.id }))
+      pushLog(`🎨 Đã vẽ lại "${bibleObj.name || ''}"`)
+    } catch (e: any) {
+      setCastCards(prev => prev.map((c, i) => i === cardIdx
+        ? { ...c, state: 'error', error: e.response?.data?.detail || e.message || 'lỗi' } : c))
+    }
+  }
+
   const autoGeneratePortraits = async (bc: any[]) => {
     if (!bc || bc.length === 0) return {}
     setGeneratingPortraits(true)
@@ -219,72 +275,99 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     }
   }
 
-  // AI viết kịch bản
-  async function genPrompts(directCreate = true) {
-    if (!idea.trim()) { setError(t('project.enter_idea_first')); return }
-    setError(''); setLoadingPrompts(true)
-    try {
-      const castObjs = chars.filter(c => selectedChars.has(c.name))
-      
-      const proj = await projectsApi.create({
-        name: name || `Dự án AI ${new Date().toISOString().slice(0,10)}`,
-        idea: idea,
-        style, model_key: model, aspect_ratio: aspect, duration_seconds: duration, language,
-        scene_count: sceneCount,
-        prompts: [], narrations: [],
-        chain_mode: false, audio_mode: audioMode, voice,
-        character_ids: castObjs.map(c => c.id),
-        i2v_fix: false,
-        auto_render: false
-      })
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 1 pipeline duy nhất cho MỌI kiểu input (idea / script / prompts / storyboard).
+  // Mỗi mode chỉ khác cách LẤY bible+scenes; sau khi có -> flow casting + review chung.
+  // ═══════════════════════════════════════════════════════════════════════════════
+  type InputMode = 'idea' | 'script' | 'prompts' | 'storyboard'
 
-      // AI viết: bung ý tưởng thành cảnh (parse_mode=false)
-      await projectsApi.extractOutline(proj.id, false)
-
-      // Fake loading 3s cho nguy hiểm
-      pushLog("Đang phân tích kịch bản và chuẩn bị tài nguyên...")
-      await new Promise(r => setTimeout(r, 2000))
-      pushLog("Khởi tạo không gian làm việc thành công!")
-      await new Promise(r => setTimeout(r, 1000))
-
-      nav(`/projects/${proj.id}`)
-    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_create_prompt')); setLoadingPrompts(false) }
-  }
-
-  // Tự nhập kịch bản — LUÔN qua review (chốt nhân vật + giọng trước khi tạo project).
-  // Dùng job nền + polling để không bị nginx 504 với kịch bản dài (>5 phút Gemini).
-  async function parseScript(_directCreate = false) {
-    if (!idea.trim()) { setError(t('project.paste_script_first')); return }
+  async function runUnifiedPipeline(inputMode: InputMode) {
     setError(''); setLoadingPrompts(true)
     const t0 = Date.now()
     const secs = () => Math.round((Date.now() - t0) / 1000)
-    pushLog(`Đang đọc kịch bản (${idea.length.toLocaleString('vi')} ký tự)...`)
     try {
       const castObjs = chars.filter(c => selectedChars.has(c.name))
+
+      // ── Nhánh PROMPTS: parse phẳng ở FE, không có bible ──
+      if (inputMode === 'prompts') {
+        if (!idea.trim()) { setError(t('project.paste_prompts_first')); return }
+        const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+        if (!lines.length) { setError(t('project.no_valid_prompt')); return }
+        pushLog(`Đã đọc ${lines.length} prompts`)
+        setPrompts(lines); setNarrations(new Array(lines.length).fill(''))
+        setScenes([]); setBibleChars([])
+        // Không có bible từ prompts -> vào review luôn, chỉ có characters user đã chọn từ thư viện
+        setStep('review')
+        return
+      }
+
+      // ── Nhánh STORYBOARD: multipart sync (Gemini vision) ──
+      if (inputMode === 'storyboard') {
+        if (!sbFiles.length) { setError(t('project.select_storyboard_first')); return }
+        pushLog(`Đang đọc ${sbFiles.length} ảnh storyboard...`)
+        const res = await toolsApi.parseStoryboard(sbFiles, {
+          scene_count: 0, language, aspect_ratio: aspect, style: style || undefined, cast: castObjs,
+        })
+        const bc = res.characters || []
+        setPrompts(res.prompts || []); setNarrations(res.narrations || []); setScenes(res.scenes || [])
+        setBibleChars(bc)
+        const cv = Object.fromEntries(bc.map((c: any) =>
+          [c.name, charVoices[c.name] || c.tts_voice || voice]))
+        setCharVoices(cv)
+        const n = (res.scenes?.length || res.prompts?.length || 0)
+        if (!n) { setError(t('project.storyboard_no_frames')); return }
+        pushLog(`✓ Đã đọc storyboard ${n} cảnh · ${bc.length} nhân vật (${secs()}s)`)
+        if (bc.length === 0) { setStep('review'); return }
+        setStep('casting')
+        await kickCastingPortraits(bc)
+        setStep('review')
+        return
+      }
+
+      // ── Nhánh IDEA + SCRIPT: parse-script job nền với partial characters ──
+      pushLog(inputMode === 'idea'
+        ? `Đang biến ý tưởng thành ${sceneCount} cảnh...`
+        : `Đang đọc kịch bản (${idea.length.toLocaleString('vi')} ký tự)...`)
       const { job_id } = await toolsApi.parseScriptStart({
         script: idea, scene_count: sceneCount, language, aspect_ratio: aspect, cast: castObjs,
+        mode: inputMode,
       })
       pushLog(`Đã khởi động phân tích (job ${job_id.slice(0, 8)})...`)
 
-      // Poll 3s/lần, log phase mới khi backend đổi note. Không có timeout FE — backend tự bảo vệ.
+      // ── Vòng poll: bắt characters SỚM (sau outline) rồi kick portraits song song. Tiếp tục poll expand ──
+      let portraitsLaunched = false
+      let portraitsDone: Promise<void> = Promise.resolve()
       let lastNote = ''
       let res: any = null
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        await new Promise(r => setTimeout(r, 3000))
+        await new Promise(r => setTimeout(r, 2500))
         let st
         try {
           st = await toolsApi.parseScriptStatus(job_id)
         } catch (e: any) {
-          // Lỗi mạng lẻ tẻ -> tiếp tục poll; 404/403 mới bỏ cuộc
           const code = e.response?.status
           if (code === 404 || code === 403) throw e
           pushLog(`⏳ Mạng chớp nháy, thử lại... (${secs()}s)`)
           continue
         }
+
+        // Bible SỚM -> vào step casting và kick portraits song song với expand.
+        if (!portraitsLaunched && st.characters && st.characters.length > 0) {
+          portraitsLaunched = true
+          const bc = st.characters
+          const cv = Object.fromEntries(bc.map((c: any) =>
+            [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
+          setBibleChars(bc)
+          setCharVoices(cv)
+          pushLog(`👥 Đã xác định ${bc.length} nhân vật — bắt đầu vẽ chân dung song song`)
+          setStep('casting')
+          portraitsDone = kickCastingPortraits(bc)
+        }
+
         if (st.status === 'running') {
-          const pct = st.total ? Math.round((st.done / st.total) * 100) : 0
-          const note = `${st.note || st.phase} · ${st.done}/${st.total} (${pct}%)`
+          const note = `${st.note || st.phase} · ${st.done}/${st.total}`
+          setScenePhase({ note: st.note || st.phase, done: st.done, total: st.total || 1 })
           if (note !== lastNote) {
             pushLog(`⏳ ${note} — ${secs()}s`)
             lastNote = note
@@ -297,86 +380,114 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         res = st.result
         break
       }
+
+      // Scenes xong -> đợi tất cả portrait xong luôn rồi vào review.
       const bc = res?.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) =>
-        [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
+      // Nếu outline không kịp bắn characters trước (kịch bản ngắn) -> kick tại đây.
+      if (!portraitsLaunched && bc.length > 0) {
+        setBibleChars(bc)
+        setStep('casting')
+        portraitsDone = kickCastingPortraits(bc)
+      }
       setPrompts(res?.prompts || [])
       setNarrations(res?.narrations || [])
       setScenes(res?.scenes || [])
-      setBibleChars(bc)
-      setCharVoices(cv)
       const n = (res?.scenes?.length || res?.prompts?.length || 0)
       if (!n) { setError(t('project.error_parse_script')); return }
-      pushLog(`✓ Đã bóc tách ${n} cảnh · ${bc.length} nhân vật (${secs()}s) — vui lòng chốt giọng`)
+      pushLog(`✓ Đã bóc tách ${n} cảnh (${secs()}s) — đợi vẽ chân dung xong...`)
+      await portraitsDone
+      pushLog(`✓ Đã tạo xong toàn bộ chân dung — vui lòng duyệt và chốt giọng`)
       setStep('review')
-      // Auto: vẽ model-sheet ngay khi vào review (chạy nền, không chặn UI). User vẫn chọn giọng bình thường.
-      // Skip nhân vật đã có trong thư viện (selectedChars) — họ đã có ảnh reference.
-      const needPortrait = bc.filter((c: any) => {
-        const nm = c.name || c.char_key
-        return nm && !selectedChars.has(nm)
-      })
-      if (needPortrait.length > 0) {
-        autoGeneratePortraits(needPortrait).catch((err: any) => {
-          pushLog(`✗ Vẽ chân dung tự động lỗi: ${err.message || 'không rõ'}`, 'error')
-        })
-      }
     } catch (e: any) {
       const msg = e.response?.data?.detail || e.message || 'không rõ'
       pushLog(`✗ Lỗi phân tích: ${msg}`, 'error')
       setError(e.response?.data?.detail || t('project.error_parse_script'))
+      setStep('setup')
     } finally {
       setLoadingPrompts(false)
     }
   }
 
-  // Dán Prompts
-  async function parsePromptsLocally(directCreate = true) {
-    if (!idea.trim()) { setError(t('project.paste_prompts_first')); return }
-    const lines = idea.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-    if (!lines.length) { setError(t('project.no_valid_prompt')); return }
-    
-    const n = lines.length
-    pushLog(`Đã đọc ${n} prompts`)
-    
-    if (directCreate) {
-        const cost = modelObjNew.cost * n
-    if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { return }
-    await createNew(true, { scenes: [], prompts: lines, narrations: new Array(n).fill(''), bible: [], charVoices: {} })
-      } else {
-        setPrompts(lines)
-        setNarrations(new Array(n).fill(''))
-        setScenes([])
-        setStep('review')
-      }
+  // ═══ Client-side detect input type ═══
+  // Không gọi AI — thuần heuristic. User luôn có thể override qua dropdown "Kiểu nội dung".
+  //  - Đính kèm ảnh -> storyboard (ưu tiên nhất)
+  //  - ≥3 dòng không rỗng + đa số > 30 ký tự + không có keyword kịch bản -> prompts
+  //  - Có keyword "Cảnh N:" / "Scene N:" / "HỒI ", "Nhân vật:", ":" tần suất cao -> script
+  //  - Ngắn (< 400 ký tự) + không có markup -> idea
+  //  - Mặc định (dài + có cấu trúc mờ) -> script (an toàn hơn: giữ nguyên văn)
+  function detectInputMode(text: string, hasFiles: boolean): InputMode {
+    if (hasFiles) return 'storyboard'
+    const t = text.trim()
+    if (!t) return 'idea'
+    const lines = t.split('\n').map(l => l.trim()).filter(Boolean)
+    const hasScriptMarker = /(^|\n)\s*(cảnh|scene|hồi|chương|nhân vật|lời thoại|dialogue)\s*\d*\s*:/i.test(t)
+    if (hasScriptMarker) return 'script'
+    if (lines.length >= 3) {
+      const longRatio = lines.filter(l => l.length > 30).length / lines.length
+      if (longRatio > 0.5) return 'prompts'
+    }
+    if (t.length < 400 && lines.length <= 3) return 'idea'
+    return 'script'   // dài + không rõ -> giả định là kịch bản (giữ nguyên văn)
   }
 
-  // Đọc storyboard
-  async function readStoryboard(directCreate = true) {
-    if (!sbFiles.length) { setError(t('project.select_storyboard_first')); return }
-    setError(''); setLoadingPrompts(true)
-    try {
-      const castObjs = chars.filter(c => selectedChars.has(c.name))
-      const res = await toolsApi.parseStoryboard(sbFiles, { scene_count: 0, language, aspect_ratio: aspect, style: style || undefined, cast: castObjs })
-      const bc = res.characters || []
-      const cv = Object.fromEntries(bc.map((c: any) => [c.name, charVoices[c.name] || charVoices['@' + c.name] || charVoices[c.name.replace('@', '')] || c.tts_voice || voice]))
-      setPrompts(res.prompts); setNarrations(res.narrations); setScenes(res.scenes || []); setBibleChars(bc); setCharVoices(cv)
-      const n = (res.scenes?.length || res.prompts?.length || 0)
-      pushLog(`Đã đọc storyboard ${n} cảnh`)
-      if (!n) { setError(t('project.storyboard_no_frames')); setLoadingPrompts(false); return }
-      if (directCreate) {
-        const cost = modelObjNew.cost * n
-        if (cost > 0 && !window.confirm(t('project.confirm_create', { n, cost }))) { setLoadingPrompts(false); return }
-        let extraCharMap = {}
-        if (bc && bc.length > 0) {
-          extraCharMap = await autoGeneratePortraits(bc) || {}
-        }
-        await createNew(true, { scenes: res.scenes || [], prompts: res.prompts || [], narrations: res.narrations || [], bible: bc, charVoices: cv, charIdsMap: extraCharMap })
-      } else {
-        setStep('review')
-        setLoadingPrompts(false)
-      }
-    } catch (e: any) { setError(e.response?.data?.detail || t('project.error_read_storyboard')); setLoadingPrompts(false) }
+  // Chuẩn hoá tên để match fuzzy: bỏ dấu, lowercase, gọn khoảng trắng, bỏ @ đầu.
+  // "Thạch Sanh" == "thach sanh" == "@ThachSanh" == "THẠCH  SANH "
+  function _normName(s: string): string {
+    return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/^@/, '').replace(/\s+/g, ' ').trim().toLowerCase()
   }
+
+  function findCharByFuzzyName(name: string) {
+    const target = _normName(name)
+    if (!target) return null
+    return chars.find(x => _normName(x.name) === target) || null
+  }
+
+  // Vẽ portrait song song 3 luồng, cập nhật từng card khi xong. Trả Promise resolve khi ALL xong.
+  async function kickCastingPortraits(bc: any[]): Promise<void> {
+    const cards: CastCard[] = bc.map((c: any) => {
+      const nm = c.name || c.char_key
+      const already = findCharByFuzzyName(nm)   // fuzzy: bỏ dấu + lowercase
+      if (already) return { name: nm, state: 'done', url: `/images/chars/${(already as any).image_file || ''}`, charId: already.id }
+      return { name: nm, state: 'pending' }
+    })
+    setCastCards(cards)
+    setGeneratingPortraits(true)
+
+    const idToDo = cards.map((c, i) => (c.state === 'done' ? -1 : i)).filter(i => i >= 0)
+    if (idToDo.length === 0) { setGeneratingPortraits(false); return }
+
+    const CONCURRENCY = 3
+    let cursor = 0
+    const nextIdx = () => { const v = cursor < idToDo.length ? idToDo[cursor] : -1; cursor += 1; return v }
+
+    async function worker() {
+      while (true) {
+        const i = nextIdx()
+        if (i < 0) return
+        const card = cards[i]
+        const bibleObj = bc[i]
+        setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'generating' } : c))
+        try {
+          const resp = await charactersApi.generateAIPortraitOne(bibleObj, false)
+          setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'done', url: resp.image_url, charId: resp.id } : c))
+          setCharIdsMap(m => ({ ...m, [card.name]: resp.id }))
+          pushLog(`🎨 Chân dung "${card.name}" xong`)
+        } catch (e: any) {
+          const msg = e.response?.data?.detail || e.message || 'lỗi'
+          setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'error', error: msg } : c))
+          pushLog(`✗ Chân dung "${card.name}": ${msg}`, 'error')
+        }
+      }
+    }
+    const workers = Array.from({ length: Math.min(CONCURRENCY, idToDo.length) }, () => worker())
+    await Promise.all(workers)
+    // Refresh cache thư viện chars để review step có thumb đúng.
+    try { setChars(await charactersApi.list()) } catch { /* ignore */ }
+    setGeneratingPortraits(false)
+  }
+
+  // (Các flow parsePromptsLocally / readStoryboard cũ đã được gộp vào runUnifiedPipeline.)
 
   function addScene() {
     setScenes(prev => [...prev, { beat: '', image: '', action: '', speaker: '', dialogue: '', prompt: '' }])
@@ -581,48 +692,86 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <input className="cmp-titlein" placeholder={t('project.project_name_placeholder')} value={name} onChange={e => setName(e.target.value)} />
               </div>
 
-              <div className="cmp-tabs" style={{ marginBottom: 14 }}>
-                <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}><Sparkles size={14} /> {t('project.mode_ai')}</button>
-                <button className={mode === 'manual' ? 'on' : ''} onClick={() => setMode('manual')}><PenLine size={14} /> {t('project.mode_manual')}</button>
-                <button className={mode === 'prompts' ? 'on' : ''} onClick={() => setMode('prompts')}><List size={14} /> {t('project.mode_prompts')}</button>
-                <button className={mode === 'storyboard' ? 'on' : ''} onClick={() => setMode('storyboard')}><Clapperboard size={14} /> {t('project.mode_storyboard')}</button>
-              </div>
+              {/* Khung nhập DUY NHẤT: idea | script | prompts | storyboard - AI tự phân loại */}
+              <div className="cmp-herowrap" style={{ position: 'relative' }}>
+                <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
+                <textarea className="cmp-hero" style={{ minHeight: 180 }} value={idea} onChange={e => setIdea(e.target.value)}
+                  placeholder={t('project.unified_placeholder')} />
 
-              {mode === 'storyboard' ? (
-                <div style={{ marginBottom: 4 }}>
-                  <label htmlFor="sb-input" style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    minHeight: 130, padding: '20px 16px', cursor: 'pointer', textAlign: 'center',
-                    border: '1.5px dashed var(--line, #2a2740)', borderRadius: 14, background: 'rgba(255,255,255,0.02)',
-                  }}>
-                    <Clapperboard size={26} style={{ color: 'var(--accent2)' }} />
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('project.storyboard_select')}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 420 }}>
-                      {t('project.storyboard_desc')}
-                    </div>
-                    <input id="sb-input" ref={sbFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }}
+                {/* Chip attach ảnh + chip nhân vật (Cách A) */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                  {/* Ảnh đính kèm (storyboard) */}
+                  {sbFiles.map((f, i) => (
+                    <span key={`sb-${i}`} className="cmp-chip" style={{ cursor: 'default', gap: 6 }}>
+                      {f.type === 'application/pdf' ? '📄' : '🖼️'} {f.name.length > 22 ? f.name.slice(0, 20) + '…' : f.name}
+                      <X size={13} style={{ cursor: 'pointer' }} onClick={() => setSbFiles(prev => prev.filter((_, j) => j !== i))} />
+                    </span>
+                  ))}
+                  {/* Nhân vật đã chọn */}
+                  {chars.filter(c => selectedChars.has(c.name)).map(c => (
+                    <span key={c.id} className="cmp-chip on" style={{ gap: 6 }}
+                      onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.delete(c.name); return n })}>
+                      <img src={c.image_url} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+                      @{c.name} <X size={13} />
+                    </span>
+                  ))}
+                </div>
+
+                {/* Nút bên dưới textarea: paperclip + nhân vật + auto-detect badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  {/* Đính kèm ảnh */}
+                  <label className="cmp-ghost" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px' }}>
+                    <Clapperboard size={14} /> {t('project.attach_images')}
+                    <input ref={sbFileRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }}
                       onChange={e => { const fs = Array.from(e.target.files || []); if (fs.length) setSbFiles(prev => [...prev, ...fs].slice(0, 10)); if (sbFileRef.current) sbFileRef.current.value = '' }} />
                   </label>
+                  {/* Nhân vật picker */}
+                  <button type="button" className="cmp-ghost" style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => setAddCharOpen(o => !o)}>
+                    <Users size={14} /> {t('project.characters_picker')}
+                    {selectedChars.size > 0 && <span style={{ background: 'var(--accent2)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{selectedChars.size}</span>}
+                  </button>
+                  {/* Auto-detect badge */}
+                  {idea.trim() && !sbFiles.length && (
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>
+                      🔍 {t('project.detected_as')}: <b style={{ color: 'var(--accent3)' }}>{
+                        detectInputMode(idea, sbFiles.length > 0) === 'idea' ? t('project.mode_idea')
+                        : detectInputMode(idea, sbFiles.length > 0) === 'script' ? t('project.mode_script')
+                        : detectInputMode(idea, sbFiles.length > 0) === 'prompts' ? t('project.mode_prompt_list')
+                        : t('project.mode_storyboard_short')
+                      }</b>
+                    </span>
+                  )}
                   {sbFiles.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                      {sbFiles.map((f, i) => (
-                        <span key={i} className="cmp-chip" style={{ cursor: 'default', gap: 6 }}>
-                          {f.type === 'application/pdf' ? '📄' : '🖼️'} {f.name.length > 22 ? f.name.slice(0, 20) + '…' : f.name}
-                          <X size={13} style={{ cursor: 'pointer' }} onClick={() => setSbFiles(prev => prev.filter((_, j) => j !== i))} />
-                        </span>
-                      ))}
-                    </div>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>
+                      🔍 {t('project.detected_as')}: <b style={{ color: 'var(--accent3)' }}>{t('project.mode_storyboard_short')}</b>
+                    </span>
                   )}
                 </div>
-              ) : (
-                <div className="cmp-herowrap">
-                  <svg className="cmp-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg>
-                  <textarea className="cmp-hero" style={{ minHeight: mode === 'manual' || mode === 'prompts' ? 160 : 96 }} value={idea} onChange={e => setIdea(e.target.value)}
-                    placeholder={mode === 'manual'
-                      ? t('project.placeholder_manual')
-                      : mode === 'prompts'
-                      ? t('project.placeholder_prompts')
-                      : t('project.placeholder_ai')} />
+              </div>
+
+              {/* Picker nhân vật — mở khi click nút nhân vật */}
+              {addCharOpen && (
+                <div style={{ marginTop: 12, padding: 14, background: 'var(--inset)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: chars.length > 0 ? 12 : 0 }}>
+                    {chars.map(c => (
+                      <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
+                        onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}>
+                        <img src={c.image_url} alt="" />@{c.name}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Upload thêm nhân vật mới */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', paddingTop: chars.length > 0 ? 12 : 0, borderTop: chars.length > 0 ? '1px dashed var(--border)' : 'none' }}>
+                    <input className="cmp-sel" placeholder={t('project.char_name_placeholder')} value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
+                    <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
+                      {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : t('project.select_photo')}
+                      <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
+                    </label>
+                    <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
+                      {addingChar ? <Loader2 size={13} className="spin" /> : t('project.save')}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -684,35 +833,6 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
 
-              {/* Nhân vật của dự án — giữ mặt */}
-              <div className="cmp-chiprow" style={{ marginBottom: 24 }}>
-                <span className="cmp-clab">{t('project.face_lock')}</span>
-                {chars.length === 0 && (
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('project.face_lock_hint')}</span>
-                )}
-                {chars.map(c => (
-                  <div key={c.id} className={selectedChars.has(c.name) ? 'cmp-chip on' : 'cmp-chip'}
-                    onClick={() => setSelectedChars(prev => { const n = new Set(prev); n.has(c.name) ? n.delete(c.name) : n.add(c.name); return n })}>
-                    <img src={c.image_url} alt="" />@{c.name}
-                  </div>
-                ))}
-                <div className="cmp-chip add" onClick={() => setAddCharOpen(o => !o)} title={t('project.face_lock_tooltip')}>
-                  {addCharOpen ? <><X size={13} /> {t('project.close')}</> : <><Plus size={13} /> {t('project.add_character')}</>}
-                </div>
-              </div>
-              {addCharOpen && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                  <input className="cmp-sel" placeholder={t('project.char_name_placeholder')} value={newCharName} onChange={e => setNewCharName(e.target.value)} style={{ flex: '0 0 160px' }} />
-                  <label className="cmp-ghost" style={{ cursor: 'pointer' }}>
-                    {newCharFile ? `📷 ${newCharFile.name.slice(0, 14)}` : t('project.select_photo')}
-                    <input ref={charFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setNewCharFile(e.target.files?.[0] || null)} />
-                  </label>
-                  <button type="button" className="cmp-cta" onClick={addCharacter} disabled={addingChar || !newCharName.trim() || !newCharFile} style={{ padding: '10px 16px' }}>
-                    {addingChar ? <Loader2 size={13} className="spin" /> : t('project.save')}
-                  </button>
-                </div>
-              )}
-
               {/* Âm thanh: chọn 1 trong 3 (component dùng chung) */}
               <div style={{ marginTop: 24 }}>
                 <AudioPicker value={audioMode} onChange={setAudioMode} />
@@ -745,29 +865,172 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               </div>
               <div style={{ flex: 1 }} />
               
-              {mode !== 'prompts' && mode !== 'manual' && (
-                <button className="cmp-ghost" style={{ marginRight: 8 }}
-                  onClick={() => {
-                    if (mode === 'storyboard') readStoryboard(false)
-                    else genPrompts(false)
-                  }}
-                  disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
-                  {t('project.review_script')}
-                </button>
-              )}
-
               <button className="cmp-cta"
                 onClick={() => {
-                  if (mode === 'storyboard') readStoryboard(true)
-                  else if (mode === 'manual') parseScript()
-                  else if (mode === 'prompts') parsePromptsLocally(true)
-                  else genPrompts(true)
+                  const detected = detectInputMode(idea, sbFiles.length > 0)
+                  runUnifiedPipeline(detected)
                 }}
-                disabled={loadingPrompts || creating || (mode === 'storyboard' ? sbFiles.length === 0 : !idea.trim())}>
+                disabled={loadingPrompts || creating || (!idea.trim() && sbFiles.length === 0)}>
                 {loadingPrompts || creating
-                  ? <><Loader2 size={14} className="spin" /> {mode === 'storyboard' ? t('project.reading_storyboard') : mode === 'manual' ? t('project.analyzing_creating') : t('project.creating')}</>
-                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {mode === 'storyboard' ? t('project.cta_storyboard') : mode === 'manual' ? t('project.cta_manual') : mode === 'prompts' ? t('project.cta_prompts') : t('project.cta_ai')}</>}
+                  ? <><Loader2 size={14} className="spin" /> {t('project.analyzing_creating')}</>
+                  : <><svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z" /></svg> {t('project.cta_unified')}</>}
               </button>
+            </div>
+          </>)}
+
+          {/* ─── BƯỚC 1.5: ĐANG TẠO NHÂN VẬT (grid card + phân tích cảnh song song) ─── */}
+          {step === 'casting' && (<>
+            <div className="cmp-body">
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>🎬 Đang tuyển vai</div>
+                <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+                  AI đang vẽ chân dung {castCards.length} nhân vật &amp; chia nhỏ kịch bản song song
+                </div>
+              </div>
+
+              {/* Grid nhân vật */}
+              <div style={{
+                display: 'grid', gap: 14,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                marginBottom: 22,
+              }}>
+                {castCards.map((c, i) => (
+                  <div key={i} className="cast-card" style={{
+                    borderRadius: 14, overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                    background: 'var(--inset)',
+                    position: 'relative',
+                    aspectRatio: '3 / 4',
+                    transition: 'transform .3s, box-shadow .3s',
+                    transform: c.state === 'done' ? 'scale(1)' : 'scale(.98)',
+                    boxShadow: c.state === 'done' ? '0 4px 24px rgba(249,115,22,0.14)' : 'none',
+                  }}>
+                    {/* Ảnh khi done */}
+                    {c.state === 'done' && c.url && (
+                      <img src={c.url} alt={c.name}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
+                    {/* Shimmer khi generating */}
+                    {c.state === 'generating' && (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'linear-gradient(115deg, rgba(249,115,22,.10), rgba(236,72,153,.14) 50%, rgba(168,85,247,.10))',
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmerBg 1.4s linear infinite',
+                      }}>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Loader2 size={28} className="spin" style={{ color: 'var(--accent2)' }} />
+                        </div>
+                      </div>
+                    )}
+                    {/* Pending — dot chờ */}
+                    {c.state === 'pending' && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text3)' }}>
+                        · chờ tới lượt ·
+                      </div>
+                    )}
+                    {/* Error */}
+                    {c.state === 'error' && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column', gap: 6, padding: 12, fontSize: 11, color: 'var(--red)', textAlign: 'center' }}>
+                        <X size={22} />
+                        <span>{c.error || 'Lỗi vẽ'}</span>
+                      </div>
+                    )}
+                    {/* Overlay hover: nút hành động (Cách C) — show khi done hoặc error */}
+                    {(c.state === 'done' || c.state === 'error') && (
+                      <div className="cast-hover" style={{
+                        position: 'absolute', inset: 0,
+                        background: 'rgba(0,0,0,.55)',
+                        opacity: 0, transition: 'opacity .2s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        padding: 12,
+                      }}>
+                        <button type="button" className="cmp-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 5 }}
+                          onClick={() => setSwapPickerIdx(swapPickerIdx === i ? null : i)}>
+                          <Users size={12} /> {t('project.use_existing_image')}
+                        </button>
+                        <button type="button" className="cmp-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 5 }}
+                          onClick={() => {
+                            const bibleObj = bibleChars[i]
+                            if (bibleObj) reGenerateCastCard(i, bibleObj)
+                          }}>
+                          <Sparkles size={12} /> {t('project.regenerate')}
+                        </button>
+                      </div>
+                    )}
+                    {/* Picker library — mở khi bấm Dùng ảnh có sẵn */}
+                    {swapPickerIdx === i && (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'rgba(0,0,0,.92)',
+                        padding: 10,
+                        overflowY: 'auto',
+                        zIndex: 2,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, color: '#fff', fontWeight: 600 }}>{t('project.pick_from_library')}</span>
+                          <X size={16} style={{ cursor: 'pointer', color: '#fff' }} onClick={() => setSwapPickerIdx(null)} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                          {chars.map(lib => (
+                            <div key={lib.id} style={{ cursor: 'pointer', borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,.15)' }}
+                              onClick={() => swapCastCardFromLibrary(i, lib.id)}>
+                              <img src={lib.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                              <div style={{ padding: '3px 6px', fontSize: 10, color: '#fff', background: 'rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{lib.name}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <label className="cmp-ghost" style={{ marginTop: 8, cursor: 'pointer', fontSize: 11, padding: '6px 10px', display: 'flex', justifyContent: 'center', gap: 5 }}>
+                          <Plus size={12} /> {t('project.upload_new')}
+                          <input ref={swapUploadRef} type="file" accept="image/*" style={{ display: 'none' }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) swapCastCardFromUpload(i, f); if (swapUploadRef.current) swapUploadRef.current.value = '' }} />
+                        </label>
+                      </div>
+                    )}
+                    {/* Overlay tên + trạng thái */}
+                    <div style={{
+                      position: 'absolute', left: 0, right: 0, bottom: 0,
+                      padding: '10px 12px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,.75), transparent)',
+                      color: '#fff',
+                      pointerEvents: 'none',
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>{c.name}</div>
+                      <div style={{ fontSize: 10.5, opacity: .8 }}>
+                        {c.state === 'done' && '✓ Xong'}
+                        {c.state === 'generating' && '⏳ Đang vẽ...'}
+                        {c.state === 'pending' && '· chờ'}
+                        {c.state === 'error' && '✗ Lỗi'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Trạng thái phân tích cảnh */}
+              <div style={{
+                padding: '14px 16px', borderRadius: 12,
+                background: 'var(--inset)', border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <Loader2 size={16} className="spin" style={{ color: 'var(--accent3)', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                    📽️ Chia nhỏ kịch bản
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+                    {scenePhase.note || 'Đang khởi động...'}
+                  </div>
+                </div>
+                <div style={{ minWidth: 60, textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'var(--accent3)' }}>
+                  {scenePhase.total ? Math.round((scenePhase.done / scenePhase.total) * 100) : 0}%
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16, fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>
+                Chờ chút — khi tất cả xong sẽ tự chuyển qua bước duyệt & chốt giọng.
+              </div>
             </div>
           </>)}
 
@@ -954,8 +1217,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   ? t('project.confirm_create_free', { n })
                   : t('project.confirm_create_paid', { n, cost: reviewCost })
                 if (!window.confirm(msg)) return
-                // Tạo model-sheet cho nhân vật CHƯA có ảnh (bible mới từ parse-script / genPrompts).
-                // Skip nhân vật đã chọn từ thư viện — họ đã có ảnh reference.
+                // Vá sót: nhân vật nào lỡ fail ở step casting -> retry lần chót trước khi tạo project.
                 const needPortrait = bibleChars.filter((c: any) => {
                   const nm = c.name || c.char_key
                   return nm && !charIdsMap[nm] && !selectedChars.has(nm)
