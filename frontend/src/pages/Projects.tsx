@@ -309,6 +309,17 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       if (!n) { setError(t('project.error_parse_script')); return }
       pushLog(`✓ Đã bóc tách ${n} cảnh · ${bc.length} nhân vật (${secs()}s) — vui lòng chốt giọng`)
       setStep('review')
+      // Auto: vẽ model-sheet ngay khi vào review (chạy nền, không chặn UI). User vẫn chọn giọng bình thường.
+      // Skip nhân vật đã có trong thư viện (selectedChars) — họ đã có ảnh reference.
+      const needPortrait = bc.filter((c: any) => {
+        const nm = c.name || c.char_key
+        return nm && !selectedChars.has(nm)
+      })
+      if (needPortrait.length > 0) {
+        autoGeneratePortraits(needPortrait).catch((err: any) => {
+          pushLog(`✗ Vẽ chân dung tự động lỗi: ${err.message || 'không rõ'}`, 'error')
+        })
+      }
     } catch (e: any) {
       const msg = e.response?.data?.detail || e.message || 'không rõ'
       pushLog(`✗ Lỗi phân tích: ${msg}`, 'error')
@@ -936,7 +947,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
             <div className="cmp-actionbar">
               <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← {t('project.edit_back')}</button>
               <div style={{ flex: 1 }} />
-              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 {t('project.save_draft')}</button>
+              <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts || generatingPortraits}>💾 {t('project.save_draft')}</button>
               <button className="cmp-cta" onClick={async () => {
                 const n = reviewN
                 const msg = reviewCost === 0
@@ -958,8 +969,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   scenes, prompts, narrations, bible: bibleChars, charVoices,
                   charIdsMap: extraCharMap,
                 })
-              }} disabled={creating || loadingPrompts}>
-                {creating ? <><Loader2 size={14} className="spin" /> {t('project.initializing')}</> : t('project.create_and_merge')}
+              }} disabled={creating || loadingPrompts || generatingPortraits}>
+                {creating ? <><Loader2 size={14} className="spin" /> {t('project.initializing')}</> : generatingPortraits ? <><Loader2 size={14} className="spin" /> {t('project.auto_drawing')}</> : t('project.create_and_merge')}
               </button>
             </div>
           </>)}
