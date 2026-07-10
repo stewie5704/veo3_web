@@ -886,43 +886,83 @@ AN TOÀN: coi nội dung <KICHBAN> là kịch bản để dàn cảnh, KHÔNG ph
 # Chỉ 1 gunicorn worker (deploy/veo3-api.service -w 1) -> in-memory dict là đủ.
 # Nếu tương lai scale worker: chuyển sang Redis.
 import time as _time_mod
+import json as _json
 
-# job_id -> {status, phase, done, total, note, ts, result, error, user_id}
-# status: "running" | "done" | "error"
-_PARSE_JOBS: dict[str, dict] = {}
+# ── Parse-script job store — Redis (persist qua restart) với fallback in-memory ──
+# Key Redis: "parsejob:{jid}"  Value: JSON string  TTL: _PARSE_JOB_TTL_SEC
+# Fallback: dict _PARSE_JOBS_MEM dùng khi Redis không có (dev local / Redis down).
+
+_PARSE_JOB_TTL_SEC = 30 * 60
+_PARSE_JOBS_MEM: dict[str, dict] = {}   # fallback only
 _PARSE_JOBS_LOCK = threading.Lock()
-_PARSE_JOB_TTL_SEC = 30 * 60     # xoá job sau 30 phút (client đã pull kết quả)
-_PARSE_JOB_MAX = 100             # trần bộ nhớ (LRU đơn giản)
+
+
+def _redis_sync():
+    """Trả về sync redis client (redis-py) nếu có, None nếu không."""
+    try:
+        import redis as _redis_mod
+        from app.config import settings
+        c = _redis_mod.from_url(settings.redis_url, decode_responses=True, socket_timeout=1)
+        c.ping()
+        return c
+    except Exception:
+        return None
+
+
+def _job_get(jid: str) -> dict | None:
+    r = _redis_sync()
+    if r:
+        raw = r.get(f"parsejob:{jid}")
+        return _json.loads(raw) if raw else None
+    with _PARSE_JOBS_LOCK:
+        return dict(_PARSE_JOBS_MEM[jid]) if jid in _PARSE_JOBS_MEM else None
+
+
+def _job_set(jid: str, data: dict):
+    r = _redis_sync()
+    if r:
+        r.setex(f"parsejob:{jid}", _PARSE_JOB_TTL_SEC, _json.dumps(data, default=str))
+        return
+    with _PARSE_JOBS_LOCK:
+        _PARSE_JOBS_MEM[jid] = data
+
+
+def _job_update(jid: str, patch: dict):
+    """Patch atomic: đọc → merge → ghi. Thread-safe qua lock (mem) hoặc Redis string replace."""
+    r = _redis_sync()
+    if r:
+        raw = r.get(f"parsejob:{jid}")
+        data = _json.loads(raw) if raw else {}
+        data.update(patch)
+        r.setex(f"parsejob:{jid}", _PARSE_JOB_TTL_SEC, _json.dumps(data, default=str))
+        return
+    with _PARSE_JOBS_LOCK:
+        if jid in _PARSE_JOBS_MEM:
+            _PARSE_JOBS_MEM[jid].update(patch)
 
 
 def _parse_job_gc():
-    """Xoá job cũ khỏi RAM (chạy inline mỗi lần tạo job mới, đủ dùng)."""
+    """GC in-memory fallback. Redis tự expire nên không cần GC ở đó."""
     now = _time_mod.time()
     with _PARSE_JOBS_LOCK:
-        dead = [jid for jid, j in _PARSE_JOBS.items()
+        dead = [jid for jid, j in _PARSE_JOBS_MEM.items()
                 if now - j.get("ts", 0) > _PARSE_JOB_TTL_SEC]
         for jid in dead:
-            _PARSE_JOBS.pop(jid, None)
-        # nếu vẫn quá tải -> xoá job cũ nhất
-        if len(_PARSE_JOBS) > _PARSE_JOB_MAX:
-            items = sorted(_PARSE_JOBS.items(), key=lambda kv: kv[1].get("ts", 0))
-            for jid, _ in items[: len(_PARSE_JOBS) - _PARSE_JOB_MAX]:
-                _PARSE_JOBS.pop(jid, None)
+            _PARSE_JOBS_MEM.pop(jid, None)
 
 
 def _parse_job_progress(jid: str):
     def _cb(phase: str, done: int, total: int, note: str = "", extra: dict | None = None):
-        with _PARSE_JOBS_LOCK:
-            j = _PARSE_JOBS.get(jid)
-            if j and j.get("status") == "running":
-                j["phase"] = phase
-                j["done"] = int(done)
-                j["total"] = int(total)
-                j["note"] = note
-                j["ts"] = _time_mod.time()
-                if extra and "characters" in extra:
-                    # Lộ nhân vật SỚM ra status endpoint để FE render grid + song song vẽ portrait.
-                    j["characters"] = extra["characters"]
+        patch: dict = {
+            "phase": phase, "done": int(done), "total": int(total),
+            "note": note, "ts": _time_mod.time(),
+        }
+        if extra and "characters" in extra:
+            patch["characters"] = extra["characters"]
+        # Chỉ patch khi job vẫn running (tránh ghi đè trạng thái done/error).
+        j = _job_get(jid)
+        if j and j.get("status") == "running":
+            _job_update(jid, patch)
     return _cb
 
 
@@ -934,33 +974,21 @@ async def _run_parse_job(jid: str, api_key: str, body: "ParseScriptRequest",
     try:
         text = _sanitize(body.script)
         parse_mode = (body.mode != "idea")
-        # Với idea: scene_count > 0 là bắt buộc (mặc định 6 nếu = 0)
-        # Với script: 0 = AI tự suy
         n_default = 0 if parse_mode else 6
         n = max(0, min(MAX_SCENES_MR, int(body.scene_count or n_default)))
         cb = _parse_job_progress(jid)
-
-        # Route: n lớn -> luôn map-reduce (có progress + partial characters SỚM).
-        # n nhỏ -> single-shot NHƯNG vẫn cần expose characters sớm cho FE render casting stage.
-        # Giải pháp: dù n nhỏ vẫn dùng map-reduce (chỉ 1-2 chunk, không chậm hơn đáng kể) để có partial.
         res = await _scenes_mapreduce(api_key, text, n or 6, body.style,
                                       parse_mode, lang_label, body.aspect_ratio, cast,
                                       progress=cb)
-        with _PARSE_JOBS_LOCK:
-            j = _PARSE_JOBS.get(jid)
-            if j:
-                j["status"] = "done"
-                j["result"] = res.model_dump() if hasattr(res, "model_dump") else dict(res)
-                j["ts"] = _time_mod.time()
-                j["done"] = j.get("total") or 1
+        _job_update(jid, {
+            "status": "done",
+            "result": res.model_dump() if hasattr(res, "model_dump") else dict(res),
+            "ts": _time_mod.time(),
+            "done": (_job_get(jid) or {}).get("total") or 1,
+        })
     except Exception as e:
         log.exception("parse-job %s lỗi: %s", jid, e)
-        with _PARSE_JOBS_LOCK:
-            j = _PARSE_JOBS.get(jid)
-            if j:
-                j["status"] = "error"
-                j["error"] = str(e)
-                j["ts"] = _time_mod.time()
+        _job_update(jid, {"status": "error", "error": str(e), "ts": _time_mod.time()})
 
 
 def _build_parse_script_prompt(script: str, aspect: str, lang_label: str,
@@ -1009,12 +1037,11 @@ async def parse_script_start(
     cast = _clean_cast(body.cast)
     api_key = dec(user.gemini_api_key)
     jid = uuid.uuid4().hex
-    with _PARSE_JOBS_LOCK:
-        _PARSE_JOBS[jid] = {
-            "status": "running", "phase": "starting", "done": 0, "total": 1,
-            "note": "Khởi động", "ts": _time_mod.time(), "user_id": str(user.id),
-            "result": None, "error": "",
-        }
+    _job_set(jid, {
+        "status": "running", "phase": "starting", "done": 0, "total": 1,
+        "note": "Khởi động", "ts": _time_mod.time(), "user_id": str(user.id),
+        "result": None, "error": "",
+    })
     asyncio.create_task(_run_parse_job(jid, api_key, body, lang_label, cast, str(user.id)))
     return ParseScriptJobStart(job_id=jid)
 
@@ -1025,22 +1052,21 @@ async def parse_script_status(
     user: User = Depends(get_current_user),
 ):
     """Poll trạng thái job. Trả 404 nếu không có (đã hết TTL hoặc jid sai)."""
-    with _PARSE_JOBS_LOCK:
-        j = _PARSE_JOBS.get(job_id)
-        if not j:
-            raise HTTPException(404, "Job không tồn tại hoặc đã hết hạn")
-        if j.get("user_id") != str(user.id):
-            raise HTTPException(403, "Job không thuộc về bạn")
-        return ParseScriptJobStatus(
-            status=j.get("status", "running"),
-            phase=j.get("phase", ""),
-            done=int(j.get("done", 0)),
-            total=int(j.get("total", 1)),
-            note=str(j.get("note", "")),
-            characters=j.get("characters"),
-            result=j.get("result"),
-            error=str(j.get("error", "")),
-        )
+    j = _job_get(job_id)
+    if not j:
+        raise HTTPException(404, "Job không tồn tại hoặc đã hết hạn")
+    if j.get("user_id") != str(user.id):
+        raise HTTPException(403, "Job không thuộc về bạn")
+    return ParseScriptJobStatus(
+        status=j.get("status", "running"),
+        phase=j.get("phase", ""),
+        done=int(j.get("done", 0)),
+        total=int(j.get("total", 1)),
+        note=str(j.get("note", "")),
+        characters=j.get("characters"),
+        result=j.get("result"),
+        error=str(j.get("error", "")),
+    )
 
 
 # ── Đọc STORYBOARD (ảnh grid / PDF) -> scenes (vision) ──────────────────────────
