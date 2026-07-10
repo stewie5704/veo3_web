@@ -239,7 +239,10 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
         keys = [k.strip() for k in re.split(r'[\r\n,]+', gemini_key) if k.strip()]
         random.shuffle(keys)
         cfg = {"response_mime_type": "application/json", "max_output_tokens": max_tokens}
-        ropts = {"timeout": 20}
+        # Timeout scale theo max_tokens: 65536 token outline cần ~120s, small call giữ 20s.
+        # max_tokens // 400 ≈ thời gian stream ở ~400 tok/s (Gemini Flash thường nhanh hơn).
+        timeout_s = max(30, min(300, max_tokens // 400))
+        ropts = {"timeout": timeout_s}
         last = None
         quota_hit = False
         
