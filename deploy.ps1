@@ -35,7 +35,8 @@ if ($LASTEXITCODE -ne 0) { Write-Host "[X] PUSH THAT BAI - dung lai." -Foregroun
 
 # Lenh chay tren VPS
 $frontend = if ($BackendOnly) { "echo '(bo qua frontend)'" } else {
-  "cd ../frontend && npm ci --silent && npm run build && sudo chown -R www-data:www-data dist"
+  # --include=dev: ep cai devDependencies (typescript/vite) - VPS co NODE_ENV=production nen mac dinh bo qua devDeps
+  "cd ../frontend && npm ci --include=dev --silent && npm run build && sudo chown -R www-data:www-data dist"
 }
 $remote = @"
 set -e
