@@ -836,8 +836,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
           <div className="page-title">{project.name}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="badge badge-done">{t('scene.scene_badge', { done: doneCount, total: totalCount })}</span>
-          {multiPart && <span className="badge" style={{ background: 'rgba(168,85,247,0.14)', color: 'var(--accent3)' }}>{t('scene.parts_badge', { count: partNums.length })}</span>}
+          <span className="badge badge-done">{doneCount}/{totalCount} {t('scene.done_short')}</span>
+          {multiPart && <span className="badge" style={{ background: 'rgba(168,85,247,0.14)', color: 'var(--accent3)' }}>{partNums.length} {t('scene.parts_short')}</span>}
           <div className="progress-bar" style={{ width: 100 }}>
             <div className="progress-fill" style={{ width: `${totalCount ? (doneCount / totalCount) * 100 : 0}%` }} />
           </div>
@@ -996,11 +996,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         }}>
           <AlertCircle size={16} style={{ color: 'var(--yellow)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 220, fontSize: 12.5, lineHeight: 1.55 }}>
-            <b style={{ color: 'var(--yellow)' }}>{t('scene.missing_portraits_title')}</b> — {t('scene.missing_portraits_desc')}
+            <b style={{ color: 'var(--yellow)' }}>{t('scene.missing_portraits_title')}</b> — {t('scene.missing_portraits_desc', { count: bibleCount })}
           </div>
           {user?.google_connected ? (
             <button className="btn btn-primary btn-sm" onClick={doGenPortraits} disabled={genningPortraits}>
-              {genningPortraits ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.generating')}</> : <><ImagePlus size={13} /> {t('scene.gen_portraits_btn')}</>}
+              {genningPortraits ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('scene.generating')}</> : <><ImagePlus size={13} /> {t('scene.gen_portraits_btn', { count: bibleCount })}</>}
             </button>
           ) : (
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('scene.connect_google_for_portraits')}</span>
@@ -1106,7 +1106,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent2)' }}>📖 {t('scene.part_num', { part: selectedPart })}</span>
-                      <span className="badge badge-done">{t('scene.scene_badge', { done, total: ps.length })}</span>
+                      <span className="badge badge-done">{done}/{ps.length} {t('scene.done_short')}</span>
                       {ps.some(s => s.status === 'failed') && (
                         <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
                           onClick={() => doRerenderBatch(selectedPart, true)}

@@ -937,13 +937,27 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
               <button className="cmp-ghost" onClick={() => setStep('setup')} disabled={creating}>← {t('project.edit_back')}</button>
               <div style={{ flex: 1 }} />
               <button className="cmp-ghost" onClick={() => createNew(false)} disabled={creating || loadingPrompts}>💾 {t('project.save_draft')}</button>
-              <button className="cmp-cta" onClick={() => {
+              <button className="cmp-cta" onClick={async () => {
                 const n = reviewN
                 const msg = reviewCost === 0
                   ? t('project.confirm_create_free', { n })
                   : t('project.confirm_create_paid', { n, cost: reviewCost })
                 if (!window.confirm(msg)) return
-                createNew(true)
+                // Tạo model-sheet cho nhân vật CHƯA có ảnh (bible mới từ parse-script / genPrompts).
+                // Skip nhân vật đã chọn từ thư viện — họ đã có ảnh reference.
+                const needPortrait = bibleChars.filter((c: any) => {
+                  const nm = c.name || c.char_key
+                  return nm && !charIdsMap[nm] && !selectedChars.has(nm)
+                })
+                let extraCharMap: Record<string, string> = { ...charIdsMap }
+                if (needPortrait.length > 0) {
+                  const generated = await autoGeneratePortraits(needPortrait) || {}
+                  extraCharMap = { ...extraCharMap, ...generated }
+                }
+                createNew(true, {
+                  scenes, prompts, narrations, bible: bibleChars, charVoices,
+                  charIdsMap: extraCharMap,
+                })
               }} disabled={creating || loadingPrompts}>
                 {creating ? <><Loader2 size={14} className="spin" /> {t('project.initializing')}</> : t('project.create_and_merge')}
               </button>

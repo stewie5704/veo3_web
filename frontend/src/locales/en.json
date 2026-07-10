@@ -715,6 +715,8 @@
   "tools.log_downloading": "Downloading {{url}}...",
   "tools.log_download_done": "Downloaded: {{filename}}",
   "scene.add_failed": "Failed to add scene",
+  "scene.done_short": "scenes",
+  "scene.parts_short": "parts",
   "scene.add_script": "Add script",
   "scene.add_script_for_part": "Add script for this part",
   "scene.add_script_tooltip": "Add script",

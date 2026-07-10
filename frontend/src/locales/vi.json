@@ -840,6 +840,8 @@
   "tools.log_downloading": "Đang tải {{url}}...",
   "tools.log_download_done": "Tải xong: {{filename}}",
   "scene.add_failed": "Thêm cảnh thất bại",
+  "scene.done_short": "cảnh",
+  "scene.parts_short": "phần",
   "scene.add_script": "Thêm kịch bản",
   "scene.add_script_for_part": "Thêm kịch bản cho phần này",
   "scene.add_script_tooltip": "Thêm kịch bản",
