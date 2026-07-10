@@ -333,6 +333,11 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         mode: inputMode,
       })
       pushLog(`Đã khởi động phân tích (job ${job_id.slice(0, 8)})...`)
+      // Chuyển casting NGAY — hiện skeleton "đang phân tích..." trước khi có characters.
+      // Cards sẽ được điền khi outline xong.
+      setCastCards([])   // rỗng = hiện skeleton chờ
+      setScenePhase({ note: 'Đang phân tích...', done: 0, total: 1 })
+      setStep('casting')
 
       // ── Vòng poll: bắt characters SỚM (sau outline) rồi kick portraits song song. Tiếp tục poll expand ──
       let portraitsLaunched = false
@@ -888,13 +893,24 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
 
-              {/* Grid nhân vật */}
+              {/* Grid nhân vật — skeleton khi chưa có characters, cards thật khi outline xong */}
               <div style={{
                 display: 'grid', gap: 14,
                 gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                 marginBottom: 22,
               }}>
-                {castCards.map((c, i) => (
+                {castCards.length === 0 ? (
+                  // Skeleton: 4 card chờ outline xong
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={`sk-${i}`} style={{
+                      borderRadius: 14, aspectRatio: '3 / 4',
+                      background: 'var(--inset)', border: '1px solid var(--border)',
+                      backgroundImage: 'linear-gradient(115deg, rgba(255,255,255,.03) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.03) 75%)',
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmerBg 1.6s linear infinite',
+                    }} />
+                  ))
+                ) : castCards.map((c, i) => (
                   <div key={i} className="cast-card" style={{
                     borderRadius: 14, overflow: 'hidden',
                     border: '1px solid var(--border)',
