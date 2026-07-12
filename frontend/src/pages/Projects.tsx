@@ -671,7 +671,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   }
 
   return (
-    <div style={{ maxWidth: tab === 'sell' ? '100%' : 760, margin: '0 auto' }}>
+    <div style={{ maxWidth: tab === 'sell' ? '100%' : 1120, margin: '0 auto' }}>
       <div className="fx-grain" aria-hidden="true" />
       {/* Overlay đã tắt */}
       {/* Header — chế độ chọn ở sidebar (mục con của "Tạo video") */}
