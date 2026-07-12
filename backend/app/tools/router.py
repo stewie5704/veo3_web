@@ -961,7 +961,16 @@ def _parse_job_progress(jid: str):
             "note": note, "ts": _time_mod.time(),
         }
         if extra and "characters" in extra:
-            patch["characters"] = extra["characters"]
+            # CharacterBible là Pydantic model -> phải model_dump() trước khi lưu Redis,
+            # không thì json.dumps(default=str) sẽ str() thành chuỗi và
+            # ParseScriptJobStatus.characters (list[dict]) validate fail -> 500.
+            chars = extra["characters"] or []
+            patch["characters"] = [
+                c.model_dump() if hasattr(c, "model_dump")
+                else (dict(c) if isinstance(c, dict) else None)
+                for c in chars
+            ]
+            patch["characters"] = [c for c in patch["characters"] if c]
         # Chỉ patch khi job vẫn running (tránh ghi đè trạng thái done/error).
         j = _job_get(jid)
         if j and j.get("status") == "running":
