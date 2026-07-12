@@ -1091,19 +1091,27 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     const cName = c.name || c.char_key
                     const cId = charIdsMap[cName] || (selectedChars.has(cName) ? chars.find(x => x.name === cName)?.id : '')
                     const cVoice = charVoices[cName] || c.tts_voice || voice
+                    // Ảnh model-sheet: ưu tiên record trong `chars` (theo cId), fallback sang
+                    // castCards.url đã vẽ ở bước casting — vẫn hiện khi list chars chưa refresh kịp.
+                    const castCard = castCards.find(cc => cc.name === cName)
+                    const imgUrl = (cId && chars.find(x => x.id === cId)?.image_url) || castCard?.url || ''
                     return (
                       <div key={cName} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 10, borderBottom: '1px dashed var(--border)' }}>
                         <div style={{ minWidth: 100, fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</div>
-                        
-                        {cId && chars.find(x => x.id === cId)?.image_url && (
-                          <div style={{ height: 160, minWidth: 90, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--inset)', flexShrink: 0 }}>
-                            <img 
-                              src={chars.find(x => x.id === cId)?.image_url} 
-                              alt={cName} 
-                              style={{ height: '100%', width: 'auto', display: 'block' }} 
+
+                        <div style={{ height: 160, width: 90, borderRadius: 8, overflow: 'hidden', border: imgUrl ? '1px solid var(--border)' : '1px dashed var(--border)', background: 'var(--inset)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {imgUrl ? (
+                            <img
+                              src={imgUrl}
+                              alt={cName}
+                              style={{ height: '100%', width: 'auto', display: 'block' }}
                             />
-                          </div>
-                        )}
+                          ) : (
+                            <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: 6, lineHeight: 1.35 }}>
+                              {generatingPortraits ? '⏳ đang vẽ…' : 'chưa có ảnh'}
+                            </span>
+                          )}
+                        </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <div className="selwrap" style={{ width: 160 }}>
