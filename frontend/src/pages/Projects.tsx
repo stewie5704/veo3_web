@@ -476,11 +476,12 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         const card = cards[i]
         const bibleObj = bc[i]
         setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'generating' } : c))
+        pushLog(`🎨 Đang vẽ chân dung "${card.name}"...`)
         try {
           const resp = await charactersApi.generateAIPortraitOne(bibleObj, false)
           setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'done', url: resp.image_url, charId: resp.id } : c))
           setCharIdsMap(m => ({ ...m, [card.name]: resp.id }))
-          pushLog(`🎨 Chân dung "${card.name}" xong`)
+          pushLog(`✓ Chân dung "${card.name}" xong`)
         } catch (e: any) {
           const msg = e.response?.data?.detail || e.message || 'lỗi'
           setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'error', error: msg } : c))
@@ -937,15 +938,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                         backgroundSize: '200% 100%',
                         animation: 'shimmerBg 1.4s linear infinite',
                       }}>
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Loader2 size={28} className="spin" style={{ color: 'var(--accent2)' }} />
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 14, textAlign: 'center' }}>
+                          <Loader2 size={30} className="spin" style={{ color: 'var(--accent2)' }} />
+                          <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700 }}>Đang vẽ</div>
+                          <div style={{ fontSize: 15, color: '#fff', fontWeight: 700, lineHeight: 1.25 }}>{c.name}</div>
                         </div>
                       </div>
                     )}
                     {/* Pending — dot chờ */}
                     {c.state === 'pending' && (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text3)' }}>
-                        · chờ tới lượt ·
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, textAlign: 'center' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{c.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>· chờ tới lượt ·</div>
                       </div>
                     )}
                     {/* Error */}
@@ -1086,7 +1090,10 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   🎭 {t('project.char_list_title')}
                   {generatingPortraits && <span style={{ marginLeft: 8, color: 'var(--accent3)' }}><Loader2 size={10} className="spin" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}/> {t('project.auto_drawing')}</span>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{
+                  display: 'grid', gap: 12,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                }}>
                   {bibleChars.map((c: any) => {
                     const cName = c.name || c.char_key
                     const cId = charIdsMap[cName] || (selectedChars.has(cName) ? chars.find(x => x.name === cName)?.id : '')
@@ -1096,26 +1103,32 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                     const castCard = castCards.find(cc => cc.name === cName)
                     const imgUrl = (cId && chars.find(x => x.id === cId)?.image_url) || castCard?.url || ''
                     return (
-                      <div key={cName} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 10, borderBottom: '1px dashed var(--border)' }}>
-                        <div style={{ minWidth: 100, fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>{cName}</div>
-
-                        <div style={{ height: 160, width: 90, borderRadius: 8, overflow: 'hidden', border: imgUrl ? '1px solid var(--border)' : '1px dashed var(--border)', background: 'var(--inset)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div key={cName} style={{
+                        display: 'flex', flexDirection: 'column',
+                        background: 'var(--bg3)', border: '1px solid var(--border)',
+                        borderRadius: 10, overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: '100%', aspectRatio: '4 / 3',
+                          background: 'var(--inset)', overflow: 'hidden',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          borderBottom: '1px solid var(--border)',
+                        }}>
                           {imgUrl ? (
-                            <img
-                              src={imgUrl}
-                              alt={cName}
-                              style={{ height: '100%', width: 'auto', display: 'block' }}
-                            />
+                            <img src={imgUrl} alt={cName}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           ) : (
-                            <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: 6, lineHeight: 1.35 }}>
-                              {generatingPortraits ? '⏳ đang vẽ…' : 'chưa có ảnh'}
+                            <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: 8, lineHeight: 1.35 }}>
+                              {generatingPortraits ? '⏳ đang vẽ…' : '— chưa có ảnh —'}
                             </span>
                           )}
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div className="selwrap" style={{ width: 160 }}>
-                            <select className="cmp-sel" value={cId || ''} onChange={e => {
+                        <div style={{ padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cName}>{cName}</div>
+
+                          <div className="selwrap" style={{ width: '100%' }}>
+                            <select className="cmp-sel" style={{ fontSize: 12, height: 30 }} value={cId || ''} onChange={e => {
                               const val = e.target.value
                               if (val === 'UPLOAD') {
                                 document.getElementById(`char-upload-${cName}`)?.click()
@@ -1129,12 +1142,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                             </select>
                             <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                           </div>
-                          
-                          <button 
-                            className="cmp-ghost" 
-                            style={{ fontSize: 11, padding: '4px 8px', minHeight: 24, alignSelf: 'flex-start' }}
+
+                          <div className="selwrap" style={{ width: '100%' }}>
+                            <select className="cmp-sel" style={{ fontSize: 12, height: 30 }} value={cVoice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
+                              {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
+                            </select>
+                            <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                          </div>
+
+                          <button
+                            className="cmp-ghost"
+                            style={{ fontSize: 11, padding: '5px 8px', minHeight: 26, width: '100%' }}
                             onClick={async () => {
-                              // Regenerate
                               const btn = document.getElementById(`regen-btn-${cName}`)
                               if (btn) btn.innerHTML = `⏳ ${t('project.drawing')}`
                               try {
@@ -1150,25 +1169,18 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                           >
                             ✨ {t('project.redraw_ai')}
                           </button>
-                        </div>
-                        
-                        <input type="file" id={`char-upload-${cName}`} style={{ display: 'none' }} accept="image/*" onChange={async e => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-                          try {
-                            const res = await charactersApi.add(cName, file)
-                            await charactersApi.list().then(setChars)
-                            setCharIdsMap(m => ({ ...m, [cName]: res.id }))
-                          } catch (err) {
-                            alert(t('project.upload_error'))
-                          }
-                        }} />
 
-                        <div className="selwrap" style={{ width: 160 }}>
-                          <select className="cmp-sel" value={cVoice} onChange={e => setCharVoices(v => ({ ...v, [cName]: e.target.value }))}>
-                            {VOICES.map(vo => <option key={vo.id} value={vo.id}>{vo.label}</option>)}
-                          </select>
-                          <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                          <input type="file" id={`char-upload-${cName}`} style={{ display: 'none' }} accept="image/*" onChange={async e => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            try {
+                              const res = await charactersApi.add(cName, file)
+                              await charactersApi.list().then(setChars)
+                              setCharIdsMap(m => ({ ...m, [cName]: res.id }))
+                            } catch (err) {
+                              alert(t('project.upload_error'))
+                            }
+                          }} />
                         </div>
                       </div>
                     )
