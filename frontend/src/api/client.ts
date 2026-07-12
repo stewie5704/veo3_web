@@ -35,18 +35,23 @@ export function removeDeletedSellId(id: string) {
 }
 
 
-// Download a protected video through the API (sends the Bearer header, unlike a bare
-// <a download>), as a blob → triggers the browser save dialog. `path` is relative to /api/v1.
+// Download a protected video by opening an anchor tag pointing straight at the API.
+// Token goes in ?token= so the browser can stream the file directly to disk (an <a>
+// tag can't send an Authorization header). Video files here can hit 200MB+ — buffering
+// through axios blob puts the entire file in RAM and Chrome kills the request midway
+// with ERR_FAILED. Anchor-download bypasses JS memory entirely. `path` is relative to
+// /api/v1 and may already contain a query string.
 export async function downloadVideoFile(path: string, filename: string) {
-  const r = await api.get(path, { responseType: 'blob' })
-  const href = URL.createObjectURL(r.data as Blob)
+  const token = localStorage.getItem('token') || ''
+  const sep = path.includes('?') ? '&' : '?'
+  const href = `/api/v1${path}${sep}token=${encodeURIComponent(token)}`
   const a = document.createElement('a')
   a.href = href
   a.download = filename
+  a.rel = 'noopener'
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(href), 1500)
 }
 
 export const authApi = {

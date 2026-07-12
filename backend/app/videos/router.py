@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from app.database import get_db
-from app.auth.router import get_current_user
+from app.auth.router import get_current_user, get_current_user_download
 from app.auth.models import User
 from app.videos.models import VideoJob, JobStatus
 from app.config import UPLOAD_PATH
@@ -223,7 +223,7 @@ async def download_video(
     job_id: str,
     file_index: int,
     res: str = "720",   # "720" = original | "1080" = upscale on demand
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_download),
     db: AsyncSession = Depends(get_db),
 ):
     job = await db.get(VideoJob, job_id)

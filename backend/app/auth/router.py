@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -35,6 +35,32 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     payload = decode_token(cred.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+    user = await db.get(User, payload.get("sub"))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User không tồn tại")
+    if user.is_banned:
+        raise HTTPException(status_code=403, detail="Tài khoản đã bị khóa")
+    return user
+
+
+# Bearer OPTIONAL — cho phép cả header Authorization LẪN ?token= trong query.
+# Dùng cho endpoint tải file: <a href download> không gửi được header, phải nhét
+# token vào URL. Video 200MB+ không thể buffer qua axios blob, browser sẽ hủy giữa
+# chừng (ERR_FAILED) → phải stream thẳng ra disk bằng anchor tag.
+_bearer_opt = HTTPBearer(auto_error=False)
+
+
+async def get_current_user_download(
+    cred: HTTPAuthorizationCredentials | None = Depends(_bearer_opt),
+    token: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    tk = (cred.credentials if cred else None) or token
+    if not tk:
+        raise HTTPException(status_code=401, detail="Thiếu token")
+    payload = decode_token(tk)
     if not payload:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
     user = await db.get(User, payload.get("sub"))

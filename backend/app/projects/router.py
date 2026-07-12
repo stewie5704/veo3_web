@@ -18,7 +18,7 @@ from sqlalchemy import select, desc, delete
 from pydantic import BaseModel
 
 from app.database import get_db, AsyncSessionLocal
-from app.auth.router import get_current_user
+from app.auth.router import get_current_user, get_current_user_download
 from app.auth.models import User
 from app.projects.models import Project, Scene, SceneStatus
 from app.characters.models import Character
@@ -926,7 +926,7 @@ async def import_video(
 async def download_scene(
     project_id: str, scene_id: str,
     res: str = "720",   # "720" = original | "1080" = upscale on demand
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_download),
     db: AsyncSession = Depends(get_db),
 ):
     scene = await db.get(Scene, scene_id)
@@ -951,7 +951,7 @@ async def download_merged(
     project_id: str,
     res: str = "720",
     filename: str | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_download),
     db: AsyncSession = Depends(get_db),
 ):
     proj = await db.get(Project, project_id)
