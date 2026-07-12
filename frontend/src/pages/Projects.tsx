@@ -456,7 +456,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     const cards: CastCard[] = bc.map((c: any) => {
       const nm = c.name || c.char_key
       const already = findCharByFuzzyName(nm)   // fuzzy: bỏ dấu + lowercase
-      if (already) return { name: nm, state: 'done', url: `/images/chars/${(already as any).image_file || ''}`, charId: already.id }
+      if (already) return { name: nm, state: 'done', url: (already as any).image_url || '', charId: already.id }
       return { name: nm, state: 'pending' }
     })
     setCastCards(cards)
