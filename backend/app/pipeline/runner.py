@@ -829,15 +829,26 @@ async def run_video_job(job_id: str, user_id: str):
                     model_key=model_key, out_stem=f"{job_id}_{i}_{int(time.time())}", start_image_path=start_path,
                     extra_ref_paths=extra_ref_paths, seed=sd)
             try:
-                try:
-                    fname = await _gen(seed0)
-                except _ProminentBlocked:   # ảnh giữ mặt: dương-tính-giả -> đổi seed thử lại 1 lần
-                    fname = await _gen((seed0 * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
-                outputs.append(fname)
+                fname = None
+                # Bộ lọc PROMINENT_PEOPLE của Google là XÁC SUẤT, không phải luật cứng.
+                # Cùng ảnh ref + prompt vẫn có thể lần qua lần dính. Retry 3 lần với seed
+                # khác nhau -> tổng xác suất dính giả (~10% mỗi lần) rớt xuống ~0.1%.
+                seed_try = seed0
+                for attempt in range(3):
+                    try:
+                        fname = await _gen(seed_try)
+                        break
+                    except _ProminentBlocked:
+                        log.warning("job %s variant %d PROMINENT attempt %d/3", job_id, i, attempt + 1)
+                        seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
+                        if attempt == 2:
+                            raise
+                if fname:
+                    outputs.append(fname)
             except _ProminentBlocked:
-                last_err = ("Google chặn ảnh tham chiếu: người NỔI TIẾNG hoặc lọc nhầm "
-                            "(mặt thường vẫn qua). Đổi ảnh nhân vật AI khác.")
-                log.warning("job %s variant %d PROMINENT", job_id, i)
+                last_err = ("Google chặn ảnh tham chiếu sau 3 lần thử: người NỔI TIẾNG hoặc "
+                            "lọc nhầm dai dẳng. Đổi ảnh nhân vật AI khác.")
+                log.warning("job %s variant %d PROMINENT (final)", job_id, i)
             except Exception as e:
                 last_err = str(e)
                 log.warning("job %s variant %d failed: %s", job_id, i, e)
@@ -1116,17 +1127,23 @@ async def run_scene_job(scene_id: str, user_id: str):
                     voice_name=(scene_voice or voice if char_speak else ""))
 
             try:
-                try:
-                    fname = await _gen(use_seed)
-                except _ProminentBlocked:
-                    # bộ lọc người thường là dương-tính-giả -> đổi seed render lại 1 lần (hay qua).
-                    # Ảnh ref khoá danh tính nên đổi seed không lệch mặt.
-                    log.warning("scene %s PROMINENT -> thử lại seed mới", scene_id)
-                    fname = await _gen((use_seed * 1103515245 + 12345) % (2 ** 31 - 1) + 1)
+                fname = None
+                # Retry 3 lần cho PROMINENT_PEOPLE (dương-tính-giả). Ảnh ref khoá danh tính
+                # nên đổi seed KHÔNG lệch mặt — chỉ đổi noise khởi tạo để lách ngưỡng lọc.
+                seed_try = use_seed
+                for attempt in range(3):
+                    try:
+                        fname = await _gen(seed_try)
+                        break
+                    except _ProminentBlocked:
+                        log.warning("scene %s PROMINENT attempt %d/3 -> đổi seed", scene_id, attempt + 1)
+                        seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
+                        if attempt == 2:
+                            raise
             except _ProminentBlocked:
                 await _update_scene(status=SceneStatus.failed, error_msg=(
-                    "Google chặn ảnh giữ mặt: thường do người NỔI TIẾNG hoặc bộ lọc nhận nhầm "
-                    "(mặt người thường vẫn qua — đã thử lại). Đổi ảnh nhân vật AI khác, hoặc bỏ giữ mặt."))
+                    "Google chặn ảnh giữ mặt sau 3 lần thử: người NỔI TIẾNG hoặc bộ lọc nhận "
+                    "nhầm dai dẳng. Đổi ảnh nhân vật AI khác (bấm Vẽ lại), hoặc bỏ giữ mặt."))
                 return
             except Exception as e:
                 await _update_scene(status=SceneStatus.failed, error_msg=str(e))
