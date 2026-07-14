@@ -419,17 +419,24 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
   // ═══ Client-side detect input type ═══
   // Không gọi AI — thuần heuristic. User luôn có thể override qua dropdown "Kiểu nội dung".
   //  - Đính kèm ảnh -> storyboard (ưu tiên nhất)
-  //  - ≥3 dòng không rỗng + đa số > 30 ký tự + không có keyword kịch bản -> prompts
-  //  - Có keyword "Cảnh N:" / "Scene N:" / "HỒI ", "Nhân vật:", ":" tần suất cao -> script
+  //  - Marker cảnh lặp ≥ 2 lần (Phân cảnh 1, Cảnh 2, Scene 3, Shot 4, Hồi 1...) hoặc có nhãn
+  //    "Prompt AI:" / "Lời thoại:" / "Nhân vật:" -> script (đầu vào có cấu trúc phân cảnh)
+  //  - ≥3 dòng không rỗng + đa số > 30 ký tự + không có marker -> prompts
   //  - Ngắn (< 400 ký tự) + không có markup -> idea
-  //  - Mặc định (dài + có cấu trúc mờ) -> script (an toàn hơn: giữ nguyên văn)
+  //  - Mặc định (dài + không rõ) -> script (an toàn hơn: giữ nguyên văn)
   function detectInputMode(text: string, hasFiles: boolean): InputMode {
     if (hasFiles) return 'storyboard'
     const t = text.trim()
     if (!t) return 'idea'
     const lines = t.split('\n').map(l => l.trim()).filter(Boolean)
-    const hasScriptMarker = /(^|\n)\s*(cảnh|scene|hồi|chương|nhân vật|lời thoại|dialogue)\s*\d*\s*:/i.test(t)
-    if (hasScriptMarker) return 'script'
+    // Marker cảnh: "Phân cảnh 1", "Cảnh 1:", "Scene 1", "Shot 1", "Hồi 1", "Chương 1", "Act 1", "Part 1", "Segment 1"
+    // Không yêu cầu ở đầu dòng — người dùng dán từ PDF/Word/ChatGPT hay có prefix/emoji.
+    const sceneMarker = /(^|\n|\s|[^A-Za-zÀ-ỹ])(phân\s*cảnh|cảnh|scene|shot|hồi|chương|segment|act|part)\s*\d+\s*[:.)\-–—]/gi
+    // Nhãn nhân vật / thoại / prompt (yêu cầu dấu ":") — dấu hiệu chắc chắn là kịch bản có cấu trúc.
+    const roleMarker = /(^|\n)\s*(nhân\s*vật|lời\s*thoại|dialogue|prompt\s*ai|voiceover|narration|nội\s*dung)\s*:/gi
+    const sceneHits = (t.match(sceneMarker) || []).length
+    const roleHits = (t.match(roleMarker) || []).length
+    if (sceneHits >= 2 || roleHits >= 2) return 'script'
     if (lines.length >= 3) {
       const longRatio = lines.filter(l => l.length > 30).length / lines.length
       if (longRatio > 0.5) return 'prompts'
