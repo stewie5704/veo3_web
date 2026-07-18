@@ -22,6 +22,7 @@ sudo -u postgres psql -c "CREATE USER veo3 WITH PASSWORD 'MAT_KHAU';"
 sudo -u postgres psql -c "CREATE DATABASE veo3web OWNER veo3;"
 ```
 → `DATABASE_URL=postgresql+asyncpg://veo3:MAT_KHAU@localhost:5432/veo3web`
+> Lưu ý cổng Postgres: **prod (VPS) = 5432** (mặc định). **Dev local = 5433** (xem CLAUDE.md). Sửa cổng trong `DATABASE_URL` cho khớp máy đang chạy.
 
 ## 3. Code + backend
 ```bash
@@ -83,10 +84,29 @@ sudo ufw allow 'Nginx Full'
 - `journalctl -u veo3-api -f` không lỗi.
 
 ## Cập nhật về sau (hoặc dùng CD `.github/workflows/deploy.yml`)
+Từ máy Windows, review và push code trước rồi chạy script chỉ-deploy:
+```powershell
+git status
+git diff
+git add -p
+git commit -m "mô tả thay đổi"
+git push
+
+$env:VEO3_DEPLOY_TARGET = "root@your-vps" # nên đổi sang user deploy có quyền sudo giới hạn
+.\deploy.ps1                              # backend + frontend
+.\deploy.ps1 -BackendOnly                 # chỉ backend
+.\deploy.ps1 -WhatIf                      # chỉ kiểm tra, không SSH
+```
+`deploy.ps1` sẽ từ chối chạy nếu working tree chưa sạch hoặc commit local chưa trùng
+upstream. Địa chỉ VPS không còn hard-code trong repo; có thể truyền trực tiếp bằng
+`-Vps "user@host"`. Nếu source landing thay đổi, chạy `npm run build:landing` và commit
+thư mục `landing/` trước khi deploy.
+
+Thao tác tương đương trực tiếp trên VPS:
 ```bash
 cd /opt/veo3-web && git pull
-cd backend && ./venv/bin/pip install -r requirements.txt && sudo systemctl restart veo3-api
-cd ../frontend && npm ci && npm run build
+cd frontend && npm ci --include=dev && npm run build
+cd ../backend && ./venv/bin/pip install -r requirements.txt && sudo systemctl restart veo3-api
 ```
 
 ## Checklist production

@@ -1,11 +1,31 @@
 # Secrets & config
 **/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 backend/.env
+frontend/.env
+frontend/.env.*
+*.key
+*.pem
+*.b64
+config.json
+private_key*
 
 # Databases
 *.db
 *.sqlite
 *.sqlite3
+*.sql
+
+# Archives / build artifacts
+*.7z
+*.7z.*
+*.zip
+
+# One-shot scripts / scratch / i18n temp
+scratch/
+missing.json
 
 # Python
 __pycache__/

@@ -1,61 +1,155 @@
-# Deploy 1 lenh: commit + push (local) -> SSH vao VPS pull + cai + restart + build.
+# Deploy commit da duoc review va push len VPS.
+# Script KHONG tu git add/commit/push de tranh gom nham thay doi local.
 #
-#   .\deploy.ps1                       # deploy day du (backend + frontend)
-#   .\deploy.ps1 "sua abc"             # kem commit message
-#   .\deploy.ps1 "fix api" -BackendOnly    # chi backend (bo build frontend cho nhanh)
-#
-# Can: ssh (Windows co san) + da push duoc len GitHub.
-# Muon khoi nhap mat khau SSH moi lan -> tao SSH key 1 lan (xem cuoi file).
+#   $env:VEO3_DEPLOY_TARGET = "root@your-vps"
+#   .\deploy.ps1                  # backend + frontend
+#   .\deploy.ps1 -BackendOnly     # chi backend
+#   .\deploy.ps1 -Vps "deploy@your-vps" -RemotePath "/opt/veo3-web"
 
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
-  [string]$m = "deploy",
-  [switch]$BackendOnly
+  [switch]$BackendOnly,
+  [string]$Vps = $env:VEO3_DEPLOY_TARGET,
+  [string]$RemotePath = "/opt/veo3-web"
 )
 
-$VPS = "root@180.93.43.43"
+$ErrorActionPreference = "Stop"
+$RepoRoot = $PSScriptRoot
 
-# Build landing tĩnh (aiautocut.com): React + Vite Static Export → ../landing/index.html + assets/
-# Dùng npm run build:landing (xem frontend/vite.config.ts + package.json)
-Write-Host ""
-Write-Host "==> [0/2] Build landing (React Vite export)..." -ForegroundColor Cyan
-Push-Location frontend
-$env:BUILD_LANDING = "1"
-npm run build:landing
-if ($LASTEXITCODE -ne 0) { Write-Host "   (build landing loi - van tiep tuc voi index.html cu)" -ForegroundColor Yellow }
-Pop-Location
-# Giữ samples/ (đã được preserve bằng emptyOutDir:false)
+function Stop-Deploy {
+  param([string]$Message)
 
-Write-Host ""
-Write-Host "==> [1/2] Commit + push (local)..." -ForegroundColor Cyan
-git add -A
-git commit -m $m
-if ($LASTEXITCODE -ne 0) { Write-Host "   (khong co thay doi moi - van deploy code hien tai)" -ForegroundColor Yellow }
-git push
-if ($LASTEXITCODE -ne 0) { Write-Host "[X] PUSH THAT BAI - dung lai." -ForegroundColor Red; exit 1 }
-
-# Lenh chay tren VPS
-$frontend = if ($BackendOnly) { "echo '(bo qua frontend)'" } else {
-  # --include=dev: ep cai devDependencies (typescript/vite) - VPS co NODE_ENV=production nen mac dinh bo qua devDeps
-  "cd ../frontend && npm ci --include=dev --silent && npm run build && sudo chown -R www-data:www-data dist"
+  Write-Host "[X] $Message" -ForegroundColor Red
+  exit 1
 }
-$remote = @"
-set -e
-cd /opt/veo3-web
-git config --global --add safe.directory /opt/veo3-web >/dev/null 2>&1 || true
-git pull --ff-only
-cd backend && ./venv/bin/pip install -q -r requirements.txt && sudo systemctl restart veo3-api
-$frontend
-echo '=== DEPLOY OK ==='
-"@
+
+if ([string]::IsNullOrWhiteSpace($Vps)) {
+  Stop-Deploy "Thieu VPS. Dat VEO3_DEPLOY_TARGET hoac truyen -Vps 'user@host'."
+}
+if ($Vps.StartsWith("-") -or $Vps -match "\s") {
+  Stop-Deploy "Gia tri -Vps khong hop le."
+}
+if ($RemotePath -notmatch "^/[A-Za-z0-9._/-]+$") {
+  Stop-Deploy "-RemotePath chi duoc chua chu, so, dau cham, gach ngang, gach duoi va '/'."
+}
 
 Write-Host ""
-Write-Host "==> [2/2] Deploy tren VPS ($VPS)..." -ForegroundColor Cyan
-ssh $VPS $remote
-if ($LASTEXITCODE -ne 0) { Write-Host "[X] DEPLOY VPS THAT BAI." -ForegroundColor Red; exit 1 }
+Write-Host "==> [1/3] Kiem tra commit local..." -ForegroundColor Cyan
+
+$status = @(git -C $RepoRoot status --porcelain=v1)
+if ($LASTEXITCODE -ne 0) {
+  Stop-Deploy "Khong doc duoc git status."
+}
+if ($status.Count -gt 0) {
+  $status | ForEach-Object { Write-Host "   $_" }
+  Stop-Deploy "Working tree chua sach. Review va commit tung nhom thay doi truoc khi deploy."
+}
+
+$branch = (git -C $RepoRoot branch --show-current).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch)) {
+  Stop-Deploy "Dang o detached HEAD hoac khong doc duoc ten branch."
+}
+
+$upstream = (git -C $RepoRoot rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>$null)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($upstream)) {
+  Stop-Deploy "Branch '$branch' chua co upstream. Push branch va dat upstream truoc."
+}
+$upstream = $upstream.Trim()
+
+git -C $RepoRoot fetch --quiet
+if ($LASTEXITCODE -ne 0) {
+  Stop-Deploy "Git fetch that bai; khong the xac minh commit da duoc push."
+}
+
+$localCommit = (git -C $RepoRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) {
+  Stop-Deploy "Khong doc duoc commit local."
+}
+$upstreamCommit = (git -C $RepoRoot rev-parse '@{upstream}').Trim()
+if ($LASTEXITCODE -ne 0) {
+  Stop-Deploy "Khong doc duoc commit upstream."
+}
+if ($localCommit -ne $upstreamCommit) {
+  Stop-Deploy "HEAD ($localCommit) khong trung $upstream ($upstreamCommit). Push/pull cho dong bo truoc."
+}
+
+Write-Host "   Branch: $branch"
+Write-Host "   Commit: $localCommit"
+
+$frontendStep = if ($BackendOnly) {
+  "echo '(bo qua frontend)'"
+} else {
+@'
+cd "$repo/frontend"
+npm ci --include=dev --silent
+npm run build
+'@
+}
+
+# Dung single-quoted here-string de PowerShell khong noi suy bien Bash ($repo, $ok, ...).
+$remoteTemplate = @'
+set -eu
+repo="__REMOTE_PATH__"
+expected_commit="__EXPECTED_COMMIT__"
+
+cd "$repo"
+server_status=$(git -c safe.directory="$repo" status --porcelain=v1)
+if [ -n "$server_status" ]; then
+  echo '[X] Working tree tren VPS chua sach:'
+  printf '%s\n' "$server_status"
+  exit 1
+fi
+git -c safe.directory="$repo" pull --ff-only
+actual_commit=$(git -c safe.directory="$repo" rev-parse HEAD)
+if [ "$actual_commit" != "$expected_commit" ]; then
+  echo "[X] VPS dang o commit $actual_commit, khong phai $expected_commit"
+  exit 1
+fi
+
+# Build frontend truoc khi restart API. Neu build loi, service cu van tiep tuc chay.
+__FRONTEND_STEP__
+
+# Cai dependency truoc. Neu pip loi, khong restart service voi dependency thieu.
+cd "$repo/backend"
+./venv/bin/pip install -q -r requirements.txt
+sudo systemctl restart veo3-api
+
+ok=0
+i=1
+while [ "$i" -le 15 ]; do
+  if curl -fsS -o /dev/null http://127.0.0.1:8000/api/v1/health; then
+    ok=1
+    break
+  fi
+  i=$((i + 1))
+  sleep 1
+done
+if [ "$ok" != "1" ]; then
+  echo '[X] HEALTH-CHECK THAT BAI. Xem: journalctl -u veo3-api -n 50'
+  sudo systemctl is-active veo3-api || true
+  exit 1
+fi
+
+echo '=== DEPLOY OK ==='
+'@
+
+$remote = $remoteTemplate.Replace("__REMOTE_PATH__", $RemotePath)
+$remote = $remote.Replace("__EXPECTED_COMMIT__", $localCommit)
+$remote = $remote.Replace("__FRONTEND_STEP__", $frontendStep)
+
+Write-Host ""
+Write-Host "==> [2/3] San sang deploy $localCommit len $Vps..." -ForegroundColor Cyan
+if (-not $PSCmdlet.ShouldProcess("$($Vps):$RemotePath", "Deploy commit $localCommit")) {
+  Write-Host "   Da bo qua SSH (-WhatIf)." -ForegroundColor Yellow
+  exit 0
+}
+
+Write-Host ""
+Write-Host "==> [3/3] Pull, build, restart va health-check tren VPS..." -ForegroundColor Cyan
+ssh.exe -- $Vps $remote
+if ($LASTEXITCODE -ne 0) {
+  Stop-Deploy "Deploy VPS that bai."
+}
 
 Write-Host ""
 Write-Host "[OK] XONG -> https://app.aiautocut.com" -ForegroundColor Green
-
-# --- Tao SSH key de khoi nhap mat khau moi lan (chay 1 lan) ---
-#   ssh-keygen -t ed25519
-#   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@74.81.54.150 "mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys"
