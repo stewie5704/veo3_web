@@ -107,8 +107,11 @@ $frontendStep = if ($BackendOnly) {
 } else {
 @'
 cd "$repo/frontend"
-npm ci --include=dev --silent
-npm run build
+npm ci --include=dev --production=false --no-audit --no-fund --silent
+test -x ./node_modules/.bin/tsc
+test -x ./node_modules/.bin/vite
+./node_modules/.bin/tsc -b
+./node_modules/.bin/vite build
 '@
 }
 
