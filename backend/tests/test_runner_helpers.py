@@ -31,6 +31,16 @@ def test_build_generate_body_text():
     assert req["videoModelKey"] == "veo_3_1_t2v_lite_low_priority"
     assert req["textInput"]["structuredPrompt"]["parts"][0]["text"] == "a cat surfing"
     assert "startImage" not in req and "referenceImages" not in req
+    assert body["mediaGenerationContext"]["audioFailurePreference"] == "RETURN_SILENCED_VIDEOS"
+
+
+def test_build_generate_body_native_audio_must_not_fallback_to_silent():
+    body = r._build_generate_body(
+        "proj1", "off-screen narrator reads a line", "VIDEO_ASPECT_RATIO_LANDSCAPE",
+        "veo_3_1_t2v_lite_low_priority", "captcha-tok", 123, None, None,
+        silent=False,
+    )
+    assert "audioFailurePreference" not in body["mediaGenerationContext"]
 
 
 def test_build_generate_body_with_start_and_refs():
@@ -39,3 +49,36 @@ def test_build_generate_body_with_start_and_refs():
     req = body["requests"][0]
     assert req["startImage"] == {"mediaId": "start-mid"}
     assert [x["mediaId"] for x in req["referenceImages"]] == ["r1", "r2"]
+
+
+def test_flow_voiceover_keeps_exact_narration_and_is_not_lip_sync():
+    prompt = (
+        "A still lotus lake. Audio: soft water ambience. No spoken dialogue, no voices, "
+        "no narration, no singing. Negative prompt: no text; no dialogue, voiceover, "
+        "narration, singing, laughter or studio-audience sounds."
+    )
+    out = r._to_voiceover(
+        prompt,
+        "Giọng đọc: Như mặt hồ sau khi thôi tìm kiếm sự yên lặng… tự nó trở nên yên.",
+        "Kore",
+    )
+
+    assert "Giọng đọc:" not in out
+    assert "Như mặt hồ sau khi thôi tìm kiếm sự yên lặng… tự nó trở nên yên." in out
+    assert "off-screen narrator" in out
+    assert "firm adult female voice" in out
+    assert "mouths closed" in out and "no lip-sync" in out
+    assert "No spoken dialogue" not in out
+    assert "no dialogue, voiceover, narration" not in out
+
+
+def test_character_speak_remains_on_screen_lip_sync():
+    out = r._to_character_speak(
+        "A woman looks at camera. No spoken dialogue, no voices, no narration, no singing.",
+        "Lan: Xin chào mọi người.",
+        "Aoede",
+    )
+    assert "off-screen narrator" not in out
+    assert "faces the camera" in out
+    assert "Accurate natural lip-sync" in out
+    assert "Xin chào mọi người." in out

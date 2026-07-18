@@ -345,11 +345,15 @@ def _build_generate_body(project_id: str, prompt: str, aspect: str, model_key: s
     if voice_name and len(voice_name) > 20:   # rough check cho UUID-style mediaId
         req["referenceAudio"] = [{"mediaId": voice_name.lower()}]
 
+    media_context = {"batchId": str(uuid.uuid4())}
+    if silent:
+        # Cảnh không yêu cầu lời nói vẫn có thể nhận bản câm nếu native audio của Veo lỗi.
+        # Cảnh có thoại/lời dẫn KHÔNG đặt cờ này: Flow phải tạo audio hoặc báo generation lỗi,
+        # tránh tình trạng UI báo xong nhưng âm thầm tải về một video không có giọng.
+        media_context["audioFailurePreference"] = "RETURN_SILENCED_VIDEOS"
+
     body = {
-        "mediaGenerationContext": {
-            "batchId": str(uuid.uuid4()), 
-            "audioFailurePreference": "RETURN_SILENCED_VIDEOS"
-        },
+        "mediaGenerationContext": media_context,
         "clientContext": {
             "projectId": project_id,
             "tool": "PINHOLE",
@@ -525,6 +529,74 @@ def _to_character_speak(prompt: str, dialogue: str, voice_name: str = "") -> str
     return p
 
 
+_FLOW_VOICE_HINTS = {
+    "Kore": "a firm adult female voice",
+    "Aoede": "a breezy adult female voice",
+    "Leda": "a youthful female voice",
+    "Vega": "a warm adult female voice",
+    "Puck": "an upbeat adult male voice",
+    "Charon": "an informative adult male voice",
+    "Orus": "a firm adult male voice",
+    "Fenrir": "an energetic adult male voice",
+    "Achernar": "a soft adult male voice",
+    "Rigel": "a clear adult male voice",
+    "Sirius": "a confident adult male voice",
+    "Quasar": "a deep adult male voice",
+    "Pulcherrima": "a forward, gender-neutral voice",
+    "Rasalgethi": "an informative adult male voice",
+    "Sadachbia": "a lively adult male voice",
+    "Sadaltager": "a knowledgeable adult male voice",
+    "Schedar": "an even adult male voice",
+    "Sulafat": "a warm adult female voice",
+    "Umbriel": "a smooth adult male voice",
+    "Vindemiatrix": "a gentle adult female voice",
+    "Zephyr": "a bright adult female voice",
+    "Zubenelgenubi": "a casual adult male voice",
+}
+
+
+def _remove_spoken_audio_bans(prompt: str) -> str:
+    """Gỡ riêng phần cấm giọng do prompt-engine chèn, giữ nguyên negative về hình ảnh."""
+    p = re.sub(
+        r"\s*No spoken dialogue, no voices, no narration, no singing\.",
+        "", prompt, flags=re.I,
+    )
+    p = re.sub(
+        r";\s*no dialogue, voiceover, narration, singing, laughter or studio-audience sounds\.",
+        ".", p, flags=re.I,
+    )
+    return p
+
+
+def _to_voiceover(prompt: str, narration: str, voice_name: str = "") -> str:
+    """Chế độ LỒNG TIẾNG: yêu cầu Flow/Veo tạo giọng dẫn native ngay trong video.
+
+    Khác character_speak, đây là narrator ngoài khung hình; người trong hình không nói/nhép miệng.
+    Video Flow tải về đã chứa voiceover, không gọi Gemini TTS và không ghép ffmpeg hậu kỳ.
+    """
+    spoken = re.sub(r"^\s*[^:\n]{1,24}:\s*", "", narration or "").strip()
+    p = _remove_spoken_audio_bans(prompt)
+    if "negative prompt:" not in p.lower():
+        p = _remove_spoken_audio_bans(p + _RENDER_QUALITY_TAIL)
+    if not spoken:
+        return p
+
+    spoken = spoken.replace('"', "'")
+    if voice_name and len(voice_name) > 20:
+        voice_hint = "Match the attached reference audio voice exactly and keep it consistent"
+    else:
+        profile = _FLOW_VOICE_HINTS.get(voice_name, "a calm, clear narrator voice")
+        voice_hint = f"Use {profile} and keep it consistent"
+
+    p += (
+        " Native audio: one off-screen narrator, never visible and not an on-screen character, "
+        f'reads this exact line once in its original language: "{spoken}". '
+        f"{voice_hint}. Clear narration over the existing ambient sound. "
+        "All visible people keep their mouths closed and do not speak; no lip-sync, subtitles or captions."
+    )
+    return p
+
+
 class _ProminentBlocked(Exception):
     """Render bị bộ lọc người (PROMINENT_PEOPLE) chặn — thường là dương-tính-giả, đổi seed render
     lại hay qua. Bắt riêng để retry thay vì fail luôn."""
@@ -655,7 +727,8 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                         char_project_id: str | None = None,
                         seed: int | None = None,
                         extra_ref_paths: list[str] | None = None,
-                        dialogue: str = "", character_speak: bool = False, voice_name: str = "") -> str:
+                        dialogue: str = "", character_speak: bool = False,
+                        voiceover: bool = False, voice_name: str = "") -> str:
     """Generate ONE video on Flow and download it (native 720p — 1080p is an
     opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
     from app.sessions.router import request_captcha
@@ -739,6 +812,10 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         silent = False
         if not dialogue or not dialogue.strip():
             voice_name = ""  # Do not send referenceAudio if no dialogue
+    elif voiceover and dialogue.strip():
+        # GIỌNG DẪN NGOÀI KHUNG HÌNH: Flow/Veo sinh native audio ngay trong video tải về.
+        prompt = _to_voiceover(prompt, dialogue, voice_name)
+        silent = False
     elif "negative prompt:" not in prompt.lower():
         prompt += _RENDER_QUALITY_TAIL   # lưới chất lượng cho path không qua _build_shot_prompt
 
@@ -1021,7 +1098,6 @@ async def run_scene_job(scene_id: str, user_id: str):
                           ("voiceover" if getattr(proj, "voiceover", False) else "off")) if proj else "off"
             voice = (getattr(proj, "voice", "") or "Kore") if proj else "Kore"
             scene_voice = getattr(scene, "voice", "") or ""   # giọng riêng theo nhân vật nói
-            gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else ""
             proj_stopped = bool(getattr(proj, "stopped", False)) if proj else False
             proj_seed = int(getattr(proj, "seed", 0) or 0)
             proj_i2v_fix = bool(getattr(proj, "i2v_fix", False)) if proj else False
@@ -1137,6 +1213,7 @@ async def run_scene_job(scene_id: str, user_id: str):
             start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None
 
             char_speak = audio_mode == "character_speak"   # Veo cho nhân vật tự nói (nhép miệng)
+            flow_voiceover = audio_mode == "voiceover" and bool(narration.strip())
 
             async def _gen(sd):
                 return await _generate_one(
@@ -1144,8 +1221,9 @@ async def run_scene_job(scene_id: str, user_id: str):
                     aspect_ratio=aspect_ratio, duration_seconds=duration_seconds,
                     model_key=model_key, out_stem=f"scene_{scene_id[:8]}", start_image_path=start_path,
                     char_project_id=project_db_id, seed=sd, extra_ref_paths=extra_ref_paths,
-                    dialogue=(narration if char_speak else ""), character_speak=char_speak,
-                    voice_name=(scene_voice or voice if char_speak else ""))
+                    dialogue=(narration if (char_speak or flow_voiceover) else ""),
+                    character_speak=char_speak, voiceover=flow_voiceover,
+                    voice_name=((scene_voice or voice) if (char_speak or flow_voiceover) else ""))
 
             try:
                 fname = None
@@ -1169,17 +1247,6 @@ async def run_scene_job(scene_id: str, user_id: str):
             except Exception as e:
                 await _update_scene(status=SceneStatus.failed, error_msg=str(e))
                 return
-
-            # Lồng tiếng Việt (chỉ chế độ 'voiceover'): TTS đọc thoại + ghép. 'character_speak' thì
-            # Veo đã tự nói trong clip rồi -> KHÔNG chồng TTS nữa.
-            if audio_mode == "voiceover" and narration.strip() and gemini_key:
-                try:
-                    voiced = await _voice_over(fname, narration, scene_voice or voice, gemini_key)
-                    if voiced:
-                        fname = voiced
-                        log.info("Scene %s voiced (vi) -> %s", scene_id, voiced)
-                except Exception as e:
-                    log.warning("voiceover scene %s failed: %s", scene_id, e)
 
             await _update_scene(status=SceneStatus.done, video_file=fname)
             log.info("Scene %s done", scene_id)

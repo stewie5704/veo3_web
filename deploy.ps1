@@ -1,8 +1,6 @@
-# Deploy commit da duoc review va push len VPS.
-# Script KHONG tu git add/commit/push de tranh gom nham thay doi local.
+# Deploy mot lenh: tu dong commit + push thay doi local, sau do deploy len VPS.
 #
-#   $env:VEO3_DEPLOY_TARGET = "root@your-vps"
-#   .\deploy.ps1                  # backend + frontend
+#   .\deploy.ps1                  # backend + frontend, VPS mặc định bên dưới
 #   .\deploy.ps1 -BackendOnly     # chi backend
 #   .\deploy.ps1 -Vps "deploy@your-vps" -RemotePath "/opt/veo3-web"
 #   .\deploy.ps1 -IdentityFile "$env:USERPROFILE\.ssh\id_ed25519"
@@ -10,7 +8,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [switch]$BackendOnly,
-  [string]$Vps = $env:VEO3_DEPLOY_TARGET,
+  [string]$Vps = "root@180.93.43.43",
   [string]$RemotePath = "/opt/veo3-web",
   [string]$IdentityFile = $env:VEO3_DEPLOY_IDENTITY
 )
@@ -40,17 +38,12 @@ if (-not [string]::IsNullOrWhiteSpace($IdentityFile) -and
 }
 
 Write-Host ""
-Write-Host "==> [1/3] Kiem tra commit local..." -ForegroundColor Cyan
+Write-Host "==> [1/3] Commit + push code local..." -ForegroundColor Cyan
 
 $status = @(git -C $RepoRoot status --porcelain=v1)
 if ($LASTEXITCODE -ne 0) {
   Stop-Deploy "Khong doc duoc git status."
 }
-if ($status.Count -gt 0) {
-  $status | ForEach-Object { Write-Host "   $_" }
-  Stop-Deploy "Working tree chua sach. Review va commit tung nhom thay doi truoc khi deploy."
-}
-
 $branch = (git -C $RepoRoot branch --show-current).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch)) {
   Stop-Deploy "Dang o detached HEAD hoac khong doc duoc ten branch."
@@ -61,6 +54,23 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($upstream)) {
   Stop-Deploy "Branch '$branch' chua co upstream. Push branch va dat upstream truoc."
 }
 $upstream = $upstream.Trim()
+
+if ($status.Count -gt 0) {
+  $status | ForEach-Object { Write-Host "   $_" }
+  if (-not $PSCmdlet.ShouldProcess($RepoRoot, "git add -A va tao commit deploy")) {
+    Write-Host "   Da bo qua commit (-WhatIf)." -ForegroundColor Yellow
+    exit 0
+  }
+  git -C $RepoRoot add -A
+  if ($LASTEXITCODE -ne 0) {
+    Stop-Deploy "git add that bai."
+  }
+  $autoMessage = "deploy: auto update " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+  git -C $RepoRoot commit -m $autoMessage
+  if ($LASTEXITCODE -ne 0) {
+    Stop-Deploy "git commit that bai."
+  }
+}
 
 git -C $RepoRoot fetch --quiet
 if ($LASTEXITCODE -ne 0) {
@@ -76,7 +86,17 @@ if ($LASTEXITCODE -ne 0) {
   Stop-Deploy "Khong doc duoc commit upstream."
 }
 if ($localCommit -ne $upstreamCommit) {
-  Stop-Deploy "HEAD ($localCommit) khong trung $upstream ($upstreamCommit). Push/pull cho dong bo truoc."
+  Write-Host "   Dang push $branch..." -ForegroundColor Cyan
+  git -C $RepoRoot push
+  if ($LASTEXITCODE -ne 0) {
+    Stop-Deploy "git push that bai. Neu remote co commit moi, pull/rebase roi chay lai."
+  }
+  git -C $RepoRoot fetch --quiet
+  $localCommit = (git -C $RepoRoot rev-parse HEAD).Trim()
+  $upstreamCommit = (git -C $RepoRoot rev-parse '@{upstream}').Trim()
+  if ($localCommit -ne $upstreamCommit) {
+    Stop-Deploy "Push xong nhung HEAD van khong trung $upstream."
+  }
 }
 
 Write-Host "   Branch: $branch"
