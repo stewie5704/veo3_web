@@ -102,6 +102,14 @@ upstream. Địa chỉ VPS không còn hard-code trong repo; có thể truyền 
 `-Vps "user@host"`. Nếu source landing thay đổi, chạy `npm run build:landing` và commit
 thư mục `landing/` trước khi deploy.
 
+Script dùng SSH `BatchMode` để không treo chờ mật khẩu. Cài public key một lần
+(lệnh này sẽ hỏi mật khẩu VPS), sau đó deploy không cần nhập lại:
+```powershell
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" |
+  ssh root@your-vps "umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys"
+```
+Nếu dùng key khác, truyền `-IdentityFile` hoặc đặt `VEO3_DEPLOY_IDENTITY`.
+
 Thao tác tương đương trực tiếp trên VPS:
 ```bash
 cd /opt/veo3-web && git pull

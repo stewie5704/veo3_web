@@ -5,12 +5,14 @@
 #   .\deploy.ps1                  # backend + frontend
 #   .\deploy.ps1 -BackendOnly     # chi backend
 #   .\deploy.ps1 -Vps "deploy@your-vps" -RemotePath "/opt/veo3-web"
+#   .\deploy.ps1 -IdentityFile "$env:USERPROFILE\.ssh\id_ed25519"
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [switch]$BackendOnly,
   [string]$Vps = $env:VEO3_DEPLOY_TARGET,
-  [string]$RemotePath = "/opt/veo3-web"
+  [string]$RemotePath = "/opt/veo3-web",
+  [string]$IdentityFile = $env:VEO3_DEPLOY_IDENTITY
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +33,10 @@ if ($Vps.StartsWith("-") -or $Vps -match "\s") {
 }
 if ($RemotePath -notmatch "^/[A-Za-z0-9._/-]+$") {
   Stop-Deploy "-RemotePath chi duoc chua chu, so, dau cham, gach ngang, gach duoi va '/'."
+}
+if (-not [string]::IsNullOrWhiteSpace($IdentityFile) -and
+    -not (Test-Path -LiteralPath $IdentityFile -PathType Leaf)) {
+  Stop-Deploy "Khong tim thay SSH identity file: $IdentityFile"
 }
 
 Write-Host ""
@@ -146,9 +152,15 @@ if (-not $PSCmdlet.ShouldProcess("$($Vps):$RemotePath", "Deploy commit $localCom
 
 Write-Host ""
 Write-Host "==> [3/3] Pull, build, restart va health-check tren VPS..." -ForegroundColor Cyan
-ssh.exe -- $Vps $remote
+$sshArgs = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15")
+if (-not [string]::IsNullOrWhiteSpace($IdentityFile)) {
+  $identityPath = (Resolve-Path -LiteralPath $IdentityFile).Path
+  $sshArgs += @("-i", $identityPath, "-o", "IdentitiesOnly=yes")
+}
+$sshArgs += @("--", $Vps, $remote)
+& ssh.exe @sshArgs
 if ($LASTEXITCODE -ne 0) {
-  Stop-Deploy "Deploy VPS that bai."
+  Stop-Deploy "Deploy VPS that bai. Kiem tra SSH key/quyen truy cap va log tren VPS."
 }
 
 Write-Host ""
