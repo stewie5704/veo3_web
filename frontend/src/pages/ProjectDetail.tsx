@@ -37,6 +37,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   const [exporting, setExporting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null)
   const toastTimer = useRef<any>(null)
+  // Mount guard: các vòng poll (doGenPortraits/doRegenPortrait) await sleep nhiều giây;
+  // nếu user rời trang giữa chừng thì KHÔNG được setState nữa (tránh warning + fetch thừa).
+  const mountedRef = useRef(true)
   const prevStatus = useRef<Record<string, string>>({})   // scene id -> status đã thấy lần trước
   const seeded = useRef(false)                             // đã ghi nhận trạng thái ban đầu chưa
   const notifiedDone = useRef(false)                       // đã báo "dự án xong" chưa (báo 1 lần)
@@ -112,7 +115,11 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   }
 
   useEffect(() => { load() }, [id])
-  useEffect(() => () => clearTimeout(toastTimer.current), [])   // dọn timer khi rời trang
+  useEffect(() => {
+    // React StrictMode chạy setup/cleanup hai lần trong dev; bật lại guard ở mỗi setup.
+    mountedRef.current = true
+    return () => { mountedRef.current = false; clearTimeout(toastTimer.current) }
+  }, [])   // dọn timer + chặn setState sau unmount
 
   // Auto-poll while scenes are active
   useEffect(() => {
@@ -285,8 +292,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       let appeared = false
       for (let i = 0; i < 9; i++) {
         await new Promise(res => setTimeout(res, 6000))
+        if (!mountedRef.current) return   // user rời trang giữa lúc poll -> dừng, không setState
         try {
           const p = await projectsApi.get(id)
+          if (!mountedRef.current) return
           detectTransitions(p); setProject(p)
           if ((p.characters?.length || 0) > before) { appeared = true; break }
         } catch { /* ignore, thử vòng sau */ }
@@ -320,8 +329,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       let changed = false
       for (let i = 0; i < 12; i++) {
         await new Promise(res => setTimeout(res, 5000))
+        if (!mountedRef.current) return
         try {
           const p = await projectsApi.get(id)
+          if (!mountedRef.current) return
           setProject(p)
           const now = p.characters?.find((c: any) => normName(c.name) === normName(name))?.image_url
           if (now && now !== before) { changed = true; break }

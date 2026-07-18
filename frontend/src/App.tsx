@@ -4,6 +4,7 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Landing from './pages/Landing'
 import { ToastProvider } from './components/Toast'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function isLoggedIn() {
   return !!localStorage.getItem('token')
@@ -17,13 +18,15 @@ function Root() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        {/* Chưa đăng nhập -> trang chào khách (Landing). Đã đăng nhập -> app (Dashboard). */}
-        <Route path="/*" element={<Root />} />
-      </Routes>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          {/* Chưa đăng nhập -> trang chào khách (Landing). Đã đăng nhập -> app (Dashboard). */}
+          <Route path="/*" element={<Root />} />
+        </Routes>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

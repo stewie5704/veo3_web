@@ -80,32 +80,64 @@ export default function SellVideo() {
   const [sellIds, setSellIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('aiac_sell_ids') || '[]') } catch { return [] } })
   const [sellData, setSellData] = useState<Record<string, any>>({})
   const saveIds = (ids: string[]) => { try { localStorage.setItem('aiac_sell_ids', JSON.stringify(ids.slice(0, 30))) } catch { /* ignore */ } }
-  const loadSell = async () => {
+  type RefPair = { id: string; product: File | null; kol: File | null; productPrev: string | null; kolPrev: string | null; name: string }
+  // Mount guard: response cũ tới sau khi user rời tab / sellIds đổi -> KHÔNG ghi state
+  // (tránh race + setState-after-unmount warning). Cờ này lật false khi effect cleanup.
+  const mountedRef = useRef(true)
+  // Blob URLs (ảnh sản phẩm + KOL preview) — theo dõi để revoke khi unmount hoặc thay ảnh.
+  // Không revoke -> mỗi lần đổi ảnh giữ MB trong memory cho tới khi tab đóng.
+  const blobUrlsRef = useRef<Set<string>>(new Set())
+  const trackBlob = (u: string | null): string | null => { if (u) blobUrlsRef.current.add(u); return u }
+  const revokeBlob = (u: string | null) => {
+    if (!u) return
+    try { URL.revokeObjectURL(u) } catch { /* ignore */ }
+    blobUrlsRef.current.delete(u)
+  }
+  const revokePairBlobs = (pair: RefPair) => {
+    revokeBlob(pair.productPrev)
+    revokeBlob(pair.kolPrev)
+  }
+  useEffect(() => {
+    // React StrictMode chạy setup -> cleanup -> setup trong dev; mỗi setup phải bật lại guard.
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      for (const u of blobUrlsRef.current) { try { URL.revokeObjectURL(u) } catch { /* ignore */ } }
+      blobUrlsRef.current.clear()
+    }
+  }, [])
+  const loadSell = async (aliveCheck?: () => boolean) => {
     if (!sellIds.length) return
-    const entries = await Promise.all(sellIds.map(id => projectsApi.get(id).then(p => [id, p] as const).catch(() => [id, null] as const)))
+    const entries = await Promise.all(sellIds.map(id =>
+      projectsApi.get(id).then(p => [id, p] as const).catch(() => [id, null] as const)
+    ))
+    if (aliveCheck && !aliveCheck()) return
+    if (!mountedRef.current) return
     const map: Record<string, any> = {}
     const validIds: string[] = []
     for (const [id, p] of entries) {
-      if (p) {
-        map[id] = p
-        validIds.push(id)
-      }
+      if (p) { map[id] = p; validIds.push(id) }
     }
     setSellData(map)
     if (validIds.length !== sellIds.length) {
-      setSellIds(validIds)
-      saveIds(validIds)
+      const capped = validIds.slice(0, 30)
+      setSellIds(capped)
+      saveIds(capped)
     }
   }
-  useEffect(() => { loadSell() }, [sellIds.join(',')])
+  useEffect(() => {
+    let alive = true
+    loadSell(() => alive)
+    return () => { alive = false }
+  }, [sellIds.join(',')])
   useEffect(() => {
     const active = sellIds.some(id => { const p = sellData[id]; return p && !p.merged_file })
     if (!active) return
-    const timer = setInterval(loadSell, 6000)
-    return () => clearInterval(timer)
+    let alive = true
+    const timer = setInterval(() => loadSell(() => alive), 6000)
+    return () => { alive = false; clearInterval(timer) }
   }, [sellData, sellIds])
 
-  type RefPair = { id: string; product: File | null; kol: File | null; productPrev: string | null; kolPrev: string | null; name: string }
   const [pairs, setPairs] = useState<RefPair[]>([{ id: '1', product: null, kol: null, productPrev: null, kolPrev: null, name: t('sell.pair_default', { n: 1 }) }])
 
   const [name, setName] = useState('')
@@ -353,6 +385,7 @@ LỜI THOẠI: ...
       setSellIds(next); saveIds(next)
       // Dự án đã CLONE ảnh sản phẩm/KOL thành bản riêng -> xoá nhân vật tạm khỏi kho chung cho gọn (lỗi cũng kệ)
       Promise.allSettled(charsToDelete.map(cid => charactersApi.delete(cid)))
+      pairs.forEach(revokePairBlobs)
       setPairs([{ id: Date.now().toString(), product: null, kol: null, productPrev: null, kolPrev: null, name: t('sell.pair_default', { n: 1 }) }])
       setBox('')
     } catch (e: any) {
@@ -447,9 +480,12 @@ LỜI THOẠI: ...
                     <label className="img-add" title="Ảnh sản phẩm">
                       {pair.productPrev ? <img src={pair.productPrev} alt="" /> : <Plus size={22} />}
                       <input type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={e => { 
-                          const f = e.target.files?.[0] || null; 
-                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, product: f, productPrev: f ? URL.createObjectURL(f) : null } : p))
+                        onChange={e => {
+                          const f = e.target.files?.[0] || null
+                          // Trả bộ nhớ blob trước — nếu không, mỗi lần đổi ảnh vài MB bị leak.
+                          revokeBlob(pair.productPrev)
+                          const productPrev = trackBlob(f ? URL.createObjectURL(f) : null)
+                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, product: f, productPrev } : p))
                         }} />
                     </label>
                   </div>
@@ -458,9 +494,11 @@ LỜI THOẠI: ...
                     <label className="img-add" title="Ảnh KOL / người mẫu">
                       {pair.kolPrev ? <img src={pair.kolPrev} alt="" /> : <Plus size={22} />}
                       <input type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={e => { 
-                          const f = e.target.files?.[0] || null; 
-                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, kol: f, kolPrev: f ? URL.createObjectURL(f) : null } : p))
+                        onChange={e => {
+                          const f = e.target.files?.[0] || null
+                          revokeBlob(pair.kolPrev)
+                          const kolPrev = trackBlob(f ? URL.createObjectURL(f) : null)
+                          setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, kol: f, kolPrev } : p))
                         }} />
                     </label>
                   </div>
@@ -469,7 +507,10 @@ LỜI THOẠI: ...
                     <input className="form-input" style={{ width: '100%', marginBottom: 6 }} placeholder="VD: Áo Thun Đen"
                       value={pair.name} onChange={e => setPairs(ps => ps.map(p => p.id === pair.id ? { ...p, name: e.target.value } : p))} />
                     {pairs.length > 1 && (
-                      <button className="btn btn-ghost btn-sm" style={{ color: '#fca5a5', padding: '4px 8px' }} onClick={() => setPairs(ps => ps.filter(p => p.id !== pair.id))}>{t('sell.delete_pair')}</button>
+                      <button className="btn btn-ghost btn-sm" style={{ color: '#fca5a5', padding: '4px 8px' }} onClick={() => {
+                        revokePairBlobs(pair)
+                        setPairs(ps => ps.filter(p => p.id !== pair.id))
+                      }}>{t('sell.delete_pair')}</button>
                     )}
                   </div>
                 </div>

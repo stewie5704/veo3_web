@@ -42,9 +42,13 @@ export function removeDeletedSellId(id: string) {
 // with ERR_FAILED. Anchor-download bypasses JS memory entirely. `path` is relative to
 // /api/v1 and may already contain a query string.
 export async function downloadVideoFile(path: string, filename: string) {
-  const token = localStorage.getItem('token') || ''
+  // Mint token tải NGẮN HẠN (aud='dl', 2 phút) thay vì nhét JWT phiên 24h vào URL.
+  // Token này chỉ dùng được cho endpoint download; nếu lọt vào nginx access-log thì
+  // cũng hết hạn ngay, không tái sử dụng cho API khác được.
+  const dl = (await api.post('/auth/download-token').then(r => r.data))?.access_token || ''
+  if (!dl) throw new Error('Không tạo được token tải file')
   const sep = path.includes('?') ? '&' : '?'
-  const href = `/api/v1${path}${sep}token=${encodeURIComponent(token)}`
+  const href = `/api/v1${path}${sep}token=${encodeURIComponent(dl)}`
   const a = document.createElement('a')
   a.href = href
   a.download = filename
