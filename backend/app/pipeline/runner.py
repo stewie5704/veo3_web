@@ -34,6 +34,27 @@ from app.auth.models import User
 from app.videos.models import VideoJob, JobStatus
 from app.crypto import dec
 
+
+async def _communicate_or_kill(proc: "asyncio.subprocess.Process", timeout: float,
+                                tag: str = "ffmpeg") -> tuple[bytes, bytes]:
+    """asyncio.wait_for(proc.communicate()) NHƯNG chắc chắn kill khi timeout.
+    wait_for() timeout thì task communicate() vẫn tồn tại -> proc bị bỏ rơi = zombie.
+    Chúng ta bắt TimeoutError, kill process rồi await một lần nữa để reap."""
+    try:
+        return await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        log = logging.getLogger("veo3.runner")
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            await asyncio.wait_for(proc.communicate(), timeout=5)
+        except Exception:  # noqa: BLE001
+            pass
+        log.warning("%s timed out after %ss, killed", tag, timeout)
+        raise
+
 log = logging.getLogger("veo3.pipeline")
 
 # Lock để serialize genai.configure() + generate_content — hàm này set global state
@@ -558,7 +579,7 @@ async def ensure_1080(src: Path, aspect_ratio: str = "16:9") -> Path | None:
             "-c:a", "copy", str(tmp),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
-        _, err = await asyncio.wait_for(proc.communicate(), timeout=600)
+        _, err = await _communicate_or_kill(proc, 600)
         if proc.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
             os.replace(tmp, cache)
             log.info("1080p ready -> %s", cache.name)
@@ -880,7 +901,7 @@ async def _extract_last_frame(video_path: Path) -> Path | None:
             "-vframes", "1", "-q:v", "2", str(out),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
-        await asyncio.wait_for(proc.communicate(), timeout=30)
+        await _communicate_or_kill(proc, timeout=30)
         return out if out.exists() else None
     except Exception as e:
         log.warning("extract_last_frame failed: %s", e)
@@ -946,7 +967,7 @@ async def _voice_over(video_fname: str, narration: str, voice: str, api_key: str
         try:
             proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE,
                                                         stderr=asyncio.subprocess.PIPE)
-            await asyncio.wait_for(proc.communicate(), timeout=120)
+            await _communicate_or_kill(proc, timeout=120)
             return proc.returncode == 0 and voiced.exists()
         except Exception as e:
             log.warning("ffmpeg voiceover failed: %s", e)
@@ -1227,7 +1248,7 @@ async def _try_auto_merge(project_id: str):
                 "-movflags", "+faststart", str(tmp_path),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )
-            await asyncio.wait_for(proc.communicate(), timeout=600)
+            await _communicate_or_kill(proc, timeout=600)
             if tmp_path.exists():
                 os.replace(tmp_path, out_path)   # rename nguyên tử
                 async with AsyncSessionLocal() as db:

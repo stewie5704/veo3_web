@@ -62,11 +62,28 @@ async def gift_assistants_if_eligible(
     random.shuffle(to_gift_pool)
     to_gift = to_gift_pool[:count]
 
-    gift = AssistantGift(
-        user_id=user_id,
-        payment_id=payment_id,
-        count=len(to_gift),
-        assistants_json=json.dumps(to_gift, ensure_ascii=False),
-    )
-    db.add(gift)
+    # Vì `user_id` là UNIQUE, không được INSERT bản ghi thứ 2 (sẽ raise IntegrityError
+    # rollback cả `mark_paid_and_activate` → payment kẹt pending vĩnh viễn). Nếu user
+    # đã có 1 gift → UPDATE cộng dồn danh sách; chưa có → INSERT.
+    existing = (await db.execute(
+        select(AssistantGift).where(AssistantGift.user_id == user_id)
+    )).scalar_one_or_none()
+    if existing is None:
+        db.add(AssistantGift(
+            user_id=user_id,
+            payment_id=payment_id,
+            count=len(to_gift),
+            assistants_json=json.dumps(to_gift, ensure_ascii=False),
+        ))
+    else:
+        try:
+            prev = json.loads(existing.assistants_json or "[]")
+            if not isinstance(prev, list):
+                prev = []
+        except Exception:
+            prev = []
+        merged = prev + to_gift
+        existing.assistants_json = json.dumps(merged, ensure_ascii=False)
+        existing.count = len(merged)
+        # payment_id giữ nguyên bản đầu — cột không có ý nghĩa referential ngoài audit.
     return to_gift

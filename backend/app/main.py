@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 
 from app.config import settings, UPLOAD_PATH
 from app.database import init_db
@@ -13,7 +12,7 @@ from app.sessions.router import router as sessions_router
 from app.projects.router import router as projects_router
 from app.tools.router import router as tools_router
 from app.characters.router import router as characters_router
-from app.media.router import router as media_router
+from app.media.router import public_router as media_public_router, router as media_router
 from app.admin.router import router as admin_router
 from app.billing.router import router as billing_router
 from app.affiliate_router import router as affiliate_router
@@ -50,7 +49,8 @@ async def lifespan(app: FastAPI):
 
 async def _auto_renew_loop():
     """Mỗi 30 phút: gia hạn gói từ ví cho user bật auto-renew & sắp hết hạn."""
-    import asyncio, logging
+    import asyncio
+    import logging
     from app.database import AsyncSessionLocal
     from app.auth.models import User
     from app.billing import gateway
@@ -89,15 +89,17 @@ app.add_middleware(
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
-# Check banned middleware
+# Bảo mật header cơ bản (áp cho MỌI response, kể cả static).
 @app.middleware("http")
-async def ban_check(request: Request, call_next):
-    # Skip auth/public endpoints
-    path = request.url.path
-    if path.startswith("/api/v1/auth") or path.startswith("/media/shared") or not path.startswith("/api"):
-        return await call_next(request)
-    response = await call_next(request)
-    return response
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    # HSTS chỉ có ý nghĩa qua HTTPS; nginx trên VPS đã HTTPS nên bật luôn.
+    resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 # API Routers
 for r in [auth_router, profile_router, videos_router, projects_router,
@@ -105,21 +107,10 @@ for r in [auth_router, profile_router, videos_router, projects_router,
           affiliate_router]:
     app.include_router(r, prefix="/api/v1")
 app.include_router(sessions_router)  # WebSocket /ws/extension
+app.include_router(media_public_router)  # Public /shared/{token}
 
-# Shared video (no prefix)
-@app.get("/shared/{token}", include_in_schema=False)
-async def shared_video(token: str):
-    from app.auth.profile import _share_tokens
-    from fastapi.responses import FileResponse
-    video_file = _share_tokens.get(token)
-    if not video_file:
-        from fastapi import HTTPException
-        raise HTTPException(404, "Link không hợp lệ")
-    fpath = UPLOAD_PATH / video_file
-    if not fpath.exists():
-        from fastapi import HTTPException
-        raise HTTPException(404, "File không tồn tại")
-    return FileResponse(str(fpath), media_type="video/mp4")
+# Endpoint /shared/{token} public đã CHUYỂN sang app/media/router.py với HMAC-signed token
+# (có expiry, xác thực chữ ký) — endpoint cũ dùng dict in-memory bị bỏ.
 
 # Static files
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_PATH)), name="uploads")
@@ -144,7 +135,8 @@ async def extension_status_ep(user=Depends(get_current_user)):
 @app.get("/api/v1/extension/download")
 async def download_extension():
     """Tải tiện ích Chrome (zip thư mục extension/ ngay lúc gọi -> luôn bản mới nhất). Public, không cần auth."""
-    import io, zipfile
+    import io
+    import zipfile
     from pathlib import Path
     from fastapi.responses import StreamingResponse
     from fastapi import HTTPException

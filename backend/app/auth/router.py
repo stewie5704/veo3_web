@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,6 +16,7 @@ from app.auth.utils import hash_password, verify_password, create_access_token, 
 from app.crypto import enc
 from app.config import settings
 from app.email import send_verification_email
+from app.security import client_ip, rate_limit
 from app import subscription
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,7 +35,24 @@ async def get_current_user(
     cred: HTTPAuthorizationCredentials = Depends(bearer),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    payload = decode_token(cred.credentials)
+    payload = decode_token(cred.credentials, audiences=("web",))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+    user = await db.get(User, payload.get("sub"))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User không tồn tại")
+    if user.is_banned:
+        raise HTTPException(status_code=403, detail="Tài khoản đã bị khóa")
+    return user
+
+
+async def get_current_user_ext(
+    cred: HTTPAuthorizationCredentials = Depends(bearer),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Dùng cho endpoint mà Chrome extension gọi — chỉ chấp nhận token có aud='ext'
+    (token 30 ngày). Token web 24h KHÔNG dùng thay được → giới hạn thiệt hại khi token web lộ."""
+    payload = decode_token(cred.credentials, audiences=("ext",))
     if not payload:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
     user = await db.get(User, payload.get("sub"))
@@ -60,7 +78,9 @@ async def get_current_user_download(
     tk = (cred.credentials if cred else None) or token
     if not tk:
         raise HTTPException(status_code=401, detail="Thiếu token")
-    payload = decode_token(tk)
+    # Chấp nhận cả token phiên 'web' (tương thích cũ) LẪN token tải ngắn hạn 'dl'.
+    # Token 'dl' hết hạn sau ~5 phút -> nếu lộ vào access-log/URL share cũng vô hại nhanh.
+    payload = decode_token(tk, audiences=("web", "dl"))
     if not payload:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
     user = await db.get(User, payload.get("sub"))
@@ -72,7 +92,10 @@ async def get_current_user_download(
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(body: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # Rate-limit tạo tài khoản: chống spam tài khoản + brute-force account-enum theo email.
+    rate_limit(f"register:{client_ip(request)}", limit=8, window=3600)
+    rate_limit(f"register-email:{body.email.lower()}", limit=3, window=3600)
     body.email = body.email.lower()
     # Check email exists
     existing = await db.execute(select(User).where(User.email == body.email))
@@ -124,7 +147,10 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # Rate-limit login: chống brute-force cả theo IP lẫn theo email.
+    rate_limit(f"login:{client_ip(request)}", limit=20, window=300)
+    rate_limit(f"login-email:{body.email.lower()}", limit=10, window=300)
     body.email = body.email.lower()
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
@@ -141,8 +167,20 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.post("/extension-token", response_model=TokenResponse)
 async def extension_token(user: User = Depends(get_current_user)):
     """Token sống lâu (30 ngày) cho Chrome extension — chỉ cấp cho user ĐÃ đăng nhập (token 24h).
-    Extension cắm WebSocket lâu dài; web app vẫn dùng token 24h như cũ -> không yếu bảo mật web."""
-    token = create_access_token({"sub": user.id, "ext": True}, expires_delta=timedelta(days=30))
+    Extension cắm WebSocket lâu dài; web app vẫn dùng token 24h như cũ -> không yếu bảo mật web.
+    audience='ext' -> KHÔNG dùng được cho endpoint web (get_current_user chỉ nhận aud='web').
+    Chống trường hợp XSS lấy được token 24h rồi tự đổi thành token 30 ngày dùng như session vĩnh viễn."""
+    token = create_access_token({"sub": user.id, "aud": "ext"}, expires_delta=timedelta(days=30))
+    return TokenResponse(access_token=token)
+
+
+@router.post("/download-token", response_model=TokenResponse)
+async def download_token(user: User = Depends(get_current_user)):
+    """Token sống ngắn (2 phút, aud='dl') chỉ để tải file qua <a download> (?token=...).
+    Không dùng được cho API khác; rò rỉ vào nginx log cũng hết hạn ngay -> không phải JWT phiên."""
+    from app.auth.utils import AUD_DOWNLOAD
+    token = create_access_token({"sub": user.id}, expires_delta=timedelta(minutes=2),
+                                audience=AUD_DOWNLOAD)
     return TokenResponse(access_token=token)
 
 
@@ -189,6 +227,26 @@ def _sent_aware(user) -> datetime | None:
     return s.replace(tzinfo=timezone.utc) if (s and s.tzinfo is None) else s
 
 
+# Brute-force lockout cho verify-email: mã 6 số chỉ 1 triệu tổ hợp,
+# không giới hạn attempts thì thử vét cạn <10 phút. Sau 8 lần sai trong 15 phút
+# khoá theo user id (không dò được email valid vì phải có token đăng nhập).
+_verify_attempts: dict[str, list[float]] = {}
+
+
+def _check_verify_bruteforce(user_id: str) -> None:
+    import time
+    now = time.time()
+    win = _verify_attempts.setdefault(user_id, [])
+    _verify_attempts[user_id] = [t for t in win if now - t < 900]   # 15 phút
+    if len(_verify_attempts[user_id]) >= 8:
+        raise HTTPException(429, "Sai mã quá nhiều lần. Đợi 15 phút hoặc gửi lại mã.")
+
+
+def _register_verify_failure(user_id: str) -> None:
+    import time
+    _verify_attempts.setdefault(user_id, []).append(time.time())
+
+
 @router.post("/verify-email")
 async def verify_email(
     body: VerifyEmailRequest,
@@ -197,13 +255,16 @@ async def verify_email(
 ):
     if user.email_verified:
         return {"ok": True, "already": True}
+    _check_verify_bruteforce(user.id)
     sent = _sent_aware(user)
     if not sent or datetime.now(timezone.utc) - sent > timedelta(minutes=15):
         raise HTTPException(status_code=400, detail="Mã đã hết hạn. Bấm gửi lại mã.")
     if not user.email_verify_code or (body.code or "").strip() != user.email_verify_code:
+        _register_verify_failure(user.id)
         raise HTTPException(status_code=400, detail="Mã không đúng.")
     user.email_verified = True
     user.email_verify_code = None
+    _verify_attempts.pop(user.id, None)
     await db.commit()
     return {"ok": True}
 

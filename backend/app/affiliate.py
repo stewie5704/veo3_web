@@ -61,10 +61,26 @@ async def effective_rate(db: AsyncSession, affiliate) -> int:
 
 async def credit_wallet(db: AsyncSession, user, amount: int, kind: str, note: str = "",
                         status: str = "done") -> None:
-    """Add `amount` VND (can be negative) to the user's wallet + log a WalletTxn. Caller commits."""
+    """Add `amount` VND (can be negative) to the user's wallet + log a WalletTxn. Caller commits.
+
+    ATOMIC: dùng `UPDATE users SET wallet_balance = wallet_balance + :amt WHERE id = :id`
+    thay vì read-modify-write ở Python. Hai webhook đồng thời (PayOS + poller, hay 2 request
+    hoa hồng) trước đây có thể mất tiền do lost-update — SQL UPDATE...+... an toàn ở
+    mọi isolation level của Postgres.
+    """
+    from sqlalchemy import update as sa_update
+    from app.auth.models import User as _User
     from app.billing.models import WalletTxn
-    user.wallet_balance = int(user.wallet_balance or 0) + int(amount)
-    db.add(WalletTxn(user_id=user.id, amount=int(amount), kind=kind, status=status, note=note,
+    amt = int(amount)
+    result = await db.execute(
+        sa_update(_User).where(_User.id == user.id)
+        .values(wallet_balance=_User.wallet_balance + amt)
+        .returning(_User.wallet_balance)
+        .execution_options(synchronize_session=False)
+    )
+    # Đồng bộ object đang tracked bằng giá trị DB thực tế; không tự + lần hai.
+    user.wallet_balance = int(result.scalar_one())
+    db.add(WalletTxn(user_id=user.id, amount=amt, kind=kind, status=status, note=note,
                      processed_at=(datetime.now(timezone.utc).replace(tzinfo=None) if status == "done" else None)))
 
 

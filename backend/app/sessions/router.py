@@ -14,11 +14,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 
-from app.database import get_db, AsyncSessionLocal
+from app.database import AsyncSessionLocal
 from app.auth.utils import decode_token
 from app.auth.models import User
 from app.auth.router import get_current_user
@@ -39,7 +37,7 @@ _captcha_locks: Dict[str, asyncio.Lock] = {}
 @router.websocket("/ws/extension")
 async def extension_ws(websocket: WebSocket, token: str = ""):
     """Chrome Extension connects here to push cookies + captcha tokens."""
-    payload = decode_token(token)
+    payload = decode_token(token, audiences=("ext",))
     if not payload:
         await websocket.close(code=4001, reason="Invalid token")
         return

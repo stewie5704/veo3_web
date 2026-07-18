@@ -78,3 +78,23 @@ async def test_admin_grant_plan_activates(client, make_user):
     assert ok.status_code == 200
     me = await client.get("/api/v1/billing/me", headers=target["headers"])
     assert me.json()["active"] is True
+
+
+async def test_credit_wallet_updates_database_and_tracked_user_once(client, make_user):
+    created = await make_user()
+    from app.affiliate import credit_wallet
+    from app.auth.models import User
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        user = await db.get(User, created["user_id"])
+        user.wallet_balance = 100
+        await db.commit()
+
+        await credit_wallet(db, user, 50, "test")
+        assert user.wallet_balance == 150
+        await db.commit()
+
+    async with AsyncSessionLocal() as db:
+        saved = await db.get(User, created["user_id"])
+        assert saved.wallet_balance == 150

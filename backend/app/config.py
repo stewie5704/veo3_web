@@ -1,13 +1,24 @@
-from pydantic_settings import BaseSettings
+import os
+import secrets
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
 
+_DEFAULT_SECRET = "change-me-to-random-64-char-string"
+
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).parent.parent / ".env"),
+        extra="ignore",
+    )
+
     # Database
     database_url: str = "sqlite+aiosqlite:///./veo3web.db"
 
-    # JWT
-    secret_key: str = "change-me-to-random-64-char-string"
+    # JWT — DEV default fills một secret ngẫu nhiên tại tiến trình (mất khi restart, buộc dev tự đặt).
+    # PROD (APP_ENV=production) BẮT BUỘC set SECRET_KEY trong .env — nếu thiếu sẽ raise ở dưới.
+    secret_key: str = _DEFAULT_SECRET
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 24h
 
@@ -50,10 +61,19 @@ class Settings(BaseSettings):
     system_9router_key: str = "sk-dummy"
     system_9router_models: str = "gemini-2.5-flash"
 
-    class Config:
-        env_file = str(Path(__file__).parent.parent / ".env")
-
-
 settings = Settings()
+
+# Bảo vệ SECRET_KEY: PROD phải có riêng; DEV thì tự sinh ephemeral để không ai vô tình
+# ký JWT bằng chuỗi mặc định public trong repo.
+_app_env = (os.getenv("APP_ENV") or os.getenv("ENV") or "").lower()
+if settings.secret_key == _DEFAULT_SECRET:
+    if _app_env in ("prod", "production"):
+        raise ValueError(
+            "SECRET_KEY chưa được đặt trong .env (đang là giá trị mặc định public). "
+            "Sinh 1 chuỗi ngẫu nhiên >= 64 ký tự và đặt vào backend/.env trước khi chạy prod."
+        )
+    # DEV: sinh ngẫu nhiên tại runtime — không bao giờ đi ra ngoài process.
+    settings.secret_key = secrets.token_urlsafe(64)
+
 UPLOAD_PATH = Path(settings.upload_dir)
 UPLOAD_PATH.mkdir(parents=True, exist_ok=True)

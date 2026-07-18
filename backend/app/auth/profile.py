@@ -1,8 +1,4 @@
 """Extra auth endpoints: profile update, change password, share tokens."""
-import uuid
-import hashlib
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,13 +8,10 @@ from app.database import get_db
 from app.auth.router import get_current_user
 from app.auth.utils import hash_password, verify_password
 from app.auth.models import User
+from app.security import check_media_filename, make_share_token
 from app import subscription as _sub
 
 router = APIRouter(prefix="/profile", tags=["profile"])
-
-# In-memory share tokens: token → video_path
-_share_tokens: dict[str, str] = {}
-
 
 class UpdateProfileRequest(BaseModel):
     display_name: str | None = None
@@ -85,11 +78,26 @@ async def change_password(
 async def create_share_link(
     payload: dict,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Create a public share token for a video file."""
-    video_file = payload.get("video_file", "")
+    """Cấp token chia sẻ HMAC-signed, TTL 7 ngày. Chỉ dành cho file thuộc user hiện tại."""
+    video_file = (payload or {}).get("video_file", "")
     if not video_file:
         raise HTTPException(400, "video_file required")
-    token = hashlib.md5(f"{user.id}{video_file}{uuid.uuid4()}".encode()).hexdigest()
-    _share_tokens[token] = video_file
+    check_media_filename(video_file)
+
+    # Ownership: video_file phải là scene.video_file hoặc project.merged_file của user.
+    from app.projects.models import Scene, Project
+    owns = (await db.execute(
+        select(Scene.id).join(Project, Project.id == Scene.project_id)
+        .where(Project.user_id == user.id, Scene.video_file == video_file).limit(1)
+    )).first()
+    if not owns:
+        owns = (await db.execute(
+            select(Project.id).where(Project.user_id == user.id, Project.merged_file == video_file).limit(1)
+        )).first()
+    if not owns:
+        raise HTTPException(403, "Không có quyền chia sẻ file này")
+
+    token = make_share_token(video_file)
     return {"token": token, "url": f"/shared/{token}"}

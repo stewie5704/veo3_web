@@ -8,7 +8,8 @@ import shutil
 import uuid
 import asyncio
 import logging
-from datetime import datetime, timezone
+import re
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Request
@@ -395,6 +396,18 @@ async def create_project(
     if not user.google_connected and not user.gemini_api_key:
         raise HTTPException(400, "Cần kết nối Google Ultra hoặc Gemini API key")
 
+    # DoS guard: cap số lượng cảnh mỗi project. 200 là dư dùng cho use-case dài
+    # nhất (bán hàng 30-60 cảnh). Không cap = user submit 10k prompts -> OOM.
+    if len(body.prompts) > 200:
+        raise HTTPException(400, "Quá nhiều cảnh trong 1 dự án (tối đa 200).")
+    # Giới hạn độ dài mỗi prompt / narration để không nuốt RAM.
+    for i, p in enumerate(body.prompts):
+        if len(p or "") > 4000:
+            raise HTTPException(400, f"Prompt cảnh {i+1} quá dài (tối đa 4000 ký tự).")
+    for i, n in enumerate(body.narrations or []):
+        if len(n or "") > 2000:
+            raise HTTPException(400, f"Lời thoại cảnh {i+1} quá dài (tối đa 2000 ký tự).")
+
     proj = Project(
         user_id=user.id, name=body.name, idea=body.idea,
         style=body.style, model_key=body.model_key,
@@ -450,7 +463,7 @@ async def create_project(
 
 async def get_user_from_token_query(token: str, db: AsyncSession = Depends(get_db)):
     from app.auth.utils import decode_token
-    payload = decode_token(token)
+    payload = decode_token(token, audiences=("web",))
     if not payload:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
     user = await db.get(User, payload.get("sub"))
@@ -946,6 +959,9 @@ async def download_scene(
     return FileResponse(str(path), filename=f"canh_{scene.index + 1}_{tag}.mp4", media_type="video/mp4")
 
 
+_MERGED_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.mp4$")
+
+
 @router.get("/{project_id}/download-merged")
 async def download_merged(
     project_id: str,
@@ -957,12 +973,24 @@ async def download_merged(
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
-        
+
     target_file = filename if filename else proj.merged_file
     if not target_file:
         raise HTTPException(404, "Dự án chưa được ghép hoặc file không tồn tại")
-        
-    path = UPLOAD_PATH / target_file
+
+    # Path-traversal defence:
+    # 1) tên file phải là basename hợp lệ, KHÔNG chứa / \\ .. ;
+    # 2) resolve() không được thoát khỏi UPLOAD_PATH;
+    # 3) chỉ chấp nhận .mp4 hợp lệ theo regex.
+    if not _MERGED_NAME_RE.match(target_file) or "/" in target_file or "\\" in target_file:
+        raise HTTPException(400, "Tên file không hợp lệ")
+    base = UPLOAD_PATH.resolve()
+    try:
+        path = (base / target_file).resolve()
+    except (OSError, ValueError):
+        raise HTTPException(400, "Tên file không hợp lệ")
+    if base != path.parent:
+        raise HTTPException(400, "Tên file không hợp lệ")
     if not path.exists():
         raise HTTPException(404, "File đã bị xóa")
     tag = "720p"

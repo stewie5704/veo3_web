@@ -1,24 +1,35 @@
 """Media extras: ZIP download for project, thumbnail gen, shared video view."""
-import asyncio
 import io
-import zipfile
 import logging
+import re
 import uuid
+import zipfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse, Response
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
-from app.database import get_db, AsyncSessionLocal
+from app.database import AsyncSessionLocal
 from app.auth.router import get_current_user
 from app.auth.models import User
 from app.config import UPLOAD_PATH
-from app.auth.profile import _share_tokens
+from app.security import (
+    client_ip,
+    check_media_filename,
+    host_is_public,
+    resolve_within,
+    ffmpeg_run,
+    yt_dlp_run,
+    rate_limit,
+    verify_share_token,
+)
 
 log = logging.getLogger("veo3.media2")
 router = APIRouter(prefix="/media", tags=["media"])
+public_router = APIRouter(tags=["media"])
 
 MERGED_PATH = UPLOAD_PATH.parent / "merged"
 MERGED_PATH.mkdir(parents=True, exist_ok=True)
@@ -28,12 +39,14 @@ THUMB_PATH.mkdir(parents=True, exist_ok=True)
 
 # ── Shared video (no auth) ────────────────────────────────────────────────────
 
-@router.get("/shared/{token}", include_in_schema=False)
-async def view_shared(token: str):
-    video_file = _share_tokens.get(token)
-    if not video_file:
-        raise HTTPException(404, "Link không hợp lệ hoặc đã hết hạn")
-    fpath = UPLOAD_PATH / video_file
+@public_router.get("/shared/{token}", include_in_schema=False)
+async def view_shared(token: str, request: Request):
+    # Rate-limit theo IP để chống scrape: 60 lượt/phút.
+    ip = client_ip(request)
+    rate_limit(f"shared:{ip}", limit=60, window=60)
+
+    video_file = verify_share_token(token)
+    fpath = resolve_within(UPLOAD_PATH, video_file)
     if not fpath.exists():
         raise HTTPException(404, "File không tồn tại")
     return FileResponse(str(fpath), media_type="video/mp4")
@@ -67,11 +80,15 @@ async def download_project_zip(
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for s in scenes:
             if s.video_file:
-                fpath = UPLOAD_PATH / s.video_file
+                try:
+                    fpath = resolve_within(UPLOAD_PATH, s.video_file)
+                except HTTPException:
+                    continue
                 if fpath.exists():
                     zf.write(fpath, f"scene_{s.index + 1:02d}.mp4")
     buf.seek(0)
-    zip_name = f"{proj.name.replace(' ', '_')}_videos.zip"
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", proj.name or "project")[:80]
+    zip_name = f"{safe_name}_videos.zip"
     return StreamingResponse(
         buf,
         media_type="application/zip",
@@ -86,28 +103,49 @@ async def gen_thumbnail(
     payload: dict,
     user: User = Depends(get_current_user),
 ):
-    """Extract first frame of a video as thumbnail."""
+    """Extract first frame of a video as thumbnail.
+    Chỉ cho phép tên file nằm trong UPLOAD_PATH và thuộc user gọi."""
     video_file = payload.get("video_file", "")
     if not video_file:
         raise HTTPException(400, "video_file required")
-    src = UPLOAD_PATH / video_file
+    # Path traversal fix: verify tên file + resolve trong UPLOAD_PATH.
+    check_media_filename(video_file)
+    src = resolve_within(UPLOAD_PATH, video_file)
     if not src.exists():
         raise HTTPException(404, "File không tồn tại")
+
+    # Ownership: file phải thuộc scene của user (hoặc là merged_file của project user).
+    from app.projects.models import Scene, Project
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        owns = (await db.execute(
+            select(Scene.id)
+            .join(Project, Project.id == Scene.project_id)
+            .where(Project.user_id == user.id, Scene.video_file == video_file)
+            .limit(1)
+        )).first()
+        if not owns:
+            owns = (await db.execute(
+                select(Project.id).where(Project.user_id == user.id, Project.merged_file == video_file).limit(1)
+            )).first()
+        if not owns:
+            raise HTTPException(403, "Không có quyền với file này")
+
     thumb_name = video_file.rsplit(".", 1)[0] + "_thumb.jpg"
     thumb_path = THUMB_PATH / thumb_name
     if not thumb_path.exists():
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", str(src),
-            "-vframes", "1", "-q:v", "3", str(thumb_path),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        rc, _out, err = await ffmpeg_run(
+            ["-y", "-i", str(src), "-vframes", "1", "-q:v", "3", str(thumb_path)],
+            timeout=30,
         )
-        await asyncio.wait_for(proc.communicate(), timeout=30)
+        if rc != 0:
+            log.warning("thumbnail ffmpeg failed: %s", err[-200:])
     if not thumb_path.exists():
         raise HTTPException(500, "Tạo thumbnail thất bại")
     return {"thumbnail_url": f"/thumbnails/{thumb_name}"}
 
 
-# ── Merge + Cut + Download + Credits (moved from media/router.py) ─────────────
+# ── Merge + Cut + Download + Credits ──────────────────────────────────────────
 
 class MergeRequest(BaseModel):
     project_id: str
@@ -133,7 +171,15 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
 
     if not scenes:
         raise HTTPException(400, "Chưa có scene nào hoàn thành")
-    video_files = [UPLOAD_PATH / s.video_file for s in scenes if s.video_file]
+
+    video_files: list[Path] = []
+    for s in scenes:
+        if not s.video_file:
+            continue
+        try:
+            video_files.append(resolve_within(UPLOAD_PATH, s.video_file))
+        except HTTPException:
+            log.warning("merge: skip suspicious video_file=%r on scene %s", s.video_file, s.id)
     missing = [str(f) for f in video_files if not f.exists()]
     if missing:
         raise HTTPException(400, f"File không tồn tại: {missing[:2]}")
@@ -142,93 +188,159 @@ async def merge_project(body: MergeRequest, user: User = Depends(get_current_use
     out_path = MERGED_PATH / out_name
     concat_file = MERGED_PATH / f"concat_{uuid.uuid4().hex[:8]}.txt"
     try:
-        with open(concat_file, "w") as f:
+        with open(concat_file, "w", encoding="utf-8") as f:
             for vf in video_files:
                 f.write(f"file '{vf.as_posix()}'\n")
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-            "-i", str(concat_file),
-            # Audio re-encode → 1 luồng AAC sạch (concat "-c copy" nhiều AAC = frame hỏng ở mối
-            # nối → pop/mất tiếng). Video copy vì mọi cảnh cùng thông số. +faststart cho web.
-            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
-            "-movflags", "+faststart", str(out_path),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        rc, _out, err = await ffmpeg_run(
+            ["-y", "-f", "concat", "-safe", "0", "-i", str(concat_file),
+             # Audio re-encode → 1 luồng AAC sạch (concat "-c copy" nhiều AAC = frame hỏng ở mối
+             # nối → pop/mất tiếng). Video copy vì mọi cảnh cùng thông số. +faststart cho web.
+             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+             "-movflags", "+faststart", str(out_path)],
+            timeout=300,
         )
-        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        if proc.returncode != 0:
-            raise HTTPException(500, f"FFmpeg: {stderr.decode()[-300:]}")
+        if rc != 0:
+            log.warning("merge ffmpeg fail rc=%s err=%s", rc, err[-200:])
+            raise HTTPException(500, "Ghép video thất bại")
+
         # Cập nhật proj.merged_file để nút "Tải về" trả đúng file mới nhất
         # (copy vào UPLOAD_PATH vì download-merged serve từ UPLOAD_PATH)
         import shutil
         upload_copy = UPLOAD_PATH / out_name
         shutil.copy2(out_path, upload_copy)
-        
+
         # Chỉ cập nhật proj.merged_file nếu ghép TOÀN BỘ phim (không phải ghép phần)
         if body.part is None:
             async with AsyncSessionLocal() as db2:
-                from app.projects.models import Project
                 proj2 = await db2.get(Project, body.project_id)
                 if proj2:
-                    # Xoá file ghép cũ
+                    # Xoá file ghép cũ (nếu tên hợp lệ)
                     if proj2.merged_file and proj2.merged_file != out_name:
-                        for old_dir in (UPLOAD_PATH, MERGED_PATH):
-                            old_f = old_dir / proj2.merged_file
-                            if old_f.exists():
-                                try: old_f.unlink()
-                                except OSError: pass
+                        try:
+                            check_media_filename(proj2.merged_file)
+                            for old_dir in (UPLOAD_PATH, MERGED_PATH):
+                                old_f = old_dir / proj2.merged_file
+                                if old_f.exists():
+                                    try:
+                                        old_f.unlink()
+                                    except OSError:
+                                        pass
+                        except HTTPException:
+                            pass
                     proj2.merged_file = out_name
                     await db2.commit()
         return {"ok": True, "filename": out_name, "url": f"/merged/{out_name}"}
     finally:
         if concat_file.exists():
-            concat_file.unlink()
+            try:
+                concat_file.unlink()
+            except OSError:
+                pass
 
 
 class CutRequest(BaseModel):
-    filename: str
+    filename: str = Field(..., max_length=200)
     mode: str = "split"
-    segment: int = 8
-    fps: int = 1
+    segment: int = Field(8, ge=1, le=600)
+    fps: int = Field(1, ge=1, le=60)
 
 
 @router.post("/cut")
 async def cut_video(body: CutRequest, user: User = Depends(get_current_user)):
-    src = UPLOAD_PATH / body.filename
+    # Path traversal fix + ownership check.
+    check_media_filename(body.filename)
+    src = resolve_within(UPLOAD_PATH, body.filename)
     if not src.exists():
         raise HTTPException(404, "File không tồn tại")
+
+    from app.projects.models import Scene, Project
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        owns = (await db.execute(
+            select(Scene.id)
+            .join(Project, Project.id == Scene.project_id)
+            .where(Project.user_id == user.id, Scene.video_file == body.filename)
+            .limit(1)
+        )).first()
+        if not owns:
+            owns = (await db.execute(
+                select(Project.id).where(Project.user_id == user.id, Project.merged_file == body.filename).limit(1)
+            )).first()
+        if not owns:
+            raise HTTPException(403, "Không có quyền với file này")
+
+    if body.mode not in ("split", "frames"):
+        raise HTTPException(400, "mode phải là 'split' hoặc 'frames'")
+
     out_dir = UPLOAD_PATH / f"cut_{uuid.uuid4().hex[:8]}"
     out_dir.mkdir(parents=True)
     if body.mode == "frames":
         pattern = str(out_dir / "frame_%04d.jpg")
-        cmd = ["ffmpeg", "-y", "-i", str(src), "-vf", f"fps={body.fps}", pattern]
+        cmd = ["-y", "-i", str(src), "-vf", f"fps={body.fps}", pattern]
     else:
         pattern = str(out_dir / "seg_%03d.mp4")
-        cmd = ["ffmpeg", "-y", "-i", str(src), "-c", "copy", "-map", "0",
+        cmd = ["-y", "-i", str(src), "-c", "copy", "-map", "0",
                "-segment_time", str(body.segment), "-f", "segment", "-reset_timestamps", "1", pattern]
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
-    if proc.returncode != 0:
-        raise HTTPException(500, f"FFmpeg: {stderr.decode()[-300:]}")
+    rc, _out, err = await ffmpeg_run(cmd, timeout=180)
+    if rc != 0:
+        log.warning("cut ffmpeg fail rc=%s err=%s", rc, err[-200:])
+        raise HTTPException(500, "Cắt video thất bại")
     files = sorted(out_dir.iterdir())
     return {"ok": True, "count": len(files), "files": [f"/uploads/{out_dir.name}/{f.name}" for f in files]}
 
 
 class DownloadRequest(BaseModel):
-    url: str
-    quality: str = "best[ext=mp4]"
+    url: str = Field(..., max_length=2000)
+    quality: str = Field("best[ext=mp4]", max_length=100)
+
+
+_DOWNLOAD_ALLOWED_HOSTS = (
+    "youtube.com", "youtu.be", "tiktok.com", "facebook.com", "fb.watch",
+    "instagram.com", "vimeo.com", "twitter.com", "x.com",
+)
+
+
+def _download_host_allowed(host: str) -> bool:
+    h = (host or "").lower()
+    return any(h == d or h.endswith("." + d) for d in _DOWNLOAD_ALLOWED_HOSTS)
+
+
+# yt-dlp quality string chỉ cho phép các ký tự an toàn (không có shell meta).
+_QUALITY_RE = re.compile(r"^[A-Za-z0-9\[\]=+/,.<>*_() -]{1,100}$")
 
 
 @router.post("/download-url")
-async def download_from_url(body: DownloadRequest, user: User = Depends(get_current_user)):
+async def download_from_url(
+    body: DownloadRequest,
+    user: User = Depends(get_current_user),
+):
+    # Rate-limit theo user: 5 lượt/phút, 30/giờ.
+    rate_limit(f"dl-url:{user.id}", limit=5, window=60)
+    rate_limit(f"dl-url-h:{user.id}", limit=30, window=3600)
+
+    # SSRF hardening: allowlist host + IP public + scheme.
+    parsed = urlparse(body.url.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(400, "URL không hợp lệ")
+    if not _download_host_allowed(parsed.hostname):
+        raise HTTPException(400, "Chỉ hỗ trợ link YouTube / TikTok / Facebook / Instagram / Vimeo / Twitter")
+    if not host_is_public(parsed.hostname):
+        raise HTTPException(400, "URL không hợp lệ")
+
+    if not _QUALITY_RE.match(body.quality or ""):
+        raise HTTPException(400, "Quality string không hợp lệ")
+
     out_name = f"dl_{uuid.uuid4().hex[:10]}.mp4"
     out_path = UPLOAD_PATH / out_name
-    import sys
-    cmd = [sys.executable, "-m", "yt_dlp", "-f", body.quality, "--no-playlist", "--merge-output-format", "mp4",
-           "-o", str(out_path), body.url]
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-    if proc.returncode != 0:
-        raise HTTPException(500, f"yt-dlp: {stderr.decode()[-300:]}")
+    rc, _out, err = await yt_dlp_run(
+        ["-f", body.quality, "--no-playlist", "--merge-output-format", "mp4",
+         "-o", str(out_path), body.url],
+        timeout=300,
+    )
+    if rc != 0:
+        log.warning("yt-dlp fail rc=%s err=%s", rc, err[-300:])
+        # KHÔNG echo stderr ra client (có thể chứa URL nội bộ / cookie).
+        raise HTTPException(400, "Không tải được video từ link này")
     return {"ok": True, "filename": out_name, "url": f"/uploads/{out_name}"}
 
 
@@ -237,7 +349,10 @@ async def get_credits(user: User = Depends(get_current_user)):
     if not user.google_cookies:
         return {"credits": None, "error": "Chưa kết nối Google Ultra"}
     from app.crypto import dec
-    cookies = dec(user.google_cookies)
+    try:
+        cookies = dec(user.google_cookies)
+    except Exception:
+        return {"credits": None, "error": "Cookie đã hỏng, vui lòng kết nối lại"}
     try:
         from app.pipeline.runner import _get_bearer_token
         bearer = await _get_bearer_token(cookies)
@@ -252,5 +367,7 @@ async def get_credits(user: User = Depends(get_current_user)):
                 data = r.json()
                 return {"credits": data.get("credits") or data.get("balance") or data.get("remainingCredits")}
             return {"credits": None, "error": f"API {r.status_code}"}
-    except Exception as e:
-        return {"credits": None, "error": str(e)}
+    except Exception:
+        # KHÔNG echo str(e) — có thể lộ URL Google / bearer.
+        log.exception("get_credits error")
+        return {"credits": None, "error": "Không truy vấn được credits"}

@@ -14,6 +14,7 @@ os.environ["SECRET_KEY"] = "test-secret-0123456789abcdef0123456789abcdef"
 os.environ["REDIS_URL"] = "redis://127.0.0.1:6399/0"   # unreachable on purpose → bus stays no-op
 os.environ["EMAIL_VERIFY_REQUIRED"] = "false"          # test hermetic: KHÔNG phụ thuộc .env của host
 os.environ["RESEND_API_KEY"] = ""                      # không gửi mail thật khi test
+os.environ["DISABLE_RATE_LIMIT"] = "1"                 # test tạo nhiều user/login liên tiếp → tắt rate-limit
 
 import app.database as dbmod  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker  # noqa: E402
