@@ -142,6 +142,11 @@ echo '=== DEPLOY OK ==='
 $remote = $remoteTemplate.Replace("__REMOTE_PATH__", $RemotePath)
 $remote = $remote.Replace("__EXPECTED_COMMIT__", $localCommit)
 $remote = $remote.Replace("__FRONTEND_STEP__", $frontendStep)
+# Mã hoá Base64 để giữ nguyên quote/newline qua Windows PowerShell + OpenSSH.
+# Truyền raw here-string làm SSH argument sẽ bị ghép/tách quote; pipe thẳng stdin
+# từ Windows PowerShell lại có thể không đóng EOF ổn định.
+$remote = $remote.Replace(([string][char]13 + [char]10), [string][char]10)
+$remoteBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remote))
 
 Write-Host ""
 Write-Host "==> [2/3] San sang deploy $localCommit len $Vps..." -ForegroundColor Cyan
@@ -157,7 +162,7 @@ if (-not [string]::IsNullOrWhiteSpace($IdentityFile)) {
   $identityPath = (Resolve-Path -LiteralPath $IdentityFile).Path
   $sshArgs += @("-i", $identityPath, "-o", "IdentitiesOnly=yes")
 }
-$sshArgs += @("--", $Vps, $remote)
+$sshArgs += @("--", $Vps, "printf %s $remoteBase64 | base64 -d | bash -se")
 & ssh.exe @sshArgs
 if ($LASTEXITCODE -ne 0) {
   Stop-Deploy "Deploy VPS that bai. Kiem tra SSH key/quyen truy cap va log tren VPS."
