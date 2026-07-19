@@ -37,6 +37,7 @@ _extension_caps: Dict[str, set[str]] = {}
 _ws_send_locks: Dict[str, asyncio.Lock] = {}
 _api_waiters: Dict[str, tuple[str, asyncio.Future]] = {}
 _api_last_submit: Dict[str, float] = {}
+_api_blocked: Dict[str, str] = {}
 
 
 async def _send_ws(user_id: str, ws: WebSocket, payload: dict) -> None:
@@ -79,6 +80,7 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
+                        _api_blocked.pop(user_id, None)
                         log.info("Extension bridge %s capabilities=%s for user %s",
                                  msg.get("bridge_version") or "legacy",
                                  sorted(_extension_caps[user_id]), user_id)
@@ -135,6 +137,7 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
             _extension_caps.pop(user_id, None)
             _ws_send_locks.pop(user_id, None)
             _api_last_submit.pop(user_id, None)
+            _api_blocked.pop(user_id, None)
             for request_id, (owner_id, future) in list(_api_waiters.items()):
                 if owner_id == user_id:
                     _api_waiters.pop(request_id, None)
@@ -182,6 +185,8 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
     """Run a Flow API request in Chrome, optionally minting captcha just before fetch."""
     if not has_flow_api_proxy(user_id):
         return None
+    if user_id in _api_blocked:
+        return 0, {"error": _api_blocked[user_id]}
     ws = _ws_connections.get(user_id)
     if not ws:
         return None
@@ -217,6 +222,12 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
                 await asyncio.sleep(1.5 - elapsed)
             result = await _request()
             _api_last_submit[user_id] = asyncio.get_running_loop().time()
+            if result and result[0] == 403:
+                raw = str((result[1] or {}).get("_raw") or "")
+                if "<title>Sorry" in raw or "automated queries" in raw.lower():
+                    _api_blocked[user_id] = (
+                        "Google trả trang 'Sorry' cho request từ extension. Đã ngắt cầu dao để "
+                        "không gửi thêm; cập nhật/Reload extension rồi Kết nối lại.")
             return result
     return await _request()
 
