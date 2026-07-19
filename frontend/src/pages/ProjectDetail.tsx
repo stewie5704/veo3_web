@@ -40,6 +40,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   // Mount guard: các vòng poll (doGenPortraits/doRegenPortrait) await sleep nhiều giây;
   // nếu user rời trang giữa chừng thì KHÔNG được setState nữa (tránh warning + fetch thừa).
   const mountedRef = useRef(true)
+  const videoVersions = useRef<Record<string, number>>({})
   const prevStatus = useRef<Record<string, string>>({})   // scene id -> status đã thấy lần trước
   const seeded = useRef(false)                             // đã ghi nhận trạng thái ban đầu chưa
   const notifiedDone = useRef(false)                       // đã báo "dự án xong" chưa (báo 1 lần)
@@ -100,7 +101,10 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     let newlyDone = 0
     scenes.forEach(s => {
       const prev = prevStatus.current[s.id]
-      if (prev && prev !== 'done' && s.status === 'done') newlyDone++
+      if (prev && prev !== 'done' && s.status === 'done') {
+        newlyDone++
+        videoVersions.current[s.id] = Date.now()
+      }
       if (prev && prev !== 'failed' && s.status === 'failed') notify(t('scene.scene_failed', { index: s.index + 1 }), 'error', document.hidden)
       prevStatus.current[s.id] = s.status
     })
@@ -115,6 +119,9 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
   }
 
   useEffect(() => { load() }, [id])
+  const sceneActivityKey = (project?.scenes || [])
+    .map((s: any) => [s.id, s.status, s.video_file || ''].join(':'))
+    .join('|')
   useEffect(() => {
     // React StrictMode chạy setup/cleanup hai lần trong dev; bật lại guard ở mỗi setup.
     mountedRef.current = true
@@ -132,7 +139,7 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
     }
     const tm = setInterval(() => load(true), 4000)
     return () => clearInterval(tm)
-  }, [project?.id, project?.status, project?.scenes?.length])
+  }, [project?.id, project?.status, sceneActivityKey])
 
   // Ở bước duyệt (waiting_review): poll để ảnh model sheet hiện dần khi backend sinh xong.
   // Dừng khi mọi nhân vật trong bible đã có ảnh VÀ không còn ai đang tạo lại (đỡ gọi API vô ích).
@@ -657,7 +664,8 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
         ...(editing ? { gridColumn: '1 / -1' } : {}),
       }}>
         {/* Thumbnail / preview */}
-        <div style={{ position: 'relative', aspectRatio: vertical ? '9 / 16' : '16 / 9', background: 'var(--bg3)' }}>
+        <div key={scene.id + ':' + st + ':' + (videoVersions.current[scene.id] || 0)}
+          style={{ position: 'relative', aspectRatio: vertical ? '9 / 16' : '16 / 9', background: 'var(--bg3)' }}>
           {st === 'done' && scene.video_file ? (
             <video src={`/uploads/${scene.video_file}`} controls preload="metadata"
               style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', display: 'block' }} />
