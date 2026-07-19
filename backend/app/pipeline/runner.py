@@ -810,11 +810,14 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     # Endpoint StartImage KHÔNG hỗ trợ referenceImages và referenceAudio.
     # Do đó, nếu người dùng cần giữ mặt (ref_ids) hoặc cần giọng nói (voice_name có UUID), ta ưu tiên dùng ReferenceImages (và hy sinh nối khung start_image).
     has_ref_audio = bool(voice_name and len(voice_name) > 20)
-    if ref_ids or has_ref_audio:
+    # An I2V Fix start frame already contains the character identity and must win
+    # over the original character sheet. Only custom reference audio forces R2V.
+    if has_ref_audio or (ref_ids and not start_id):
         endpoint = "video:batchAsyncGenerateVideoReferenceImages"
         key = _resolve_variant(key, "r2v")
         start_id = None # StartImage không được phép đi cùng
     elif start_id:
+        ref_ids = []
         endpoint = "video:batchAsyncGenerateVideoStartImage"
         key = _resolve_variant(key, "i2v")
     else:
