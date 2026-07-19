@@ -1,4 +1,6 @@
 """Unit: pure helpers in the Flow pipeline runner (no network)."""
+import pytest
+
 from app.pipeline import runner as r
 
 
@@ -70,6 +72,40 @@ def test_flow_voiceover_keeps_exact_narration_and_is_not_lip_sync():
     assert "mouths closed" in out and "no lip-sync" in out
     assert "No spoken dialogue" not in out
     assert "no dialogue, voiceover, narration" not in out
+
+
+@pytest.mark.asyncio
+async def test_api_post_generation_uses_chrome_proxy(monkeypatch):
+    called = {}
+
+    async def fake_proxy(user_id, url, body, bearer, captcha_action):
+        called.update(user_id=user_id, url=url, body=body, bearer=bearer,
+                      captcha_action=captcha_action)
+        return 200, {"media": [{"name": "ok"}]}
+
+    monkeypatch.setattr("app.sessions.router.request_flow_api", fake_proxy)
+    code, data = await r._api_post(
+        "video:batchAsyncGenerateVideoText", {"requests": []}, "ya29.test",
+        user_id="u1", captcha_action="VIDEO_GENERATION")
+
+    assert code == 200 and data["media"][0]["name"] == "ok"
+    assert called["user_id"] == "u1"
+    assert called["url"].startswith("https://aisandbox-pa.googleapis.com/v1/video:")
+    assert called["captcha_action"] == "VIDEO_GENERATION"
+
+
+@pytest.mark.asyncio
+async def test_api_post_does_not_fallback_to_vps_when_proxy_drops(monkeypatch):
+    async def no_proxy(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("app.sessions.router.request_flow_api", no_proxy)
+    code, data = await r._api_post(
+        "video:batchAsyncGenerateVideoText", {}, "ya29.test",
+        user_id="u1", captcha_action="VIDEO_GENERATION")
+
+    assert code == 0
+    assert "cập nhật extension" in data["error"]
 
 
 def test_character_speak_remains_on_screen_lip_sync():

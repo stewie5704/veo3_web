@@ -4,6 +4,7 @@ Cầu nối giữa **tài khoản Google Ultra của khách** và **VEO3 Web ser
 1. Đọc cookie `labs.google` của khách (kể cả cookie httpOnly) → gửi lên server để mint token tạo video.
 2. Giải **reCAPTCHA** (action `VIDEO_GENERATION`) khi server yêu cầu, qua tab labs.google đang đăng nhập.
 3. Tự động kết nối lại + làm mới cookie (session-token xoay vòng).
+4. Gửi request tạo ảnh/video ngay từ Chrome sau khi lấy reCAPTCHA để cùng tab/cùng IP; không phát request captcha-protected từ VPS.
 
 Khác với bản desktop (nói chuyện với bridge chạy local), bản này nối **thẳng tới server** qua WebSocket `/ws/extension`.
 
@@ -33,5 +34,5 @@ Khác với bản desktop (nói chuyện với bridge chạy local), bản này 
 
 ## File
 - `manifest.json` — khai báo quyền + service worker + popup
-- `background.js` — WebSocket, đọc cookie, giải captcha
+- `background.js` — WebSocket, đọc cookie, giải captcha và proxy Flow API qua Chrome
 - `popup.html` / `popup.js` — đăng nhập + xem trạng thái

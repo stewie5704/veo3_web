@@ -11,6 +11,7 @@ Flow:
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Dict
 
@@ -32,6 +33,17 @@ _ws_connections: Dict[str, WebSocket] = {}
 # Per-user lock: chỉ giải 1 captcha tại 1 thời điểm (auto-render bắn nhiều scene cùng lúc
 # sẽ dồn captcha vào 1 extension -> timeout + 403; lock này xếp hàng cho giải tuần tự).
 _captcha_locks: Dict[str, asyncio.Lock] = {}
+_extension_caps: Dict[str, set[str]] = {}
+_ws_send_locks: Dict[str, asyncio.Lock] = {}
+_api_waiters: Dict[str, tuple[str, asyncio.Future]] = {}
+_api_last_submit: Dict[str, float] = {}
+
+
+async def _send_ws(user_id: str, ws: WebSocket, payload: dict) -> None:
+    """Do not overlap Starlette WebSocket writes from worker/keepalive tasks."""
+    lock = _ws_send_locks.setdefault(user_id, asyncio.Lock())
+    async with lock:
+        await ws.send_json(payload)
 
 
 @router.websocket("/ws/extension")
@@ -55,7 +67,7 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                 return
 
             # Tell extension it's connected
-            await websocket.send_json({"type": "connected", "user_id": user_id})
+            await _send_ws(user_id, websocket, {"type": "connected", "user_id": user_id})
 
             while True:
                 try:
@@ -63,14 +75,22 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                     msg = json.loads(data)
                     msg_type = msg.get("type")
 
-                    if msg_type == "cookies":
+                    if msg_type == "hello":
+                        _extension_caps[user_id] = {
+                            str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
+                        }
+
+                    elif msg_type == "cookies":
                         # Extension sent Google cookies — store encrypted at rest
                         raw_cookies = msg.get("cookies", "")
                         user.google_cookies = enc(raw_cookies)
                         user.google_project_id = msg.get("project_id", "")
                         user.google_connected = bool(raw_cookies)
+                        _extension_caps[user_id] = {
+                            str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
+                        }
                         await db.commit()
-                        await websocket.send_json({"type": "ok", "action": "cookies_saved"})
+                        await _send_ws(user_id, websocket, {"type": "ok", "action": "cookies_saved"})
                         log.info("Cookies saved for user %s, project=%s", user_id, user.google_project_id)
 
                     elif msg_type == "captcha":
@@ -81,19 +101,42 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         }
                         log.debug("Captcha token received for user %s", user_id)
 
+                    elif msg_type == "api_response":
+                        request_id = str(msg.get("request_id") or "")
+                        pending = _api_waiters.pop(request_id, None)
+                        if pending and pending[0] == user_id:
+                            future = pending[1]
+                            if not future.done():
+                                status = int(msg.get("status") or 0)
+                                data = msg.get("data")
+                                if not isinstance(data, dict):
+                                    data = {"_raw": str(data or "")[:2000]}
+                                future.set_result((status, data))
+
                     elif msg_type == "ping":
-                        await websocket.send_json({"type": "pong"})
+                        await _send_ws(user_id, websocket, {"type": "pong"})
 
                 except asyncio.TimeoutError:
                     # Send keepalive ping
-                    await websocket.send_json({"type": "ping"})
+                    await _send_ws(user_id, websocket, {"type": "ping"})
 
     except WebSocketDisconnect:
         log.info("Extension disconnected for user %s", user_id)
     except Exception as e:
         log.exception("WS error for user %s: %s", user_id, e)
     finally:
-        _ws_connections.pop(user_id, None)
+        # A fast extension reload may connect the new socket before the old socket's
+        # finally runs. The old connection must not erase the new live connection.
+        if _ws_connections.get(user_id) is websocket:
+            _ws_connections.pop(user_id, None)
+            _extension_caps.pop(user_id, None)
+            _ws_send_locks.pop(user_id, None)
+            _api_last_submit.pop(user_id, None)
+            for request_id, (owner_id, future) in list(_api_waiters.items()):
+                if owner_id == user_id:
+                    _api_waiters.pop(request_id, None)
+                    if not future.done():
+                        future.set_result(None)
 
 
 async def _solve_via_local_ws(user_id: str, action: str = "VIDEO_GENERATION") -> str | None:
@@ -104,7 +147,7 @@ async def _solve_via_local_ws(user_id: str, action: str = "VIDEO_GENERATION") ->
         return None
     _captcha_cache.pop(user_id, None)  # force a fresh, single-use token
     try:
-        await ws.send_json({"type": "get_captcha", "action": action})
+        await _send_ws(user_id, ws, {"type": "get_captcha", "action": action})
         for _ in range(60):  # up to ~30s (extension có thể phải mở tab Flow + chờ grecaptcha)
             await asyncio.sleep(0.5)
             cached = _captcha_cache.get(user_id)
@@ -127,6 +170,54 @@ async def request_captcha(user_id: str, action: str = "VIDEO_GENERATION") -> str
         return await captcha_bus.request_remote(user_id, action)
 
 
+def has_flow_api_proxy(user_id: str) -> bool:
+    return user_id in _ws_connections and "flow_api_proxy" in _extension_caps.get(user_id, set())
+
+
+async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
+                           captcha_action: str | None = None) -> tuple[int, dict] | None:
+    """Run a Flow API request in Chrome, optionally minting captcha just before fetch."""
+    if not has_flow_api_proxy(user_id):
+        return None
+    ws = _ws_connections.get(user_id)
+    if not ws:
+        return None
+
+    async def _request() -> tuple[int, dict] | None:
+        request_id = str(uuid.uuid4())
+        future = asyncio.get_running_loop().create_future()
+        _api_waiters[request_id] = (user_id, future)
+        try:
+            await _send_ws(user_id, ws, {
+                "type": "api_request",
+                "request_id": request_id,
+                "url": url,
+                "body": body,
+                "bearer": bearer,
+                "captcha_action": captcha_action or "",
+            })
+            result = await asyncio.wait_for(future, timeout=90)
+            return result if isinstance(result, tuple) else None
+        except Exception as exc:
+            log.warning("Flow API proxy failed for user %s: %s", user_id, exc)
+            return None
+        finally:
+            _api_waiters.pop(request_id, None)
+
+    if captcha_action:
+        lock = _captcha_locks.setdefault(user_id, asyncio.Lock())
+        async with lock:
+            # Human-paced submit spacing. A batch of scenes must not look like a
+            # burst even though their long render polls may run concurrently.
+            elapsed = asyncio.get_running_loop().time() - _api_last_submit.get(user_id, 0.0)
+            if elapsed < 1.5:
+                await asyncio.sleep(1.5 - elapsed)
+            result = await _request()
+            _api_last_submit[user_id] = asyncio.get_running_loop().time()
+            return result
+    return await _request()
+
+
 async def start_captcha_bus():
     """Start the cross-process captcha bridge (called from the app lifespan)."""
     from app import captcha_bus
@@ -135,8 +226,10 @@ async def start_captcha_bus():
 
 def get_extension_status(user_id: str) -> dict:
     return {
-        "connected": user_id in _ws_connections,
+        "connected": has_flow_api_proxy(user_id),
+        "socket_connected": user_id in _ws_connections,
         "has_captcha_cache": user_id in _captcha_cache,
+        "flow_api_proxy": has_flow_api_proxy(user_id),
     }
 
 

@@ -18,7 +18,8 @@ async function refresh() {
     const pj = st.projectId ? `✅ project: <code>${st.projectId.slice(0, 8)}…</code>`
                             : "⚠️ chưa mở project Flow (mở 1 project trên labs.google)";
     const err = st.error ? `<br><span style="color:#fca5a5">${st.error}</span>` : "";
-    setStatus(`${dot}<br>${ck}<br>${pj}${err}`);
+    const ver = st.bridgeVersion ? `<br><span class="muted">Bridge v${st.bridgeVersion} · Flow API qua Chrome</span>` : "";
+    setStatus(`${dot}<br>${ck}<br>${pj}${ver}${err}`);
   });
 }
 

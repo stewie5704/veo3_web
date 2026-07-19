@@ -6,11 +6,16 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
+const BRIDGE_VERSION = "1.1";
+const BRIDGE_CAPABILITIES = ["flow_api_proxy"];
 
 let ws = null;
 let everOpened = false;      // phiên WS hiện tại đã open chưa (phân biệt rớt mạng vs token chết)
 let reconnectTimer = null;
-const state = { connected: false, cookiesSent: false, projectId: "", error: "", needLogin: false };
+const state = {
+  connected: false, cookiesSent: false, projectId: "", error: "", needLogin: false,
+  bridgeVersion: BRIDGE_VERSION, flowApiProxy: true,
+};
 
 // Token còn hợp lệ không? 401/403 = chết -> đừng reconnect nữa, bắt user đăng nhập lại.
 // Lỗi mạng/server-down -> coi như "chưa chắc" (giữ token, cứ thử lại).
@@ -76,7 +81,10 @@ async function pushCookies() {
   const project_id = await getProjectId();
   state.cookiesSent = !!cookies;
   state.projectId = project_id;
-  ws.send(JSON.stringify({ type: "cookies", cookies, project_id }));
+  ws.send(JSON.stringify({
+    type: "cookies", cookies, project_id,
+    bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
+  }));
 }
 
 // ── reCAPTCHA Enterprise (run inside a logged-in labs.google tab) ───────────────
@@ -113,7 +121,11 @@ async function waitForRecaptcha(tabId, tries = 12) {
 
 async function ensureLabsTab() {
   const tabs = await chrome.tabs.query({ url: "https://labs.google/*" });
-  if (tabs && tabs.length) return { tab: tabs[0], isNew: false };
+  const flowTabs = (tabs || []).filter((t) =>
+    /\/fx\/(?:[a-z-]+\/)?tools\/flow(?:\/|$)/i.test(t.url || ""));
+  const projectTab = flowTabs.find((t) => /\/project\/[0-9a-f-]{36}/i.test(t.url || ""));
+  if (projectTab) return { tab: projectTab, isNew: false };
+  if (flowTabs.length) return { tab: flowTabs[0], isNew: false };
   let win = null;
   try { win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }); } catch (e) {}
   if (!win || win.id == null) {
@@ -140,10 +152,10 @@ async function solveCaptcha(action) {
       target: { tabId: tab.id }, world: "MAIN",
       func: async (act, skFallback) => {
         try {
-          let sk = skFallback;
-          const clients = (window.___grecaptcha_cfg && window.___grecaptcha_cfg.clients) || {};
-          for (const k in clients) { if (clients[k] && clients[k].sitekey) { sk = clients[k].sitekey; break; } }
-          const token = await window.grecaptcha.enterprise.execute(sk, { action: act });
+          // Flow's public enterprise key is fixed. Picking the first grecaptcha client
+          // can select an unrelated widget after a Labs UI update and yields a valid-
+          // looking token that Google rejects during evaluation.
+          const token = await window.grecaptcha.enterprise.execute(skFallback, { action: act });
           return { token };
         } catch (e) { return { err: String(e) }; }
       },
@@ -153,6 +165,72 @@ async function solveCaptcha(action) {
     return (res && res.result) || { err: "executeScript không trả kết quả" };
   } catch (e) {
     return { err: e.message || String(e) };
+  }
+}
+
+function injectCaptchaToken(body, token) {
+  const cloned = JSON.parse(JSON.stringify(body || {}));
+  let injected = 0;
+  const visit = (node) => {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (!node || typeof node !== "object") return;
+    for (const [key, value] of Object.entries(node)) {
+      if (key.toLowerCase() === "recaptchacontext" && value && typeof value === "object") {
+        value.token = token;
+        injected++;
+      } else if (value && typeof value === "object") {
+        visit(value);
+      }
+    }
+  };
+  visit(cloned);
+  if (!injected) throw new Error("request không có recaptchaContext");
+  return cloned;
+}
+
+async function proxyFlowApi(msg) {
+  const requestId = String(msg.request_id || "");
+  const url = String(msg.url || "");
+  if (!requestId || !url.startsWith("https://aisandbox-pa.googleapis.com/v1/")) {
+    return { request_id: requestId, status: 400, data: { error: "Flow API URL không hợp lệ" } };
+  }
+  const bearer = String(msg.bearer || "");
+  if (!bearer) return { request_id: requestId, status: 401, data: { error: "Thiếu bearer" } };
+
+  try {
+    let body = msg.body || {};
+    if (msg.captcha_action) {
+      const solved = await solveCaptcha(String(msg.captcha_action));
+      if (!solved.token) throw new Error(solved.err || "không lấy được reCAPTCHA");
+      body = injectCaptchaToken(body, solved.token);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 75000);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer " + bearer,
+          "content-type": "text/plain;charset=UTF-8",
+          accept: "*/*",
+          "x-browser-channel": "stable",
+          "x-browser-year": "2026",
+        },
+        credentials: "include",
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch { data = { _raw: raw.slice(0, 2000) }; }
+    return { request_id: requestId, status: response.status, data };
+  } catch (e) {
+    return { request_id: requestId, status: 0, data: { error: String(e && e.message || e) } };
   }
 }
 
@@ -173,7 +251,11 @@ async function connect() {
   try { ws = new WebSocket(wsUrl(server, token)); }
   catch (e) { state.error = "URL server sai: " + e; return; }
 
-  ws.onopen = () => { everOpened = true; state.connected = true; state.error = ""; state.needLogin = false; pushCookies(); };
+  ws.onopen = () => {
+    everOpened = true; state.connected = true; state.error = ""; state.needLogin = false;
+    ws.send(JSON.stringify({ type: "hello", bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES }));
+    pushCookies();
+  };
   ws.onerror = () => { try { ws.close(); } catch (e) {} };
   ws.onclose = async (ev) => {
     state.connected = false;
@@ -196,6 +278,10 @@ async function connect() {
     else if (msg.type === "get_captcha") {
       const r = await solveCaptcha(msg.action || "VIDEO_GENERATION");
       try { ws.send(JSON.stringify({ type: "captcha", token: r.token || "", err: r.err || "" })); } catch (e) {}
+    }
+    else if (msg.type === "api_request") {
+      const r = await proxyFlowApi(msg);
+      try { ws.send(JSON.stringify({ type: "api_response", ...r })); } catch (e) {}
     }
   };
 }

@@ -206,7 +206,20 @@ async def _get_bearer_token(cookies: str) -> str | None:
     return _extract_token(data) or data.get("accessToken") or data.get("token")
 
 
-async def _api_post(endpoint: str, body: dict, token: str) -> tuple[int, dict]:
+async def _api_post(endpoint: str, body: dict, token: str, *, user_id: str | None = None,
+                    captcha_action: str | None = None) -> tuple[int, dict]:
+    if captcha_action:
+        if not user_id:
+            return 0, {"error": "Thiếu user_id cho Flow API proxy"}
+        from app.sessions.router import request_flow_api
+        proxied = await request_flow_api(
+            user_id, f"{API_BASE}/{endpoint}", body, token, captcha_action)
+        if proxied is None:
+            return 0, {"error": (
+                "Extension chưa hỗ trợ gửi Flow API qua Chrome. Tải/cập nhật extension mới, "
+                "bấm Reload rồi Kết nối lại.")}
+        return proxied
+
     headers = {
         "authorization": f"Bearer {token}",
         "content-type": "text/plain;charset=UTF-8",
@@ -444,14 +457,21 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
                                count: int, aspect_ratio: str, out_dir: Path, out_prefix: str,
                                reference_image_paths: list[str] | None = None) -> list[str]:
     """Generate image(s) with Nano Banana via Flow (FREE on Ultra). Returns output filenames."""
-    from app.sessions.router import request_captcha
+    from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
     token = await _get_bearer_token(cookies)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
-    recaptcha = await request_captcha(user_id, "IMAGE_GENERATION")   # image action ≠ video's
-    if not recaptcha:
-        raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
+    use_proxy = has_flow_api_proxy(user_id)
+    if not use_proxy and get_extension_status(user_id).get("socket_connected"):
+        raise RuntimeError(
+            "Extension đang là bản cũ. Tải extension mới, vào chrome://extensions bấm Reload, "
+            "mở tab Flow rồi Kết nối lại.")
+    recaptcha = "chrome-proxy"
+    if not use_proxy:
+        recaptcha = await request_captcha(user_id, "IMAGE_GENERATION")
+        if not recaptcha:
+            raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
 
     ref_ids: list[str] = []
     for rp in (reference_image_paths or []):
@@ -475,7 +495,9 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
             "useNewMedia": True, "requests": reqs}
 
     endpoint = f"projects/{project_id}/flowMedia:batchGenerateImages"
-    code, resp = await _api_post(endpoint, body, token)
+    code, resp = await _api_post(
+        endpoint, body, token, user_id=user_id,
+        captcha_action="IMAGE_GENERATION" if use_proxy else None)
     # 401/403 ở đây thường là reCAPTCHA bị từ chối ("evaluation failed"/UNUSUAL_ACTIVITY) HOẶC bearer
     # hết hạn. Captcha là SINGLE-USE → gửi lại token cũ chắc chắn fail; phải lấy captcha MỚI + làm mới
     # bearer, giãn cách (backoff + jitter, kiểu người dùng) rồi thử lại tối đa 2 lần. cctx dùng chung
@@ -487,10 +509,13 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
         new_token = await _get_bearer_token(cookies)
         if new_token:
             token = new_token
-        fresh = await request_captcha(user_id, "IMAGE_GENERATION")
-        if fresh:
-            cctx["recaptchaContext"]["token"] = fresh
-        code, resp = await _api_post(endpoint, body, token)
+        if not use_proxy:
+            fresh = await request_captcha(user_id, "IMAGE_GENERATION")
+            if fresh:
+                cctx["recaptchaContext"]["token"] = fresh
+        code, resp = await _api_post(
+            endpoint, body, token, user_id=user_id,
+            captcha_action="IMAGE_GENERATION" if use_proxy else None)
     if code != 200 or not isinstance(resp, dict):
         raise RuntimeError(f"API tạo ảnh HTTP {code}: {str(resp)[:200]}")
 
@@ -731,15 +756,22 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                         voiceover: bool = False, voice_name: str = "") -> str:
     """Generate ONE video on Flow and download it (native 720p — 1080p is an
     opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
-    from app.sessions.router import request_captcha
+    from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
     token = await _get_bearer_token(cookies)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
 
-    recaptcha = await request_captcha(user_id)   # VIDEO_GENERATION, single-use, local-or-Redis
-    if not recaptcha:
-        raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
+    use_proxy = has_flow_api_proxy(user_id)
+    if not use_proxy and get_extension_status(user_id).get("socket_connected"):
+        raise RuntimeError(
+            "Extension đang là bản cũ. Tải extension mới, vào chrome://extensions bấm Reload, "
+            "mở tab Flow rồi Kết nối lại.")
+    recaptcha = "chrome-proxy"
+    if not use_proxy:
+        recaptcha = await request_captcha(user_id)
+        if not recaptcha:
+            raise RuntimeError("Extension chưa kết nối / không lấy được captcha")
 
     # Reference identity: @mention (cũ) + ảnh nhân vật RIÊNG của project đính MỌI cảnh
     # (giữ mặt + đồng bộ, không cần user gõ @). Cap 3 = giới hạn referenceImages của Veo.
@@ -823,7 +855,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     body = _build_generate_body(project_id, prompt, aspect, key, recaptcha,
                                 use_seed, start_id, ref_ids or None, silent=silent, voice_name=voice_name, dialogue=dialogue)
 
-    code, resp = await _api_post(endpoint, body, token)
+    code, resp = await _api_post(
+        endpoint, body, token, user_id=user_id,
+        captcha_action="VIDEO_GENERATION" if use_proxy else None)
     for attempt in range(2):
         if code not in (401, 403):
             break
@@ -831,10 +865,13 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
         new_token = await _get_bearer_token(cookies)
         if new_token:
             token = new_token
-        fresh = await request_captcha(user_id)
-        if fresh:
-            body["clientContext"]["recaptchaContext"]["token"] = fresh
-        code, resp = await _api_post(endpoint, body, token)
+        if not use_proxy:
+            fresh = await request_captcha(user_id)
+            if fresh:
+                body["clientContext"]["recaptchaContext"]["token"] = fresh
+        code, resp = await _api_post(
+            endpoint, body, token, user_id=user_id,
+            captcha_action="VIDEO_GENERATION" if use_proxy else None)
     if code != 200 or not isinstance(resp, dict):
         raise RuntimeError(f"API generate HTTP {code}: {str(resp)[:200]}")
 
