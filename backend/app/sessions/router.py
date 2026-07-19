@@ -79,6 +79,9 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
+                        log.info("Extension bridge %s capabilities=%s for user %s",
+                                 msg.get("bridge_version") or "legacy",
+                                 sorted(_extension_caps[user_id]), user_id)
 
                     elif msg_type == "cookies":
                         # Extension sent Google cookies — store encrypted at rest
