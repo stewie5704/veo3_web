@@ -878,6 +878,9 @@ async def rerender_scene(
         raise HTTPException(404, "Không tìm thấy scene")
     subscription.ensure_can_generate(user)
     await subscription.ensure_storage(db, user)
+    proj = await db.get(Project, project_id)
+    if proj:
+        proj.stopped = False
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await _invalidate_merge(db, project_id)
@@ -901,6 +904,9 @@ async def render_scene(
         raise HTTPException(400, "Scene đang được render")
     subscription.ensure_can_generate(user)
     await subscription.ensure_storage(db, user)
+    proj = await db.get(Project, project_id)
+    if proj:
+        proj.stopped = False
     scene.status = SceneStatus.pending
     scene.error_msg = None
     await _invalidate_merge(db, project_id)
