@@ -108,13 +108,13 @@ async def test_api_post_does_not_fallback_to_vps_when_proxy_drops(monkeypatch):
         user_id="u1", captcha_action="VIDEO_GENERATION")
 
     assert code == 0
-    assert "cập nhật extension" in data["error"]
+    assert "Bridge v1.4" in data["error"]
 
 
 def test_flow_proxy_preflight_keeps_active_recaptcha_cooldown(monkeypatch):
     user_id = 'cooldown-user'
     monkeypatch.setitem(sessions._ws_connections, user_id, object())
-    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v3'})
+    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v4'})
     monkeypatch.setitem(sessions._api_blocked, user_id, 'cooldown')
     monkeypatch.setitem(sessions._api_blocked_until, user_id, time.monotonic() + 60)
 
@@ -124,7 +124,7 @@ def test_flow_proxy_preflight_keeps_active_recaptcha_cooldown(monkeypatch):
 def test_flow_proxy_preflight_clears_expired_recaptcha_cooldown(monkeypatch):
     user_id = 'expired-user'
     monkeypatch.setitem(sessions._ws_connections, user_id, object())
-    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v3'})
+    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v4'})
     monkeypatch.setitem(sessions._api_blocked, user_id, 'cooldown')
     monkeypatch.setitem(sessions._api_blocked_until, user_id, time.monotonic() - 1)
 

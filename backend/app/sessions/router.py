@@ -181,7 +181,7 @@ async def request_captcha(user_id: str, action: str = "VIDEO_GENERATION") -> str
 
 
 def has_flow_api_proxy(user_id: str) -> bool:
-    return user_id in _ws_connections and "flow_api_proxy_v3" in _extension_caps.get(user_id, set())
+    return user_id in _ws_connections and "flow_api_proxy_v4" in _extension_caps.get(user_id, set())
 
 
 def _active_api_block(user_id: str) -> str | None:
@@ -202,11 +202,11 @@ def flow_api_proxy_error(user_id: str) -> str | None:
         return _active_api_block(user_id)
     if user_id in _ws_connections:
         return (
-            'Extension \u0111ang l\u00e0 b\u1ea3n c\u0169. G\u1ee1 b\u1ea3n \u0111ang d\u00f9ng, c\u00e0i Bridge v1.3, m\u1edf tab Flow '
+            'Extension \u0111ang l\u00e0 b\u1ea3n c\u0169. G\u1ee1 b\u1ea3n \u0111ang d\u00f9ng, c\u00e0i Bridge v1.4, m\u1edf tab Flow '
             'r\u1ed3i b\u1ea5m K\u1ebft n\u1ed1i l\u1ea1i.'
         )
     return (
-        'Extension Bridge v1.3 ch\u01b0a k\u1ebft n\u1ed1i. M\u1edf tab Flow, ki\u1ec3m tra \u0111\u00e3 \u0111\u0103ng nh\u1eadp Google, '
+        'Extension Bridge v1.4 ch\u01b0a k\u1ebft n\u1ed1i. M\u1edf tab Flow, ki\u1ec3m tra \u0111\u00e3 \u0111\u0103ng nh\u1eadp Google, '
         'r\u1ed3i b\u1ea5m K\u1ebft n\u1ed1i l\u1ea1i trong extension.'
     )
 
@@ -235,7 +235,10 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
                 "bearer": bearer,
                 "captcha_action": captcha_action or "",
             })
-            result = await asyncio.wait_for(future, timeout=30)
+            # Image generation may legitimately take 30-90 seconds in Flow.
+            # Keep the server window slightly longer than the extension timeout.
+            timeout_seconds = 130 if captcha_action == "IMAGE_GENERATION" else 70
+            result = await asyncio.wait_for(future, timeout=timeout_seconds)
             return result if isinstance(result, tuple) else None
         except Exception as exc:
             log.warning("Flow API proxy failed for user %s: %s", user_id, exc)

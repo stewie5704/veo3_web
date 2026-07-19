@@ -228,7 +228,7 @@ async def _api_post(endpoint: str, body: dict, token: str, *, user_id: str | Non
             user_id, f"{API_BASE}/{endpoint}", body, token, captcha_action)
         if proxied is None:
             return 0, {"error": (
-                "Extension chưa hỗ trợ gửi Flow API qua Chrome. Tải/cập nhật extension mới, "
+                "Bridge mất kết nối hoặc request Flow quá thời gian. Cập nhật Bridge v1.4, "
                 "bấm Reload rồi Kết nối lại.")}
         return proxied
 

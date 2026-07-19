@@ -6,8 +6,8 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.3";
-const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v3"];
+const BRIDGE_VERSION = "1.4";
+const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
 let everOpened = false;      // phiên WS hiện tại đã open chưa (phân biệt rớt mạng vs token chết)
@@ -201,7 +201,12 @@ async function proxyFlowApi(msg) {
     // the reliable MV3 path: solve in the real Flow tab, submit from the extension
     // service worker with host permission, and let Chrome attach the Flow headers.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
+    // Flow's image endpoint often needs 30-90 seconds before returning the
+    // generated asset. Video submission is normally faster, but still gets a
+    // generous window so a slow Google response is not reported as an old bridge.
+    const isImageGeneration = url.includes("/flowMedia:batchGenerateImages");
+    const timeoutMs = isImageGeneration ? 120000 : 60000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
       response = await fetch(url, {
