@@ -177,7 +177,7 @@ async def request_captcha(user_id: str, action: str = "VIDEO_GENERATION") -> str
 
 
 def has_flow_api_proxy(user_id: str) -> bool:
-    return user_id in _ws_connections and "flow_api_proxy" in _extension_caps.get(user_id, set())
+    return user_id in _ws_connections and "flow_api_proxy_v3" in _extension_caps.get(user_id, set())
 
 
 async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
@@ -222,9 +222,15 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
                 await asyncio.sleep(1.5 - elapsed)
             result = await _request()
             _api_last_submit[user_id] = asyncio.get_running_loop().time()
-            if result and result[0] == 403:
+            if result:
                 raw = str((result[1] or {}).get("_raw") or "")
-                if "<title>Sorry" in raw or "automated queries" in raw.lower():
+                error_text = str((result[1] or {}).get("error") or "")
+                if result[0] == 0:
+                    _api_blocked[user_id] = (
+                        f"Extension không gửi được request tới Flow ({error_text or 'network error'}). "
+                        "Đã ngắt cầu dao; Reload extension rồi Kết nối lại.")
+                elif result[0] == 403 and (
+                        "<title>Sorry" in raw or "automated queries" in raw.lower()):
                     _api_blocked[user_id] = (
                         "Google trả trang 'Sorry' cho request từ extension. Đã ngắt cầu dao để "
                         "không gửi thêm; cập nhật/Reload extension rồi Kết nối lại.")

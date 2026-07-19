@@ -41,6 +41,7 @@ frontend/dist/
 dist/
 .vite/
 *.tsbuildinfo
+extension/_metadata/
 
 # User-generated media (uploads can be huge & private)
 uploads/

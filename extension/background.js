@@ -6,8 +6,8 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.2";
-const BRIDGE_CAPABILITIES = ["flow_api_proxy"];
+const BRIDGE_VERSION = "1.3";
+const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v3"];
 
 let ws = null;
 let everOpened = false;      // phiên WS hiện tại đã open chưa (phân biệt rớt mạng vs token chết)
@@ -177,79 +177,57 @@ async function proxyFlowApi(msg) {
   const bearer = String(msg.bearer || "");
   if (!bearer) return { request_id: requestId, status: 401, data: { error: "Thiếu bearer" } };
 
-  let flowTab = null;
-  let isNew = false;
   try {
-    const found = await ensureLabsTab();
-    flowTab = found.tab;
-    isNew = found.isNew;
-    const ready = await waitForRecaptcha(flowTab.id, 12);
-    if (!ready) throw new Error("grecaptcha.enterprise chưa sẵn sàng trên tab Flow");
-
-    // Execute BOTH captcha and fetch inside the Flow page MAIN world. That gives the
-    // request the real https://labs.google Origin/Referer and exactly the same browser
-    // context as the captcha token. A service-worker fetch is tagged with the extension
-    // origin and Google answers with an HTML 'Sorry...' 403 page.
-    const [executed] = await chrome.scripting.executeScript({
-      target: { tabId: flowTab.id }, world: "MAIN",
-      func: async (requestUrl, requestBody, accessToken, captchaAction, siteKey) => {
-        try {
-          const body = JSON.parse(JSON.stringify(requestBody || {}));
-          if (captchaAction) {
-            const captcha = await window.grecaptcha.enterprise.execute(siteKey, { action: captchaAction });
-            let injected = 0;
-            const visit = (node) => {
-              if (Array.isArray(node)) { node.forEach(visit); return; }
-              if (!node || typeof node !== "object") return;
-              for (const [key, value] of Object.entries(node)) {
-                if (key.toLowerCase() === "recaptchacontext" && value && typeof value === "object") {
-                  value.token = captcha;
-                  injected++;
-                } else if (value && typeof value === "object") visit(value);
-              }
-            };
-            visit(body);
-            if (!injected) throw new Error("request không có recaptchaContext");
-          }
-
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 75000);
-          let response;
-          try {
-            response = await window.fetch(requestUrl, {
-              method: "POST",
-              headers: {
-                authorization: "Bearer " + accessToken,
-                "content-type": "text/plain;charset=UTF-8",
-                accept: "*/*",
-                "x-browser-channel": "stable",
-                "x-browser-year": "2026",
-              },
-              credentials: "include",
-              body: JSON.stringify(body),
-              signal: controller.signal,
-            });
-          } finally {
-            clearTimeout(timer);
-          }
-          return { status: response.status, raw: await response.text() };
-        } catch (e) {
-          return { status: 0, error: String(e && e.message || e) };
+    let body = JSON.parse(JSON.stringify(msg.body || {}));
+    if (msg.captcha_action) {
+      const solved = await solveCaptcha(String(msg.captcha_action));
+      if (!solved.token) throw new Error(solved.err || "không lấy được reCAPTCHA");
+      let injected = 0;
+      const visit = (node) => {
+        if (Array.isArray(node)) { node.forEach(visit); return; }
+        if (!node || typeof node !== "object") return;
+        for (const [key, value] of Object.entries(node)) {
+          if (key.toLowerCase() === "recaptchacontext" && value && typeof value === "object") {
+            value.token = solved.token;
+            injected++;
+          } else if (value && typeof value === "object") visit(value);
         }
-      },
-      args: [url, msg.body || {}, bearer, String(msg.captcha_action || ""), SITEKEY_FALLBACK],
-    });
-    const result = executed && executed.result;
-    if (!result || result.error) throw new Error((result && result.error) || "Flow tab không trả kết quả");
-    const raw = String(result.raw || "");
+      };
+      visit(body);
+      if (!injected) throw new Error("request không có recaptchaContext");
+    }
+
+    // The DNR rule in rules.json rewrites Origin + Referer to labs.google. This is
+    // the reliable MV3 path: solve in the real Flow tab, submit from the extension
+    // service worker with host permission, and let Chrome attach the Flow headers.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 75000);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer " + bearer,
+          "content-type": "text/plain;charset=UTF-8",
+          accept: "*/*",
+          "x-browser-channel": "stable",
+          "x-browser-year": "2026",
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const raw = await response.text();
     let data;
     try { data = JSON.parse(raw); }
     catch { data = { _raw: raw.slice(0, 2000) }; }
-    return { request_id: requestId, status: Number(result.status || 0), data };
+    return { request_id: requestId, status: response.status, data };
   } catch (e) {
     return { request_id: requestId, status: 0, data: { error: String(e && e.message || e) } };
-  } finally {
-    if (isNew && flowTab) chrome.tabs.remove(flowTab.id).catch(() => {});
   }
 }
 
