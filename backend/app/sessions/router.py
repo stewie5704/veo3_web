@@ -11,6 +11,7 @@ Flow:
 import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Dict
@@ -38,6 +39,7 @@ _ws_send_locks: Dict[str, asyncio.Lock] = {}
 _api_waiters: Dict[str, tuple[str, asyncio.Future]] = {}
 _api_last_submit: Dict[str, float] = {}
 _api_blocked: Dict[str, str] = {}
+_api_blocked_until: Dict[str, float] = {}
 
 
 async def _send_ws(user_id: str, ws: WebSocket, payload: dict) -> None:
@@ -80,7 +82,10 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
-                        _api_blocked.pop(user_id, None)
+                        if _api_blocked_until.get(user_id, 0.0):
+                            _active_api_block(user_id)
+                        else:
+                            _api_blocked.pop(user_id, None)
                         log.info("Extension bridge %s capabilities=%s for user %s",
                                  msg.get("bridge_version") or "legacy",
                                  sorted(_extension_caps[user_id]), user_id)
@@ -137,7 +142,6 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
             _extension_caps.pop(user_id, None)
             _ws_send_locks.pop(user_id, None)
             _api_last_submit.pop(user_id, None)
-            _api_blocked.pop(user_id, None)
             for request_id, (owner_id, future) in list(_api_waiters.items()):
                 if owner_id == user_id:
                     _api_waiters.pop(request_id, None)
@@ -180,10 +184,22 @@ def has_flow_api_proxy(user_id: str) -> bool:
     return user_id in _ws_connections and "flow_api_proxy_v3" in _extension_caps.get(user_id, set())
 
 
+def _active_api_block(user_id: str) -> str | None:
+    blocked = _api_blocked.get(user_id)
+    if not blocked:
+        return None
+    until = _api_blocked_until.get(user_id, 0.0)
+    if until and time.monotonic() >= until:
+        _api_blocked.pop(user_id, None)
+        _api_blocked_until.pop(user_id, None)
+        return None
+    return blocked
+
+
 def flow_api_proxy_error(user_id: str) -> str | None:
     # User-facing preflight error before any scene is dispatched.
     if has_flow_api_proxy(user_id):
-        return None
+        return _active_api_block(user_id)
     if user_id in _ws_connections:
         return (
             'Extension \u0111ang l\u00e0 b\u1ea3n c\u0169. G\u1ee1 b\u1ea3n \u0111ang d\u00f9ng, c\u00e0i Bridge v1.3, m\u1edf tab Flow '
@@ -200,7 +216,7 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
     """Run a Flow API request in Chrome, optionally minting captcha just before fetch."""
     if not has_flow_api_proxy(user_id):
         return None
-    if user_id in _api_blocked:
+    if _active_api_block(user_id):
         return 0, {"error": _api_blocked[user_id]}
     ws = _ws_connections.get(user_id)
     if not ws:
@@ -230,20 +246,32 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
     if captcha_action:
         lock = _captcha_locks.setdefault(user_id, asyncio.Lock())
         async with lock:
+            blocked = _active_api_block(user_id)
+            if blocked:
+                return 0, {'error': blocked}
             # Human-paced submit spacing. A batch of scenes must not look like a
             # burst even though their long render polls may run concurrently.
             elapsed = asyncio.get_running_loop().time() - _api_last_submit.get(user_id, 0.0)
-            if elapsed < 1.5:
-                await asyncio.sleep(1.5 - elapsed)
+            if elapsed < 4.0:
+                await asyncio.sleep(4.0 - elapsed)
             result = await _request()
             _api_last_submit[user_id] = asyncio.get_running_loop().time()
             if result:
                 raw = str((result[1] or {}).get("_raw") or "")
                 error_text = str((result[1] or {}).get("error") or "")
+                response_text = str(result[1] or '')
                 if result[0] == 0:
                     _api_blocked[user_id] = (
                         f"Extension không gửi được request tới Flow ({error_text or 'network error'}). "
                         "Đã ngắt cầu dao; Reload extension rồi Kết nối lại.")
+                elif result[0] in (403, 429) and (
+                        'recaptcha evaluation failed' in response_text.lower()
+                        or 'public_error_unusual_activity' in response_text.lower()):
+                    _api_blocked[user_id] = (
+                        'Google \u0111ang t\u1ea1m ch\u1eb7n reCAPTCHA do qu\u00e1 nhi\u1ec1u request li\u00ean ti\u1ebfp. '
+                        'H\u1ec7 th\u1ed1ng \u0111\u00e3 ng\u1eaft batch trong 10 ph\u00fat; kh\u00f4ng b\u1ea5m T\u1ea1o l\u1ea1i h\u00e0ng lo\u1ea1t.'
+                    )
+                    _api_blocked_until[user_id] = time.monotonic() + 600.0
                 elif result[0] == 403 and (
                         "<title>Sorry" in raw or "automated queries" in raw.lower()):
                     _api_blocked[user_id] = (

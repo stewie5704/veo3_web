@@ -1,7 +1,10 @@
 """Unit: pure helpers in the Flow pipeline runner (no network)."""
+import time
+
 import pytest
 
 from app.pipeline import runner as r
+from app.sessions import router as sessions
 
 
 def test_apply_duration_only_affects_abra():
@@ -106,6 +109,27 @@ async def test_api_post_does_not_fallback_to_vps_when_proxy_drops(monkeypatch):
 
     assert code == 0
     assert "cập nhật extension" in data["error"]
+
+
+def test_flow_proxy_preflight_keeps_active_recaptcha_cooldown(monkeypatch):
+    user_id = 'cooldown-user'
+    monkeypatch.setitem(sessions._ws_connections, user_id, object())
+    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v3'})
+    monkeypatch.setitem(sessions._api_blocked, user_id, 'cooldown')
+    monkeypatch.setitem(sessions._api_blocked_until, user_id, time.monotonic() + 60)
+
+    assert sessions.flow_api_proxy_error(user_id) == 'cooldown'
+
+
+def test_flow_proxy_preflight_clears_expired_recaptcha_cooldown(monkeypatch):
+    user_id = 'expired-user'
+    monkeypatch.setitem(sessions._ws_connections, user_id, object())
+    monkeypatch.setitem(sessions._extension_caps, user_id, {'flow_api_proxy_v3'})
+    monkeypatch.setitem(sessions._api_blocked, user_id, 'cooldown')
+    monkeypatch.setitem(sessions._api_blocked_until, user_id, time.monotonic() - 1)
+
+    assert sessions.flow_api_proxy_error(user_id) is None
+    assert user_id not in sessions._api_blocked
 
 
 def test_character_speak_remains_on_screen_lip_sync():

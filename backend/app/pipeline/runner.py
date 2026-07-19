@@ -1261,7 +1261,9 @@ async def run_scene_job(scene_id: str, user_id: str):
                 except Exception as e:
                     if (isinstance(e, FlowBridgeUnavailableError)
                             or str(e) == SESSION_EXPIRED_MSG
-                            or ' HTTP 0:' in str(e)):
+                            or ' HTTP 0:' in str(e)
+                            or 'recaptcha evaluation failed' in str(e).lower()
+                            or 'public_error_unusual_activity' in str(e).lower()):
                         raise
                     log.warning("scene %s: I2V fix image generation failed, falling back to T2V. Error: %s", scene.id, e)
 
