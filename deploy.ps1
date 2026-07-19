@@ -108,10 +108,10 @@ $frontendStep = if ($BackendOnly) {
 @'
 cd "$repo/frontend"
 npm ci --include=dev --production=false --no-audit --no-fund --silent
-test -x ./node_modules/.bin/tsc
-test -x ./node_modules/.bin/vite
-./node_modules/.bin/tsc -b
-./node_modules/.bin/vite build
+test -f ./node_modules/typescript/bin/tsc
+test -f ./node_modules/vite/bin/vite.js
+node ./node_modules/typescript/bin/tsc -b
+node ./node_modules/vite/bin/vite.js build
 '@
 }
 
