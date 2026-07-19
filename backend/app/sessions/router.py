@@ -180,6 +180,21 @@ def has_flow_api_proxy(user_id: str) -> bool:
     return user_id in _ws_connections and "flow_api_proxy_v3" in _extension_caps.get(user_id, set())
 
 
+def flow_api_proxy_error(user_id: str) -> str | None:
+    # User-facing preflight error before any scene is dispatched.
+    if has_flow_api_proxy(user_id):
+        return None
+    if user_id in _ws_connections:
+        return (
+            'Extension \u0111ang l\u00e0 b\u1ea3n c\u0169. G\u1ee1 b\u1ea3n \u0111ang d\u00f9ng, c\u00e0i Bridge v1.3, m\u1edf tab Flow '
+            'r\u1ed3i b\u1ea5m K\u1ebft n\u1ed1i l\u1ea1i.'
+        )
+    return (
+        'Extension Bridge v1.3 ch\u01b0a k\u1ebft n\u1ed1i. M\u1edf tab Flow, ki\u1ec3m tra \u0111\u00e3 \u0111\u0103ng nh\u1eadp Google, '
+        'r\u1ed3i b\u1ea5m K\u1ebft n\u1ed1i l\u1ea1i trong extension.'
+    )
+
+
 async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
                            captcha_action: str | None = None) -> tuple[int, dict] | None:
     """Run a Flow API request in Chrome, optionally minting captcha just before fetch."""
@@ -204,7 +219,7 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
                 "bearer": bearer,
                 "captcha_action": captcha_action or "",
             })
-            result = await asyncio.wait_for(future, timeout=90)
+            result = await asyncio.wait_for(future, timeout=30)
             return result if isinstance(result, tuple) else None
         except Exception as exc:
             log.warning("Flow API proxy failed for user %s: %s", user_id, exc)

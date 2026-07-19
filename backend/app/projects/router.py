@@ -31,6 +31,14 @@ from app.config import UPLOAD_PATH
 from app.crypto import dec
 from app import subscription
 
+
+def _require_flow_bridge(user_id: str) -> None:
+    # Reject before dispatching a batch that cannot reach Flow.
+    from app.sessions.router import flow_api_proxy_error
+    error = flow_api_proxy_error(user_id)
+    if error:
+        raise HTTPException(status_code=409, detail=error)
+
 router = APIRouter(prefix="/projects", tags=["projects"])
 log = logging.getLogger("veo3.projects")
 
@@ -721,6 +729,7 @@ async def resume_project(
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
+    _require_flow_bridge(user.id)
     subscription.ensure_can_generate(user)
     await subscription.ensure_storage(db, user)
     proj.stopped = False
@@ -751,6 +760,7 @@ async def rerender_batch(
     proj = await db.get(Project, project_id)
     if not proj or proj.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy dự án")
+    _require_flow_bridge(user.id)
     subscription.ensure_can_generate(user)
     await subscription.ensure_storage(db, user)
     res = await db.execute(select(Scene).where(
@@ -876,6 +886,7 @@ async def rerender_scene(
     scene = await db.get(Scene, scene_id)
     if not scene or scene.project_id != project_id or scene.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy scene")
+    _require_flow_bridge(user.id)
     subscription.ensure_can_generate(user)
     await subscription.ensure_storage(db, user)
     proj = await db.get(Project, project_id)
@@ -900,6 +911,7 @@ async def render_scene(
     scene = await db.get(Scene, scene_id)
     if not scene or scene.project_id != project_id or scene.user_id != user.id:
         raise HTTPException(404, "Không tìm thấy scene")
+    _require_flow_bridge(user.id)
     if scene.status == SceneStatus.processing:
         raise HTTPException(400, "Scene đang được render")
     subscription.ensure_can_generate(user)

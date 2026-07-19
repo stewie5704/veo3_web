@@ -186,6 +186,18 @@ SESSION_EXPIRED_MSG = (
 )
 
 
+class FlowBridgeUnavailableError(RuntimeError):
+    # Chrome cannot submit to Flow; retrying through the VPS is unsafe.
+    pass
+
+
+def _require_flow_api_proxy(user_id: str) -> None:
+    from app.sessions.router import flow_api_proxy_error
+    error = flow_api_proxy_error(user_id)
+    if error:
+        raise FlowBridgeUnavailableError(error)
+
+
 async def _get_bearer_token(cookies: str) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -459,6 +471,7 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
     """Generate image(s) with Nano Banana via Flow (FREE on Ultra). Returns output filenames."""
     from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
+    _require_flow_api_proxy(user_id)
     token = await _get_bearer_token(cookies)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
@@ -758,6 +771,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     opt-in upscale at download time). Returns the filename relative to UPLOAD_PATH."""
     from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
+    _require_flow_api_proxy(user_id)
     token = await _get_bearer_token(cookies)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
@@ -1245,6 +1259,10 @@ async def run_scene_job(scene_id: str, user_id: str):
                                 await db_update.commit()
                         log.info("scene %s: I2V start image generated -> %s", scene.id, start_image_file)
                 except Exception as e:
+                    if (isinstance(e, FlowBridgeUnavailableError)
+                            or str(e) == SESSION_EXPIRED_MSG
+                            or ' HTTP 0:' in str(e)):
+                        raise
                     log.warning("scene %s: I2V fix image generation failed, falling back to T2V. Error: %s", scene.id, e)
 
             start_path = (UPLOAD_PATH / start_image_file) if start_image_file else None

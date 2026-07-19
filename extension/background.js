@@ -201,7 +201,7 @@ async function proxyFlowApi(msg) {
     // the reliable MV3 path: solve in the real Flow tab, submit from the extension
     // service worker with host permission, and let Chrome attach the Flow headers.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 75000);
+    const timer = setTimeout(() => controller.abort(), 30000);
     let response;
     try {
       response = await fetch(url, {
