@@ -10,6 +10,7 @@ from app.database import get_db
 from app.auth.router import get_current_user
 from app.auth.models import User
 from app.characters.models import Character
+from app.styles_catalog import style_description
 from app.config import UPLOAD_PATH
 
 router = APIRouter(prefix="/characters", tags=["characters"])
@@ -109,7 +110,8 @@ async def delete_character(
     return {"status": "ok"}
 
 
-async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False) -> CharacterResponse | None:
+async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False,
+                                 style: str = "", allow_duplicate: bool = False) -> CharacterResponse | None:
     """Sinh 1 ảnh chân dung + lưu vào DB. Trả về CharacterResponse khi xong, raise nếu lỗi.
     Được dùng bởi 2 endpoint: batch (legacy) và single (FE gọi song song từng nhân vật)."""
     from app.projects.router import build_portrait_prompt
@@ -128,7 +130,7 @@ async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False) 
 
     files = await generate_images_flow(
         user_id=user.id, cookies=cookies, project_id=gproj,
-        prompt=build_portrait_prompt(ch, "", nationality="Vietnamese"), count=1, aspect_ratio="16:9",
+        prompt=build_portrait_prompt(ch, style_description(style), nationality="Vietnamese"), count=1, aspect_ratio="16:9",
         out_dir=CHAR_PATH, out_prefix=f"port_{uuid.uuid4().hex[:8]}",
     )
     if not files:
@@ -137,8 +139,8 @@ async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False) 
     async with AsyncSessionLocal() as db:
         existing = await db.execute(select(Character).where(
             Character.user_id == user.id, Character.name == name, Character.project_id.is_(None)))
-        char = existing.scalar_one_or_none()
-        if char and not overwrite:
+        char = existing.scalars().first()
+        if char and not overwrite and not allow_duplicate:
             # Đã có -> xóa ảnh mới sinh cho gọn, trả về nhân vật cũ
             p = CHAR_PATH / files[0]
             if p.exists():
@@ -164,11 +166,13 @@ async def _generate_one_portrait(user: User, ch: dict, overwrite: bool = False) 
 async def generate_ai_portrait_one(
     character: dict,
     overwrite: bool = False,
+    style: str = "",
+    allow_duplicate: bool = False,
     user: User = Depends(get_current_user),
 ):
     """Sinh 1 ảnh chân dung cho 1 nhân vật (FE gọi song song từng nhân vật để tạo grid loading UX).
     Lỗi được trả 4xx/5xx với chi tiết — KHÔNG nuốt exception im lặng nữa."""
-    return await _generate_one_portrait(user, character, overwrite)
+    return await _generate_one_portrait(user, character, overwrite, style, allow_duplicate)
 
 
 @router.post("/generate-ai-portraits", response_model=list[CharacterResponse])

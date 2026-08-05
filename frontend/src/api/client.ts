@@ -211,7 +211,8 @@ export const charactersApi = {
     return api.post('/characters/', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
   },
   generateAIPortraits: (characters: any[], overwrite: boolean = false) => api.post(`/characters/generate-ai-portraits?overwrite=${overwrite}`, characters).then(r => r.data),
-  generateAIPortraitOne: (character: any, overwrite: boolean = false) => api.post(`/characters/generate-ai-portrait?overwrite=${overwrite}`, character).then(r => r.data),
+  generateAIPortraitOne: (character: any, overwrite: boolean = false, style: string = '', allowDuplicate: boolean = false) =>
+    api.post(`/characters/generate-ai-portrait?overwrite=${overwrite}&style=${encodeURIComponent(style)}&allow_duplicate=${allowDuplicate}`, character).then(r => r.data),
   delete: (id: string) => api.delete(`/characters/${id}`).then(r => r.data),
 }
 

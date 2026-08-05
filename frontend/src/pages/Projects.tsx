@@ -454,7 +454,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
 
   function findCharByFuzzyName(name: string) {
     const target = _normName(name)
-    if (!target) return null
+    if (!target || ![...selectedChars].some(x => _normName(x) === target)) return null
     return chars.find(x => _normName(x.name) === target) || null
   }
 
@@ -485,7 +485,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
         setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'generating' } : c))
         pushLog(`🎨 Đang vẽ chân dung "${card.name}"...`)
         try {
-          const resp = await charactersApi.generateAIPortraitOne(bibleObj, false)
+          const resp = await charactersApi.generateAIPortraitOne(bibleObj, false, style, true)
           setCastCards(prev => prev.map((c, ci) => ci === i ? { ...c, state: 'done', url: resp.image_url, charId: resp.id } : c))
           setCharIdsMap(m => ({ ...m, [card.name]: resp.id }))
           pushLog(`✓ Chân dung "${card.name}" xong`)
