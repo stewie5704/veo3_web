@@ -107,11 +107,13 @@ $frontendStep = if ($BackendOnly) {
 } else {
 @'
 cd "$repo/frontend"
-npm ci --include=dev --production=false --no-audit --no-fund --silent
+# Vite/TypeScript are devDependencies. VPS-level production settings must not
+# make npm omit the build toolchain during a deployment build.
+env -u NODE_ENV -u NPM_CONFIG_PRODUCTION -u NPM_CONFIG_OMIT \
+  npm ci --include=dev --no-audit --no-fund
 test -f ./node_modules/typescript/bin/tsc
 test -f ./node_modules/vite/bin/vite.js
-node ./node_modules/typescript/bin/tsc -b
-node ./node_modules/vite/bin/vite.js build
+npm run build
 '@
 }
 
