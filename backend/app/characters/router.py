@@ -172,7 +172,15 @@ async def generate_ai_portrait_one(
 ):
     """Sinh 1 ảnh chân dung cho 1 nhân vật (FE gọi song song từng nhân vật để tạo grid loading UX).
     Lỗi được trả 4xx/5xx với chi tiết — KHÔNG nuốt exception im lặng nữa."""
-    return await _generate_one_portrait(user, character, overwrite, style, allow_duplicate)
+    try:
+        return await _generate_one_portrait(user, character, overwrite, style, allow_duplicate)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        from app.pipeline.runner import FlowBridgeUnavailableError
+        if isinstance(exc, FlowBridgeUnavailableError):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise
 
 
 @router.post("/generate-ai-portraits", response_model=list[CharacterResponse])
