@@ -113,7 +113,8 @@ env -u NODE_ENV -u NPM_CONFIG_PRODUCTION -u NPM_CONFIG_OMIT \
   npm ci --include=dev --no-audit --no-fund
 test -f ./node_modules/typescript/bin/tsc
 test -f ./node_modules/vite/bin/vite.js
-npm run build
+node ./node_modules/typescript/bin/tsc -b
+node ./node_modules/vite/bin/vite.js build
 '@
 }
 
