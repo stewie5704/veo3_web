@@ -635,6 +635,10 @@ def _to_voiceover(prompt: str, narration: str, voice_name: str = "") -> str:
     return p
 
 
+class _GenerationTimedOut(Exception):
+    """Flow accepted the request but its worker timed out; retry is safe."""
+
+
 class _ProminentBlocked(Exception):
     """Render bị bộ lọc người (PROMINENT_PEOPLE) chặn — thường là dương-tính-giả, đổi seed render
     lại hay qua. Bắt riêng để retry thay vì fail luôn."""
@@ -919,6 +923,9 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
                       user_id, key, reasons, emsg, str(items[0]))
             if any("PROMINENT" in r for r in reasons) or "PROMINENT_PEOPLE" in emsg.upper():
                 raise _ProminentBlocked()   # caller đổi seed retry (thường dương-tính-giả)
+            timeout_blob = " ".join([status, emsg, *reasons]).upper()
+            if "TIMED_OUT" in timeout_blob or "TIMED OUT" in timeout_blob or "TIMEOUT" in timeout_blob:
+                raise _GenerationTimedOut(emsg or ", ".join(reasons) or status)
             raise RuntimeError(f"Render thất bại: {emsg or (', '.join(reasons)) or status}")
         if any(h in status for h in DONE_HINTS):
             break
@@ -995,6 +1002,11 @@ async def run_video_job(job_id: str, user_id: str):
                         seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
                         if attempt == 2:
                             raise
+                    except _GenerationTimedOut:
+                        log.warning("job %s Flow timed out attempt %d/2 -> retry", job_id, attempt + 1)
+                        if attempt >= 1:
+                            raise
+                        seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
                 if fname:
                     outputs.append(fname)
             except _ProminentBlocked:
@@ -1299,6 +1311,11 @@ async def run_scene_job(scene_id: str, user_id: str):
                         seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
                         if attempt == 2:
                             raise
+                    except _GenerationTimedOut:
+                        log.warning("scene %s Flow timed out attempt %d/2 -> retry", scene_id, attempt + 1)
+                        if attempt >= 1:
+                            raise
+                        seed_try = (seed_try * 1103515245 + 12345) % (2 ** 31 - 1) + 1
             except _ProminentBlocked:
                 await _update_scene(status=SceneStatus.failed, error_msg=(
                     "Google chặn ảnh giữ mặt sau 3 lần thử: người NỔI TIẾNG hoặc bộ lọc nhận "
