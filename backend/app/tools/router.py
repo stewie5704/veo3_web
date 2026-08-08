@@ -154,7 +154,7 @@ GEMINI_MODELS = ("gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"
 MAX_SCENES = 30          # giới hạn cho 1 call đơn (single-shot); map-reduce dùng MAX_SCENES_MR
 MAX_SCENES_MR = 800      # trần an toàn cho luồng map-reduce nhiều cảnh
 MAPREDUCE_THRESHOLD = 30 # > ngưỡng này (= cap single-call) -> chuyển sang map-reduce song song
-CHUNK_SIZE = 20          # số cảnh mỗi chunk bung song song
+CHUNK_SIZE = 15          # số cảnh mỗi chunk bung song song
 MAX_MR_CONCURRENCY = 5   # số call Gemini song song tối đa — match ~5 key user
 # Mỏ neo chuyển động — TRUNG TÍNH phong cách (đúng cho cả live-action lẫn anime/claymation): nhắc Veo
 # giữ chuyển động mạch lạc + phơi sáng/ánh sáng ổn định cả cảnh -> chống nhấp nháy & "thở sáng" giữa cảnh.
@@ -223,10 +223,15 @@ def _loads_lenient(text: str) -> dict:
 
 
 _QUOTA_KW = ("429", "quota", "exceeded", "resource_exhausted", "rate limit")
+_TIMEOUT_KW = ("timeout", "timed out", "deadline exceeded", "deadline_exceeded")
 
 
 def _is_quota(e) -> bool:
     return any(k in str(e).lower() for k in _QUOTA_KW)
+
+
+def _is_timeout(e) -> bool:
+    return any(k in str(e).lower() for k in _TIMEOUT_KW)
 
 
 def _call_openai_json(api_key: str, base_url: str, models: list[str], prompt: str, max_tokens: int) -> dict:
@@ -265,11 +270,21 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
         ropts = {"timeout": timeout_s}
         last = None
         quota_hit = False
+        budget_exhausted = False
+        import time as _call_time
+        started_at = _call_time.monotonic()
+        personal_budget_s = 110
         
         for k in keys:
+            if _call_time.monotonic() - started_at >= personal_budget_s:
+                budget_exhausted = True
+                break
             genai.configure(api_key=k)
             key_quota_hit = False
             for mname in GEMINI_MODELS:
+                if _call_time.monotonic() - started_at >= personal_budget_s:
+                    budget_exhausted = True
+                    break
                 try:
                     txt = genai.GenerativeModel(mname).generate_content(
                         prompt, generation_config=cfg, request_options=ropts).text.strip()
@@ -278,6 +293,10 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
                     last = e
                     if _is_quota(e):
                         key_quota_hit = True
+                        continue
+                    # A second request without JSON mode cannot repair a network/
+                    # deadline timeout; it only doubles the wait for every model/key.
+                    if _is_timeout(e):
                         continue
                     try:
                         txt = genai.GenerativeModel(mname).generate_content(prompt, request_options=ropts).text.strip()
@@ -292,7 +311,8 @@ def _gemini_json(gemini_key: str | None, prompt: str, max_tokens: int = 8192) ->
             else:
                 log.warning("Key %s... lỗi không phải quota, thử key tiếp theo", k[:8])
 
-        if last and not quota_hit:
+        budget_exhausted = budget_exhausted or (_call_time.monotonic() - started_at >= personal_budget_s)
+        if last and not quota_hit and not budget_exhausted:
             raise last
         if not keys:
             raise RuntimeError("Gemini không phản hồi")
@@ -602,7 +622,13 @@ def _build_shot_prompt(present: list, scene: SceneScript, style_lock: str) -> st
     merged += _MOTION_ANCHOR
     if "negative prompt:" not in merged.lower():
         merged += _NEG_TAIL
-    return re.sub(r"\s+", " ", merged).strip()
+    merged = re.sub(r"\s+", " ", merged).strip()
+    # The project API caps each prompt at 4,000 characters. Large casts and
+    # verbose style locks could exceed it only after review, making Create fail.
+    # Preserve the identity-heavy beginning and the quality/negative tail.
+    if len(merged) > 3900:
+        merged = merged[:3050].rstrip(" ,;-") + ". " + merged[-800:].lstrip()
+    return merged
 
 
 def _resolve_style_lock(style, suggested, model_lock):
@@ -706,7 +732,10 @@ CHỈ JSON hợp lệ, KHÔNG markdown.
 <{fence}>
 {source}
 </{fence}>"""
-    return _gemini_json(api_key, system, max_tokens=65536)
+    # Beats are compact. A fixed 65k budget made 50-100 scene outlines wait
+    # minutes before timeout/fallback, despite needing only a fraction of it.
+    outline_tokens = min(32768, max(8192, 4096 + n * 120))
+    return _gemini_json(api_key, system, max_tokens=outline_tokens)
 
 
 def _mr_expand(api_key: str, beats_slice: list, start_index: int, style_lock: str,

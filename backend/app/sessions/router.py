@@ -248,39 +248,59 @@ async def request_flow_api(user_id: str, url: str, body: dict, bearer: str,
 
     if captcha_action:
         lock = _captcha_locks.setdefault(user_id, asyncio.Lock())
-        async with lock:
-            blocked = _active_api_block(user_id)
-            if blocked:
-                return 0, {'error': blocked}
-            # Human-paced submit spacing. A batch of scenes must not look like a
-            # burst even though their long render polls may run concurrently.
-            elapsed = asyncio.get_running_loop().time() - _api_last_submit.get(user_id, 0.0)
-            if elapsed < 4.0:
-                await asyncio.sleep(4.0 - elapsed)
+        if captcha_action == "IMAGE_GENERATION":
+            # Image generation itself takes 30-120s. Holding the per-user lock
+            # until the image response made a 7-character cast fully sequential.
+            # Serialize only dispatch/spacing; the extension and frontend already
+            # cap actual image work at three concurrent requests.
+            async with lock:
+                blocked = _active_api_block(user_id)
+                if blocked:
+                    return 0, {"error": blocked}
+                elapsed = asyncio.get_running_loop().time() - _api_last_submit.get(user_id, 0.0)
+                if elapsed < 4.0:
+                    await asyncio.sleep(4.0 - elapsed)
+                _api_last_submit[user_id] = asyncio.get_running_loop().time()
             result = await _request()
-            _api_last_submit[user_id] = asyncio.get_running_loop().time()
-            if result:
-                raw = str((result[1] or {}).get("_raw") or "")
-                error_text = str((result[1] or {}).get("error") or "")
-                response_text = str(result[1] or '')
-                if result[0] == 0:
-                    _api_blocked[user_id] = (
-                        f"Extension không gửi được request tới Flow ({error_text or 'network error'}). "
-                        "Đã ngắt cầu dao; Reload extension rồi Kết nối lại.")
-                elif result[0] in (403, 429) and (
-                        'recaptcha evaluation failed' in response_text.lower()
-                        or 'public_error_unusual_activity' in response_text.lower()):
-                    _api_blocked[user_id] = (
-                        'Google \u0111ang t\u1ea1m ch\u1eb7n reCAPTCHA do qu\u00e1 nhi\u1ec1u request li\u00ean ti\u1ebfp. '
-                        'H\u1ec7 th\u1ed1ng \u0111\u00e3 ng\u1eaft batch trong 10 ph\u00fat; kh\u00f4ng b\u1ea5m T\u1ea1o l\u1ea1i h\u00e0ng lo\u1ea1t.'
-                    )
-                    _api_blocked_until[user_id] = time.monotonic() + 600.0
-                elif result[0] == 403 and (
-                        "<title>Sorry" in raw or "automated queries" in raw.lower()):
-                    _api_blocked[user_id] = (
-                        "Google trả trang 'Sorry' cho request từ extension. Đã ngắt cầu dao để "
-                        "không gửi thêm; cập nhật/Reload extension rồi Kết nối lại.")
-            return result
+        else:
+            async with lock:
+                blocked = _active_api_block(user_id)
+                if blocked:
+                    return 0, {"error": blocked}
+                # Human-paced submit spacing. A batch of scenes must not look like a
+                # burst even though their long render polls may run concurrently.
+                elapsed = asyncio.get_running_loop().time() - _api_last_submit.get(user_id, 0.0)
+                if elapsed < 4.0:
+                    await asyncio.sleep(4.0 - elapsed)
+                result = await _request()
+                _api_last_submit[user_id] = asyncio.get_running_loop().time()
+
+        blocked = _active_api_block(user_id)
+        if blocked:
+            return 0, {"error": blocked}
+        if result:
+            raw = str((result[1] or {}).get("_raw") or "")
+            error_text = str((result[1] or {}).get("error") or "")
+            response_text = str(result[1] or "")
+            if result[0] == 0:
+                _api_blocked[user_id] = (
+                    f"Extension không gửi được request tới Flow ({error_text or 'network error'}). "
+                    "Đã ngắt cầu dao; Reload extension rồi Kết nối lại.")
+            elif result[0] in (403, 429) and (
+                    "recaptcha evaluation failed" in response_text.lower()
+                    or "public_error_unusual_activity" in response_text.lower()):
+                _api_blocked[user_id] = (
+                    "Google đang tạm chặn reCAPTCHA do quá nhiều request liên tiếp. "
+                    "Hệ thống đã ngắt batch trong 10 phút; không bấm Tạo lại hàng loạt."
+                )
+                _api_blocked_until[user_id] = time.monotonic() + 600.0
+            elif result[0] == 403 and (
+                    "<title>Sorry" in raw or "automated queries" in raw.lower()):
+                _api_blocked[user_id] = (
+                    "Google trả trang 'Sorry' cho request từ extension. Đã ngắt cầu dao để "
+                    "không gửi thêm; cập nhật/Reload extension rồi Kết nối lại.")
+        return result
+
     return await _request()
 
 

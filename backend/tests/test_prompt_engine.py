@@ -34,3 +34,25 @@ def test_shot_prompt_no_characters_still_valid():
     out = _build_shot_prompt([], sc, "teal grade")
     assert not out.startswith("Same ")                   # không nhân vật -> không 'Same'
     assert "Audio:" in out and "Negative prompt:" in out
+
+
+def test_large_cast_prompt_stays_within_project_api_limit():
+    chars = [
+        CharacterBible(
+            char_key=f"CHAR_{i}", name=f"Character {i}",
+            anchor="distinct accessory and facial mark " * 8,
+            hair="long detailed textured hair " * 5,
+            wardrobe_top="highly detailed layered costume " * 8,
+            wardrobe_bottom="matching embroidered trousers " * 8,
+        )
+        for i in range(1, 9)
+    ]
+    scene = SceneScript(
+        prompt="All characters cross a crowded ceremonial hall. " * 30,
+        audio="crowd ambience and footsteps; orchestral score " * 20,
+    )
+    out = _build_shot_prompt(chars, scene, "rich cinematic visual style " * 80)
+
+    assert len(out) <= 3900
+    assert out.startswith("Same ")
+    assert "Negative prompt:" in out
