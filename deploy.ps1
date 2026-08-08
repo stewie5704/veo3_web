@@ -113,8 +113,19 @@ env -u NODE_ENV -u NPM_CONFIG_PRODUCTION -u NPM_CONFIG_OMIT \
   npm ci --include=dev --no-audit --no-fund
 test -f ./node_modules/typescript/bin/tsc
 test -f ./node_modules/vite/bin/vite.js
-node ./node_modules/typescript/bin/tsc -b
-node ./node_modules/vite/bin/vite.js build
+build_frontend() {
+  node ./node_modules/typescript/bin/tsc -b &&
+  node ./node_modules/vite/bin/vite.js build
+}
+if ! build_frontend; then
+  echo '[!] Frontend toolchain chua san sang sau npm ci; cho 3s va thu lai...'
+  sleep 3
+  if [ ! -f ./node_modules/typescript/bin/tsc ] || [ ! -f ./node_modules/vite/bin/vite.js ]; then
+    env -u NODE_ENV -u NPM_CONFIG_PRODUCTION -u NPM_CONFIG_OMIT \
+      npm install --no-save --package-lock=false --include=dev typescript@5.9.3 vite@5.4.21
+  fi
+  build_frontend
+fi
 '@
 }
 
