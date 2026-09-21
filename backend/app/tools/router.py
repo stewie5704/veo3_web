@@ -1882,10 +1882,33 @@ Return ONLY a valid JSON object with the following schema:
         )
     except Exception as e:
         log.warning("AI LLM call failed in enhance_prompt (%s), falling back to cinematic template engine", e)
-        cam = "cinematic smooth tracking shot"
-        lens = "35mm anamorphic, f/1.8, shallow depth of field"
-        light = "dramatic atmospheric lighting, subtle volumetric rays, fine cinematic color grade"
-        audio = "Audio: ambient environmental foley, crisp spatial acoustics. No spoken dialogue."
+        lower_p = raw_prompt.lower()
+        if any(k in lower_p for k in ("pov", "góc nhìn thứ nhất", "first-person", "first person", "người lái", "cầm lái")):
+            cam = "first-person POV perspective from the viewer's direct eye-level, hands and arms visible in foreground"
+            lens = "24mm wide-angle lens with natural human eye field of view and deep focus"
+            light = "realistic ambient illumination with natural environmental exposure and subtle windshield lens reflections"
+            audio = "Audio: crisp tactile foley, immersive spatial sound of hands touching objects, soft breathing, natural environmental acoustics. No spoken dialogue."
+        elif any(k in lower_p for k in ("drone", "fpv", "bay", "aerial", "từ trên cao")):
+            cam = "dynamic FPV drone dive and swoop smoothly tracking across the environment"
+            lens = "16mm ultra wide-angle lens with deep depth of field and expansive horizon"
+            light = "dramatic atmospheric daylight with volumetric sunbeams penetrating mist"
+            audio = "Audio: rushing wind audio foley, distant environmental echoes, low engine hum. No spoken dialogue."
+        elif any(k in lower_p for k in ("cận", "close-up", "macro", "chi tiết", "texture", "làn da", "serum", "chất kem")):
+            cam = "slow macro push-in focusing on intricate micro-details"
+            lens = "100mm macro prime lens, f/2.8, extreme shallow depth of field"
+            light = "soft diffused studio rim lighting highlighting tactile surface textures and gloss"
+            audio = "Audio: delicate tactile ASMR foley sound design, subtle water droplet texture. No spoken dialogue."
+        elif any(k in lower_p for k in ("ugc", "quay tay", "tiktok", "handheld", "điện thoại")):
+            cam = "handheld camera with subtle realistic organic shake at chest level"
+            lens = "28mm wide lens, natural smartphone perspective"
+            light = "natural ambient room lighting, realistic documentary exposure"
+            audio = "Audio: authentic live ambient room foley, natural footsteps. No spoken dialogue."
+        else:
+            cam = "cinematic smooth tracking shot"
+            lens = "35mm anamorphic, f/1.8, shallow depth of field"
+            light = "dramatic atmospheric lighting, subtle volumetric rays, fine cinematic color grade"
+            audio = "Audio: ambient environmental foley, crisp spatial acoustics. No spoken dialogue."
+
         clean_raw = raw_prompt.strip().rstrip(".")
         enhanced = f"{cam}, {lens}. {clean_raw}. {light}. Hyper-detailed textures, photorealistic motion. {audio}. {_MOTION_ANCHOR}{_NEG_TAIL}"
         return EnhancePromptResponse(
