@@ -1881,5 +1881,19 @@ Return ONLY a valid JSON object with the following schema:
             negative_prompt=_NEG_TAIL.strip(),
         )
     except Exception as e:
-        log.exception("enhance_prompt error: %s", e)
-        raise HTTPException(500, _ai_err("Lỗi tối ưu prompt Veo 3 Flow", e))
+        log.warning("AI LLM call failed in enhance_prompt (%s), falling back to cinematic template engine", e)
+        cam = "cinematic smooth tracking shot"
+        lens = "35mm anamorphic, f/1.8, shallow depth of field"
+        light = "dramatic atmospheric lighting, subtle volumetric rays, fine cinematic color grade"
+        audio = "Audio: ambient environmental foley, crisp spatial acoustics. No spoken dialogue."
+        clean_raw = raw_prompt.strip().rstrip(".")
+        enhanced = f"{cam}, {lens}. {clean_raw}. {light}. Hyper-detailed textures, photorealistic motion. {audio}. {_MOTION_ANCHOR}{_NEG_TAIL}"
+        return EnhancePromptResponse(
+            original_prompt=raw_prompt,
+            enhanced_prompt=enhanced.strip(),
+            camera_move=cam,
+            lens=lens,
+            lighting=light,
+            audio=audio,
+            negative_prompt=_NEG_TAIL.strip(),
+        )
