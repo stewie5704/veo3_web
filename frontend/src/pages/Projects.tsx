@@ -408,9 +408,9 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
       pushLog(`✓ Đã tạo xong toàn bộ chân dung — vui lòng duyệt và chốt giọng`)
       setStep('review')
     } catch (e: any) {
-      const msg = e.response?.data?.detail || e.message || 'không rõ'
+      const msg = e.response?.data?.detail || e.message || t('project.error_parse_script')
       pushLog(`✗ Lỗi phân tích: ${msg}`, 'error')
-      setError(e.response?.data?.detail || t('project.error_parse_script'))
+      setError(msg)
       setStep('setup')
     } finally {
       setLoadingPrompts(false)

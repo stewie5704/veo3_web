@@ -1065,7 +1065,10 @@ async def _run_parse_job(jid: str, api_key: str | None, body: "ParseScriptReques
         })
     except Exception as e:
         log.exception("parse-job %s lỗi: %s", jid, e)
-        _job_update(jid, {"status": "error", "error": str(e), "ts": _time_mod.time()})
+        err_msg = str(e)
+        if "No active credentials" in err_msg or "invalid_api_key" in err_msg:
+            err_msg = "Chưa cấu hình Gemini API Key trên 9Router hoặc trong Cài đặt (Settings). Vui lòng thêm Gemini API Key."
+        _job_update(jid, {"status": "error", "error": err_msg, "ts": _time_mod.time()})
 
 
 def _build_parse_script_prompt(script: str, aspect: str, lang_label: str,
