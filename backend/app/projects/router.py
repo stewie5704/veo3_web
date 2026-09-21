@@ -27,7 +27,7 @@ from app.pipeline.runner import dispatch_scene, generate_images_flow, _try_auto_
 from app.projects.streaming import sse_event_generator
 from app.projects.generator import run_extract_outline, run_generate_scenes
 from app.styles_catalog import style_description
-from app.config import UPLOAD_PATH
+from app.config import UPLOAD_PATH, settings
 from app.crypto import dec
 from app import subscription
 
@@ -508,7 +508,7 @@ async def extract_outline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not user.gemini_api_key:
+    if not user.gemini_api_key and not settings.system_9router_url:
         raise HTTPException(400, "Cần Gemini API key")
 
     proj = await db.get(Project, project_id)
@@ -536,7 +536,7 @@ async def generate_scenes(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not user.gemini_api_key:
+    if not user.gemini_api_key and not settings.system_9router_url:
         raise HTTPException(400, "Cần Gemini API key")
         
     proj = await db.get(Project, project_id)

@@ -13,10 +13,10 @@ from app.auth.models import User
 log = logging.getLogger("veo3.generator")
 MAX_MR_CONCURRENCY = 5
 
-async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str, idea: str, scene_count: int, language: str, aspect_ratio: str, parse_mode: bool, cast: list | None = None):
+async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str | None, idea: str, scene_count: int, language: str, aspect_ratio: str, parse_mode: bool, cast: list | None = None):
     """Background task: Chạy _mr_outline, lưu nhân vật vào Project và bắn event OUTLINE_READY"""
     try:
-        api_key = dec(gemini_key_enc)
+        api_key = dec(gemini_key_enc) if gemini_key_enc else None
         idea = _sanitize(idea)
         lang_label = "tiếng Việt" if language == "vi" else "English"
         # Process cast from DB if not provided
@@ -73,10 +73,10 @@ async def run_extract_outline(project_id: str, user_id: str, gemini_key_enc: str
                 await db.commit()
 
 
-async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str, language: str, aspect_ratio: str, charVoices: dict[str, str] = {}):
+async def run_generate_scenes(project_id: str, user_id: str, gemini_key_enc: str | None, language: str, aspect_ratio: str, charVoices: dict[str, str] = {}):
     """Background task: Chạy _mr_expand song song, tạo Scene vào DB và bắn event liên tục"""
     try:
-        api_key = dec(gemini_key_enc)
+        api_key = dec(gemini_key_enc) if gemini_key_enc else None
         lang_label = "tiếng Việt" if language == "vi" else "English"
         
         async with AsyncSessionLocal() as db:

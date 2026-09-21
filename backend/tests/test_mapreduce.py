@@ -68,3 +68,25 @@ def test_small_count_still_uses_single_call_path():
     # n <= threshold không đụng map-reduce (giữ luồng cũ) — chỉ kiểm hằng số
     assert router.MAPREDUCE_THRESHOLD == router.MAX_SCENES
     assert router.MAX_SCENES_MR > router.MAPREDUCE_THRESHOLD
+
+
+def test_mapreduce_works_with_none_api_key(monkeypatch):
+    def fake_outline(api_key, source, n, lang_label, aspect, parse_mode, cast=None):
+        assert api_key is None
+        return {
+            "summary": "none key summary",
+            "characters": [{"name": "Hero", "gender_presentation": "male"}],
+            "beats": [{"beat": "b1", "chars": ["CHAR_1"], "intent": "action"}]
+        }
+
+    def fake_expand(api_key, beats_slice, *a, **k):
+        assert api_key is None
+        return {"scenes": [{"beat": "b1", "chars": ["CHAR_1"], "prompt": "scene 1", "speaker": "CHAR_1", "dialogue": "hi"}]}
+
+    monkeypatch.setattr(router, "_mr_outline", fake_outline)
+    monkeypatch.setattr(router, "_mr_expand", fake_expand)
+
+    resp = asyncio.run(router._scenes_mapreduce(None, "short idea", 1, None, False, "English", "16:9"))
+    assert len(resp.scenes) == 1
+    assert "Hero" in resp.scenes[0].prompt
+
