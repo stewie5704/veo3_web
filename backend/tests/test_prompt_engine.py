@@ -1,6 +1,9 @@
 """Prompt-engine assembly (server-side, no network): khối Audio + negative tail nâng cấp +
 identity-negative + nhân vật dẫn đầu ('Same' + anchor). Đây là phần ĐẢM BẢO không phụ thuộc model."""
-from app.tools.router import CharacterBible, SceneScript, _build_shot_prompt
+from app.tools.router import (
+    CharacterBible, SceneScript, _build_shot_prompt,
+    EnhancePromptRequest, EnhancePromptResponse, _MOTION_ANCHOR, _NEG_TAIL
+)
 
 
 def test_shot_prompt_leads_identity_has_audio_and_negatives():
@@ -56,3 +59,19 @@ def test_large_cast_prompt_stays_within_project_api_limit():
     assert len(out) <= 3900
     assert out.startswith("Same ")
     assert "Negative prompt:" in out
+
+
+def test_veo3_flow_enhancer_schemas_and_negatives():
+    req = EnhancePromptRequest(
+        prompt="cô gái uống trà phố cổ mưa",
+        aspect_ratio="9:16",
+        camera_move="slow dolly-in",
+        lens="50mm f/1.4",
+        lighting="warm golden hour 3200K",
+    )
+    assert req.prompt == "cô gái uống trà phố cổ mưa"
+    assert req.aspect_ratio == "9:16"
+    assert "rubber limbs" in _NEG_TAIL
+    assert "no floating feet" in _NEG_TAIL
+    assert "temporal popping" in _NEG_TAIL
+    assert "grounded interaction" in _MOTION_ANCHOR

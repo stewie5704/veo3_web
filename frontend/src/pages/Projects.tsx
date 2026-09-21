@@ -4,6 +4,7 @@ import { projectsApi, toolsApi, charactersApi, removeDeletedSellId } from '../ap
 import { pushLog } from './Dashboard'
 import { Loader2, Link2, Sparkles, PenLine, Volume2, Mic, MessagesSquare, VolumeX, Plus, X, Search, Users, Clapperboard, Rocket, List } from 'lucide-react'
 import SellVideo from '../components/SellVideo'
+import VeoDirectorToolbar from '../components/VeoDirectorToolbar'
 import { useT } from '../i18n'
 
 type AudioMode = 'voiceover' | 'character_speak' | 'off'
@@ -766,6 +767,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
 
+              <VeoDirectorToolbar prompt={idea} onUpdatePrompt={setIdea} aspectRatio={aspect} />
+
               {/* Picker nhân vật — mở khi click nút nhân vật */}
               {addCharOpen && (
                 <div style={{ marginTop: 12, padding: 14, background: 'var(--inset)', borderRadius: 12, border: '1px solid var(--border)' }}>
@@ -1230,6 +1233,7 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   <details style={{ marginTop: 8 }}>
                     <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>⚙ {t('scene.edit_prompt')}</summary>
                     <textarea className="form-textarea" rows={2} style={{ fontSize: 12, minHeight: 'auto', marginTop: 6 }} value={s.prompt} onChange={e => updateScene(i, 'prompt', e.target.value)} />
+                    <VeoDirectorToolbar prompt={s.prompt} onUpdatePrompt={val => updateScene(i, 'prompt', val)} aspectRatio={aspect} compact />
                   </details>
                 </div>
               )) : prompts.map((p, i) => (

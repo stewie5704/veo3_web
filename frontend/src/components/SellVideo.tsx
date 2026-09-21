@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toolsApi, charactersApi, projectsApi } from '../api/client'
 import { pushLog } from '../pages/Dashboard'
 import DownloadMenu from './DownloadMenu'
+import VeoDirectorToolbar from './VeoDirectorToolbar'
 import { Plus, Loader2, Sparkles, ShoppingBag, AlertCircle, ExternalLink, Copy, Check, SlidersHorizontal, ChevronUp } from 'lucide-react'
 import { useT } from '../i18n'
 
@@ -17,6 +18,9 @@ const Chev = () => <svg className="chev" viewBox="0 0 24 24" fill="none" stroke=
 const SELL_SCENES = [
   { v: 'street', label: '🏙️ Đường phố' }, { v: 'studio', label: '🎬 Studio' },
   { v: 'cafe', label: '☕ Quán cafe' }, { v: 'home', label: '🏠 Tại nhà' },
+  { v: 'pov_hands', label: '👀 POV Cầm trên tay' },
+  { v: 'unboxing', label: '📦 Đập hộp (Unboxing)' }, { v: 'macro_texture', label: '💧 Siêu cận (Macro)' },
+  { v: 'luxury_pedestal', label: '💎 Bệ xoay 360°' },
 ]
 const AUDIO_MODES = [
   { v: 'voiceover', label: '🎙️ Lồng tiếng (AI đọc)' },
@@ -51,10 +55,10 @@ const MODEL_COST: Record<string, number> = {
   veo_3_1_t2v_lite_low_priority: 0, veo_3_1_t2v_lite: 5,
   veo_3_1_t2v_fast_portrait_ultra: 10, veo_3_1_t2v_portrait: 100,
 }
-const SCENE_VI: Record<string, string> = { street: 'trên phố', studio: 'trong studio', cafe: 'ở quán cafe', home: 'tại nhà' }
-const TONE_VI: Record<string, string> = { ugc: 'UGC quay tay tự nhiên', young: 'trẻ trung', lux: 'sang xịn', fun: 'hài hước' }
-const SCENE_EN: Record<string, string> = { street: 'walking on a city street', studio: 'in a clean studio', cafe: 'in a cozy cafe', home: 'at home' }
-const TONE_EN: Record<string, string> = { ugc: 'casual handheld UGC style', young: 'youthful and energetic', lux: 'premium and elegant', fun: 'fun and humorous' }
+const SCENE_VI: Record<string, string> = { street: 'trên phố', studio: 'trong studio', cafe: 'ở quán cafe', home: 'tại nhà', pov_hands: 'góc nhìn thứ nhất POV tự tay cầm sản phẩm trên tay', unboxing: 'bàn unboxing mở hộp hào hứng', macro_texture: 'siêu cận cảnh giọt nước trên kết cấu sản phẩm', luxury_pedestal: 'bệ xoay 360 độ sang trọng đèn viền' }
+const TONE_VI: Record<string, string> = { ugc: 'UGC quay tay tự nhiên', young: 'trẻ trung', lux: 'sang xịn', fun: 'hài hước', asmr: 'ASMR thư giãn', expert: 'chuyên gia review' }
+const SCENE_EN: Record<string, string> = { street: 'walking on a city street', studio: 'in a clean studio', cafe: 'in a cozy cafe', home: 'at home', pov_hands: 'first-person POV view with hands entering frame holding the product', unboxing: 'unboxing on aesthetic table with excitement', macro_texture: 'extreme macro texture with crisp water droplets', luxury_pedestal: 'luxury rotating pedestal with rim lighting' }
+const TONE_EN: Record<string, string> = { ugc: 'casual handheld UGC style', young: 'youthful and energetic', lux: 'premium and elegant', fun: 'fun and humorous', asmr: 'crisp ASMR audio with tactile sensory focus', expert: 'authoritative expert testing review' }
 // Cụm khoá sản phẩm tự chèn vào mỗi prompt -> Veo giữ đúng sản phẩm trong ảnh ref
 const PRODUCT_LOCK = 'keep the product the EXACT same item as the reference image — identical colour, material and finish, surface pattern/print, logo and on-pack text (same wording, font and placement), label, shape and proportions; never recolour, restyle, relabel, resize, swap, distort, morph or regenerate it, and never add or remove any text or logo; product in sharp focus, true-to-life colour; UGC handheld, real skin, natural light, vertical 9:16'
 
@@ -536,6 +540,7 @@ LỜI THOẠI: ...
             </div>
             <textarea className="form-textarea" rows={5} style={{ width: '100%' }} value={box} onChange={e => setBox(e.target.value)}
               placeholder={t('sell.box_placeholder')} />
+            <VeoDirectorToolbar prompt={box} onUpdatePrompt={setBox} aspectRatio="9:16" compact />
           </div>
 
           {/* Hàng đáy gọn kiểu Flow: thanh tùy chọn thu gọn + nút Tạo cùng 1 hàng */}

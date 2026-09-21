@@ -1,11 +1,15 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import './Landing.css'
 import { useT, LangSwitch } from '../i18n'
+import {
+  Sparkles, Play, Check, ShieldCheck, Zap, Film, ShoppingBag, Clapperboard,
+  Users, Layers, ArrowRight, ChevronDown, ChevronUp, Star, Laptop, Smartphone,
+  ExternalLink, CheckCircle2, XCircle, Volume2, Maximize2
+} from 'lucide-react'
 
 // ============================================
-// AI AutoCut Landing — React + Vite Static Export
-// Component hóa sạch, dễ bảo trì. Reusable nhỏ.
-// Giữ JS tối thiểu: reveal scroll + spotlight hover.
+// AI AutoCut Landing Page — React 18 + Vite
+// Modern Krea Pro / Dark Cyber-Cinema Design
 // ============================================
 
 const Logo = () => (
@@ -17,75 +21,48 @@ const Logo = () => (
   </svg>
 )
 
-const Check = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m5 13 4 4L19 7" />
-  </svg>
-)
-
-const PlayIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-)
-
-const Star = () => (
-  <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-  </svg>
-)
-
-
-// Sample videos (giữ nguyên từ build.js + samples thực tế)
+// Sample videos từ thư mục samples
 const SAMPLES = [
-  { id: 1, dur: '0:15', title: 'Áo trắng tay dài, kính gọng mảnh, nón hồng che nghiêng — vẻ đẹp thanh tao giữa nắng sớm. 🌸', ratio: '9:16', file: 'v1.MP4' },
-  { id: 2, dur: '0:12', title: 'Thân hình mảnh mai trong lớp lụa trắng mỏng, tóc búi cao — như tiên tử giáng trần. ✨', ratio: '9:16', file: 'v2.MP4' },
-  { id: 3, dur: '0:28', title: 'Đồ ngủ hồng nhẹ nhàng, tay chạm cằm, ánh đèn ấm — một góc khuê phòng yên tĩnh. 🌙', ratio: '9:16', file: 'v3.mp4' },
-  { id: 4, dur: '0:13', title: 'Satin đen óng ả, kính gọng mảnh, tóc xõa — khí chất quý phi lạnh lùng. 🖤', ratio: '9:16', file: 'v4.MP4' },
-  { id: 5, dur: '0:08', title: 'Mèo nón lá đứng giữa ruộng lúa bậc thang — như linh thú trong tranh sơn thủy. 🐱🌾', ratio: '9:16', file: 'v5.mp4' },
-  { id: 6, dur: '0:08', title: 'Mẹ con ngồi bên cửa sổ, cùng xem điện thoại — khoảnh khắc ấm áp như tranh gia đình cổ phong. 👨‍👩‍👦', ratio: '16:9', file: 'v6.mp4' },
-  { id: 7, dur: '0:08', title: 'Rắn biển uốn lượn trên nền cát trắng — như giao long ẩn mình giữa biển sâu. 🌊', ratio: '16:9', file: 'v7.mp4' },
-  { id: 8, dur: '0:08', title: 'Rùa biển bơi giữa rừng san hô rực rỡ — cảnh tượng tiên cảnh dưới đáy biển. 🐢💙', ratio: '16:9', file: 'v8.mp4' },
+  { id: 1, category: 'sell', dur: '0:15', title: 'Review thời trang áo dài thanh lịch giữa phố sáng 🌸', ratio: '9:16', file: 'v1.MP4' },
+  { id: 2, category: 'movie', dur: '0:12', title: 'Tiên hiệp cổ phong: Diễn viên giữ mặt qua từng cảnh ✨', ratio: '9:16', file: 'v2.MP4' },
+  { id: 3, category: 'sell', dur: '0:28', title: 'Video review đồ ngủ lụa satin ấm áp góc phòng ngủ 🌙', ratio: '9:16', file: 'v3.mp4' },
+  { id: 4, category: 'sell', dur: '0:13', title: 'Quảng cáo kính gọng mảnh & trang phục quý phái 🖤', ratio: '9:16', file: 'v4.MP4' },
+  { id: 5, category: 'movie', dur: '0:08', title: 'Mèo nón lá giữa ruộng bậc thang Tây Bắc 🐱🌾', ratio: '9:16', file: 'v5.mp4' },
+  { id: 6, category: 'cinema', dur: '0:08', title: 'Phim gia đình: Khoảnh khắc ấm áp bên cửa sổ 👨‍👩‍👦', ratio: '16:9', file: 'v6.mp4' },
+  { id: 7, category: 'cinema', dur: '0:08', title: 'Giao long biển sâu uốn lượn rạn san hô 🌊', ratio: '16:9', file: 'v7.mp4' },
+  { id: 8, category: 'cinema', dur: '0:08', title: 'Kỳ quan thủy cung: Rùa biển lướt qua rạn san hô 🐢💙', ratio: '16:9', file: 'v8.mp4' },
 ]
 
-// Testimonials
+// Testimonials từ creator & marketer
 const TESTIMONIALS = [
-  { name: 'Minh Hoàng', role: 'TikTok Creator', col: '#F97316', text: 'AI AutoCut giúp mình tạo hàng chục video mỗi ngày mà không tốn nhiều thời gian. Nhân vật nhất quán xuyên suốt mọi cảnh.' },
-  { name: 'Thùy Linh', role: 'Content Creator', col: '#10B981', text: 'Kịch bản hay, giọng đọc tự nhiên, video viral hơn hẳn từ khi dùng AI AutoCut. Không thể thiếu.' },
-  { name: 'Anh Tuấn', role: 'Affiliate Marketer', col: '#8B5CF6', text: 'Tăng hiệu quả affiliate lên 300% nhờ video AI. Tiết kiệm cả tuần quay dựng mỗi tháng.' },
-  { name: 'Hải Yến', role: 'Giảng viên Online', col: '#3B82F6', text: 'Công cụ quá mạnh cho ai làm coaching như mình. Tạo nội dung khoá học nhanh gấp 5 lần trước đây.' },
-  { name: 'Trần Bình', role: 'CEO – BizUp', col: '#EC4899', text: 'Tiết kiệm chi phí sản xuất video đáng kể cho doanh nghiệp. Đáng đầu tư nhất trong năm qua.' },
-]
-
-// "Không cần" cards
-const NO_NEED = [
-  { thing: 'biết Prompt', d: 'Gõ ý tưởng bằng tiếng Việt — AI tự viết prompt điện ảnh cho từng cảnh.' },
-  { thing: 'giỏi công nghệ', d: 'Giao diện gọn gàng, bấm là chạy. Không thuật ngữ, không thiết lập rối rắm.' },
-  { thing: 'nhiều AI tốn phí', d: 'Một nền tảng lo trọn: kịch bản · giọng đọc · render · ghép phim.' },
-  { thing: 'cài đặt vào máy', d: 'Chạy ngay trên trình-browser — không tải về, không ngốn ổ cứng.' },
-]
-
-// How steps
-const STEPS = [
-  { n: '01', h: 'Nhập ý tưởng', p: 'Mô tả nội dung, chọn số cảnh, thời lượng, tỉ lệ và phong cách. Thêm nhân vật cần giữ mặt nếu có.' },
-  { n: '02', h: 'AI viết kịch bản', p: 'AI sinh prompt cho từng cảnh. Bạn xem trước trên storyboard và chỉnh sửa tự do.' },
-  { n: '03', h: 'Render & ghép', p: 'Bấm một nút — mọi cảnh được render rồi tự ghép thành phim. Tải về hoặc chia sẻ.' },
-]
-
-// Features
-const FEATURES = [
-  { icon: 'script', title: 'Kịch bản tự động, chia cảnh thông minh', desc: 'Gõ ý tưởng — AI chia thành nhiều cảnh có lớp lang, viết prompt điện ảnh riêng cho từng cảnh. Bạn xem trên storyboard và sửa thoải mái trước khi render.' },
-  { icon: 'face', title: 'Giữ mặt nhân vật', desc: 'Tải ảnh nhân vật một lần — gương mặt được giữ nguyên xuyên suốt mọi cảnh, kể cả khi làm nhiều phần (Phần 1, Phần 2…).' },
-  { icon: 'merge', title: 'Render & ghép tự động', desc: 'Mỗi cảnh render bằng Veo 3.1, hệ thống tự nối thành một video hoàn chỉnh để tải về ngay — không cần phần mềm dựng.' },
-]
-
-// Guide steps
-const GUIDES = [
-  { n: '01', title: 'Cài tiện ích Chrome', desc: 'Tải gói tiện ích (có sẵn trong app), bật Developer mode ở chrome://extensions rồi Load unpacked.' },
-  { n: '02', title: 'Kết nối Google Ultra', desc: 'Đăng nhập tài khoản Google có gói Ultra qua tiện ích, mở một tab Flow — badge xanh là sẵn sàng.' },
-  { n: '03', title: 'Tạo video', desc: 'Vào Dự án viết kịch bản, hoặc dùng các Công cụ (Ảnh→Video, Giữ mặt→Video, Tạo ảnh…). Bấm tạo là xong.' },
+  { name: 'Minh Hoàng', role: 'TikTok Shop Creator (500k followers)', col: '#F97316', text: 'Nhờ tính năng video bán hàng khóa mặt KOL và sản phẩm, mình lên 20 video affiliate mỗi ngày. Doanh thu affiliate tháng vừa rồi tăng hơn gấp 3 lần.' },
+  { name: 'Thùy Linh', role: 'Chủ shop thời trang & Mỹ phẩm', col: '#EC4899', text: 'Trước đây thuê mẫu và quay dựng mất 5 triệu mỗi buổi. Bây giờ chỉ cần chụp ảnh sản phẩm đưa vào AI AutoCut là có video review lung linh đăng TikTok, Shopee.' },
+  { name: 'Anh Tuấn', role: 'Nhà sản xuất nội dung Phim AI', col: '#8B5CF6', text: 'Tính năng giữ mặt nhân vật xuyên suốt 10 phần phim của AI AutoCut thật sự là phép màu. Không còn cảnh tập 1 một mặt, tập 2 mặt người khác.' },
+  { name: 'Hải Yến', role: 'Giảng viên & Content Creator', col: '#3B82F6', text: 'Giao diện trực quan, gõ tiếng Việt là ra prompt chuẩn Veo 3.1. Rất phù hợp cho người không rành kỹ thuật máy tính như mình.' },
 ]
 
 export default function Landing() {
   const t = useT()
+  const isSameOrigin = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('trycloudflare.com') ||
+    window.location.hostname.endsWith('ngrok-free.app') ||
+    window.location.hostname === 'app.aiautocut.com'
+  )
+  const loginHref = isSameOrigin ? '/login' : 'https://app.aiautocut.com/login'
+  const registerHref = isSameOrigin ? '/register' : 'https://app.aiautocut.com/register'
+
+  // Tab video mẫu: 'all' | 'sell' | 'movie' | 'cinema'
+  const [sampleTab, setSampleTab] = useState<'all' | 'sell' | 'movie' | 'cinema'>('all')
+
+  // FAQ Accordion
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const toggleFaq = (idx: number) => setOpenFaq(openFaq === idx ? null : idx)
+
+  // Demo mockup tab trong Hero
+  const [demoTab, setDemoTab] = useState<'sell' | 'film'>('sell')
+
   useEffect(() => {
     const els = Array.from(document.querySelectorAll('#lp .reveal'))
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -100,17 +77,17 @@ export default function Landing() {
             io.unobserve(en.target)
           }
         })
-      }, { threshold: 0.12 })
+      }, { threshold: 0.1 })
       els.forEach(e => io.observe(e))
     }
 
-    // Spotlight (gradient theo chuột trên thẻ)
+    // Spotlight hover theo chuột
     let raf = 0
     const onMove = (e: MouseEvent) => {
       if (raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
-        const el = (e.target as HTMLElement)?.closest?.('.fcard, .pcard, .gcard, .step, .nocard') as HTMLElement | null
+        const el = (e.target as HTMLElement)?.closest?.('.fcard, .pcard, .gcard, .step, .vscard, .mock-card') as HTMLElement | null
         if (!el) return
         const r = el.getBoundingClientRect()
         el.style.setProperty('--mx', `${e.clientX - r.left}px`)
@@ -125,28 +102,22 @@ export default function Landing() {
     }
   }, [])
 
-  // Helper icon gradient (dùng trong cap + nocard)
-  const GradIcon = ({ children }: { children: React.ReactNode }) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      {children}
-    </svg>
-  )
+  const filteredSamples = sampleTab === 'all' ? SAMPLES : SAMPLES.filter(s => s.category === sampleTab)
 
   const renderSample = (s: typeof SAMPLES[0], idx: number) => {
     const isWide = s.ratio === '16:9'
-    const src = `samples/${s.file}`
+    const src = `/samples/${s.file}`
     const poster = `https://picsum.photos/seed/aiac-vid${s.id}/${isWide ? '640/360' : '360/640'}`
 
     return (
-      <div key={idx} className={`svid${isWide ? ' wide' : ''}`}>
-        <span className="ratio">{s.ratio}</span>
+      <div key={s.id || idx} className={`svid${isWide ? ' wide' : ''}`}>
+        <span className="ratio-tag">{s.ratio}</span>
         <video
           poster={poster}
           controls
           preload="metadata"
           playsInline
           onError={(e) => {
-            // Fallback thành poster nếu video 404 (dev hoặc chưa copy samples)
             const t = e.currentTarget
             t.style.display = 'none'
             const img = document.createElement('img')
@@ -160,7 +131,10 @@ export default function Landing() {
         </video>
         <div className="meta">
           <div className="t">{s.title}</div>
-          <div className="by"><span>AI AutoCut</span><span>720p</span></div>
+          <div className="by">
+            <span className="tag-model">Veo 3.1</span>
+            <span>720p / 1080p</span>
+          </div>
         </div>
       </div>
     )
@@ -168,7 +142,7 @@ export default function Landing() {
 
   return (
     <div id="lp">
-      {/* Gradient def cho icon */}
+      {/* SVG Gradient Definition */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
           <linearGradient id="aiacg" x1="0" y1="0" x2="1" y2="1">
@@ -180,354 +154,639 @@ export default function Landing() {
       </svg>
 
       <div className="shell">
-        {/* HEADER */}
+        {/* ── HEADER ── */}
         <header>
           <div className="inner">
             <div className="hrow">
-              <div className="brand">
+              <a href="#" className="brand">
                 <span className="logo"><Logo /></span>
-                AI AutoCut
-              </div>
+                <span className="brand-text">AI AutoCut</span>
+              </a>
               <nav className="links">
                 <a href="#features">{t('landing.nav_features')}</a>
-                <a href="#how">{t('landing.nav_how')}</a>
+                <a href="#sell-video">{t('landing.nav_sell')}</a>
                 <a href="#samples">{t('landing.nav_samples')}</a>
-                <a href="#guide">{t('landing.nav_guide')}</a>
+                <a href="#how">{t('landing.nav_how')}</a>
                 <a href="#pricing">{t('landing.nav_pricing')}</a>
+                <a href="#faq">{t('landing.nav_faq')}</a>
               </nav>
               <div className="hright">
                 <LangSwitch compact />
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/login">{t('landing.login')}</a>
-                <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.start_free')}</a>
+                <a className="btn btn-ghost" href={loginHref}>{t('landing.login')}</a>
+                <a className="btn btn-grad" href={registerHref}>
+                  <Sparkles size={14} />
+                  {t('landing.start_free')}
+                </a>
               </div>
             </div>
           </div>
         </header>
 
-        {/* HERO */}
+        {/* ── HERO SECTION ── */}
         <div className="inner">
           <section className="hero">
-            <div className="reveal">
-              <div className="pill"><span className="d"></span>{t('landing.hero_pill')}</div>
-              <h1>{t('landing.hero_title_1')}<br />{t('landing.hero_title_2')} <span className="g">{t('landing.hero_title_highlight')}</span> {t('landing.hero_title_3')}</h1>
+            <div className="hero-content reveal">
+              <div className="pill">
+                <span className="d"></span>
+                {t('landing.hero_badge') || '✨ ĐỘT PHÁ GOOGLE VEO 3.1 & FACE-LOCK ĐỘC QUYỀN'}
+              </div>
+
+              <h1>
+                {t('landing.hero_title_1')}<br />
+                {t('landing.hero_title_2')} <span className="g">{t('landing.hero_title_highlight')}</span> {t('landing.hero_title_3')}
+              </h1>
+
               <p className="lead">{t('landing.hero_lead')}</p>
+
               <div className="cta-row">
-                <a className="btn btn-grad btn-lg" href="https://app.aiautocut.com/register">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
+                <a className="btn btn-grad btn-lg" href={registerHref}>
+                  <Zap size={18} />
                   {t('landing.hero_cta')}
                 </a>
-                <a className="btn btn-ghost btn-lg" href="#how">{t('landing.hero_cta2')}</a>
+                <a className="btn btn-ghost btn-lg" href="#samples">
+                  <Play size={16} />
+                  {t('landing.hero_cta2')}
+                </a>
               </div>
 
               <div className="stats">
-                <div className="stat"><b>Veo 3.1</b><span>{t('landing.stat_engine')}</span></div>
-                <div className="stat"><b>{t('landing.stat_face')}</b><span>{t('landing.stat_face_desc')}</span></div>
-                <div className="stat"><b>{t('landing.stat_merge')}</b><span>{t('landing.stat_merge_desc')}</span></div>
-                <div className="stat"><b>{t('landing.stat_time')}</b><span>{t('landing.stat_time_desc')}</span></div>
+                <div className="stat">
+                  <b>Veo 3.1</b>
+                  <span>{t('landing.stat_engine')}</span>
+                </div>
+                <div className="stat">
+                  <b>{t('landing.stat_face')} 100%</b>
+                  <span>{t('landing.stat_face_desc')}</span>
+                </div>
+                <div className="stat">
+                  <b>{t('landing.stat_merge')}</b>
+                  <span>{t('landing.stat_merge_desc')}</span>
+                </div>
+                <div className="stat">
+                  <b>~3 phút</b>
+                  <span>{t('landing.stat_time_desc')}</span>
+                </div>
               </div>
             </div>
 
-            <div className="window reveal">
-              <div className="wtop"><i></i><i></i><i></i><span className="url">app.aiautocut.com</span></div>
-              <div className="wbody">
-                <div className="wpane">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>
-                  <span>Hồ ly chín đuôi tu luyện ngàn năm hóa thành thiếu nữ...</span>
+            {/* Live Interactive Studio Mockup */}
+            <div className="hero-mockup reveal">
+              <div className="mock-window">
+                <div className="mock-top">
+                  <div className="dots"><i></i><i></i><i></i></div>
+                  <div className="mock-tabs">
+                    <button
+                      className={`mock-tab ${demoTab === 'sell' ? 'active' : ''}`}
+                      onClick={() => setDemoTab('sell')}
+                    >
+                      🛍️ Video Bán Hàng UGC
+                    </button>
+                    <button
+                      className={`mock-tab ${demoTab === 'film' ? 'active' : ''}`}
+                      onClick={() => setDemoTab('film')}
+                    >
+                      🎬 Phim Ngắn AI (Multi-Scene)
+                    </button>
+                  </div>
+                  <span className="mock-url">app.aiautocut.com</span>
                 </div>
-                <div className="board">
-                  {[1,2,3,4,5,6].map(i => (
-                    <div key={i} className={`cell${i === 1 ? ' f' : ''}`}>
-                      <img loading="lazy" src={`https://picsum.photos/seed/aiac-fox${i}/440/300`} alt="" />
-                      <span className="tg">Cảnh 0{i}</span>
-                      <span className="play"><PlayIcon /></span>
+
+                <div className="mock-body">
+                  {demoTab === 'sell' ? (
+                    <div className="mock-composer">
+                      <div className="mock-left">
+                        <div className="mock-badge">✨ Sell Mode — Strict Visual Lock</div>
+                        <div className="mock-input-preview">
+                          <div className="mock-img-box">
+                            <span className="mock-tag">Ảnh sản phẩm (Ref)</span>
+                            <div className="mock-img-ph">💄 Son lì cao cấp</div>
+                          </div>
+                          <div className="mock-img-box">
+                            <span className="mock-tag">Ảnh KOL (Mặt)</span>
+                            <div className="mock-img-ph">👩 Diễn viên nữ</div>
+                          </div>
+                        </div>
+                        <div className="mock-prompt-box">
+                          <b>Kịch bản tự động (4 cảnh):</b>
+                          <p>KOL cầm son trên phố cafe, thoa lên môi mướt mịn, test nước không trôi, cười tươi giới thiệu...</p>
+                        </div>
+                      </div>
+
+                      <div className="mock-right">
+                        <div className="mock-scenes-grid">
+                          <div className="mock-scene done">
+                            <span className="snum">Cảnh 1</span>
+                            <span className="stxt">Cận cảnh mở nắp son</span>
+                            <span className="scheck">✓ Đã xong</span>
+                          </div>
+                          <div className="mock-scene active">
+                            <span className="snum">Cảnh 2</span>
+                            <span className="stxt">Thoa son mướt mịn</span>
+                            <span className="srun">⚡ Đang render</span>
+                          </div>
+                          <div className="mock-scene wait">
+                            <span className="snum">Cảnh 3</span>
+                            <span className="stxt">Test nước không lem</span>
+                            <span className="swait">Chờ nối khung</span>
+                          </div>
+                          <div className="mock-scene wait">
+                            <span className="snum">Cảnh 4</span>
+                            <span className="stxt">Nụ cười rạng rỡ chào</span>
+                            <span className="swait">Chờ nối khung</span>
+                          </div>
+                        </div>
+                        <div className="mock-bar">
+                          <span>🎬 Tự động ghép: <b>final_sell.mp4</b></span>
+                          <span className="badge-free">9:16 Dọc · 1080p</span>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="wfoot">
-                  <span className="big">1:36</span>
-                  <span style={{ color: 'var(--text3)' }}>· 12×8s ·</span>
-                  <span className="free">FREE</span>
-                  <span className="go">{t('landing.write_script')}</span>
+                  ) : (
+                    <div className="mock-composer">
+                      <div className="mock-left">
+                        <div className="mock-badge">👑 Face-Lock Cinema Series</div>
+                        <div className="mock-prompt-box" style={{ height: '100%' }}>
+                          <b>Ý tưởng phim ngắn:</b>
+                          <p>Nữ kiếm hiệp bạch y phiêu bạt giang hồ, chiến đấu trên đỉnh núi mây mù, tìm lại thanh bảo kiếm gia truyền...</p>
+                          <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <span className="pill-mini">Giữ mặt diễn viên</span>
+                            <span className="pill-mini">Lồng tiếng Việt</span>
+                            <span className="pill-mini">16:9 Cinematic</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mock-right">
+                        <div className="mock-scenes-grid">
+                          {[1, 2, 3, 4].map(k => (
+                            <div key={k} className="mock-scene done">
+                              <span className="snum">Cảnh 0{k}</span>
+                              <span className="stxt">Cảnh quay điện ảnh #{k}</span>
+                              <span className="scheck">✓ Ready</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mock-bar">
+                          <span>⏱️ 4 cảnh × 8s = <b>32s Phim</b></span>
+                          <span className="badge-free">Auto Merge ✓</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </section>
         </div>
 
-        {/* SAMPLES */}
-        <section className="blk" id="samples">
+        {/* ── PROBLEM VS SOLUTION (SO SÁNH CÁCH CŨ VS AI AUTOCUT) ── */}
+        <section className="blk" id="comparison">
           <div className="inner">
-            <div className="eyebrow reveal">{t('landing.samples_eyebrow')}</div>
-            <h2 className="h2 reveal">{t('landing.samples_title')}</h2>
-            <p className="sub reveal">{t('landing.samples_desc')}</p>
+            <div className="eyebrow reveal">{t('landing.vs_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.vs_title')}</h2>
+            <p className="sub reveal">{t('landing.vs_desc')}</p>
 
-            <div className="samples reveal">
-              <div className="srow srow-v">
-                {SAMPLES.slice(0, 5).map((s, i) => renderSample(s, i))}
+            <div className="vs-grid reveal">
+              {/* Cột cũ */}
+              <div className="vscard old">
+                <div className="vs-head">
+                  <XCircle size={24} color="#f87171" />
+                  <h3>{t('landing.vs_old_title')}</h3>
+                </div>
+                <ul className="vs-list">
+                  <li>
+                    <span className="vs-x">✕</span>
+                    <div>
+                      <b>{t('landing.vs_old_1')}</b>
+                      <p>Rất tốn kém, không phù hợp cho người làm affiliate hoặc shop nhỏ.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-x">✕</span>
+                    <div>
+                      <b>{t('landing.vs_old_2')}</b>
+                      <p>Mất nhiều thời gian cắt ghép, lồng tiếng, tìm hiệu ứng âm thanh.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-x">✕</span>
+                    <div>
+                      <b>{t('landing.vs_old_3')}</b>
+                      <p>Dùng các tool AI thông thường mỗi cảnh ra một mặt người hoàn toàn khác nhau.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-x">✕</span>
+                    <div>
+                      <b>{t('landing.vs_old_4')}</b>
+                      <p>Phải có card đồ họa RTX chuyên dụng mới render nổi.</p>
+                    </div>
+                  </li>
+                </ul>
               </div>
-              <div className="srow srow-h">
-                {SAMPLES.slice(5).map((s, i) => renderSample(s, i + 5))}
+
+              {/* Cột mới */}
+              <div className="vscard new">
+                <div className="vs-badge">ĐƯỢC KHUYÊN DÙNG</div>
+                <div className="vs-head">
+                  <CheckCircle2 size={24} color="#34d399" />
+                  <h3>{t('landing.vs_new_title')}</h3>
+                </div>
+                <ul className="vs-list">
+                  <li>
+                    <span className="vs-check">✓</span>
+                    <div>
+                      <b>{t('landing.vs_new_1')}</b>
+                      <p>Dùng thử 24h miễn phí, nâng Pro chỉ 249k tạo video cả tháng thả ga.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-check">✓</span>
+                    <div>
+                      <b>{t('landing.vs_new_2')}</b>
+                      <p>Chỉ cần 1 bức ảnh và 1 dòng mô tả, AI tự động lo từ A đến Z.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-check">✓</span>
+                    <div>
+                      <b>{t('landing.vs_new_3')}</b>
+                      <p>Thuật toán Face-Lock & Product Lock giữ nhân vật & sản phẩm đồng nhất 100%.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="vs-check">✓</span>
+                    <div>
+                      <b>{t('landing.vs_new_4')}</b>
+                      <p>Xử lý toàn bộ trên server đám mây, mở bằng điện thoại hay laptop đều mượt.</p>
+                    </div>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </section>
 
-        {/* FEATURES */}
+        {/* ── VŨ KHÍ 1: VIDEO BÁN HÀNG UGC ── */}
+        <section className="blk" id="sell-video">
+          <div className="inner">
+            <div className="eyebrow reveal">{t('landing.sell_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.sell_title')}</h2>
+            <p className="sub reveal">{t('landing.sell_desc')}</p>
+
+            <div className="sell-showcase reveal">
+              <div className="sell-steps-box">
+                <div className="sell-step">
+                  <div className="step-badge">Bước 1</div>
+                  <h4>Tải ảnh sản phẩm & KOL</h4>
+                  <p>Chụp 1 tấm ảnh sản phẩm rõ nét + ảnh gương mặt bạn (hoặc người mẫu mong muốn).</p>
+                </div>
+                <div className="sell-arrow">➔</div>
+                <div className="sell-step">
+                  <div className="step-badge">Bước 2</div>
+                  <h4>Gõ mô tả bằng Tiếng Việt</h4>
+                  <p>Ví dụ: <em>"Kem chống nắng nâng tone tự nhiên, KOL thoa thử và đi dưới nắng hè..."</em></p>
+                </div>
+                <div className="sell-arrow">➔</div>
+                <div className="sell-step hot">
+                  <div className="step-badge">Bước 3</div>
+                  <h4>Nhận Video hoàn chỉnh</h4>
+                  <p>AI tự tạo 4–6 cảnh nối tiếp, lồng giọng đọc review tự nhiên, ghép thành file MP4 9:16.</p>
+                </div>
+              </div>
+
+              <div className="sell-cta-strip">
+                <div className="cta-left">
+                  <ShoppingBag size={28} color="#fb923c" />
+                  <div>
+                    <b>Sẵn sàng tăng trưởng doanh số TikTok Shop & Shopee?</b>
+                    <span>Tạo video bán hàng đầu tiên của bạn chỉ trong 3 phút.</span>
+                  </div>
+                </div>
+                <a className="btn btn-grad" href={registerHref}>
+                  Thử tạo Video Bán Hàng 0Đ
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── BENTO GRID FEATURES ── */}
         <section className="blk" id="features">
           <div className="inner">
             <div className="eyebrow reveal">{t('landing.features_eyebrow')}</div>
             <h2 className="h2 reveal">{t('landing.features_title')}</h2>
             <p className="sub reveal">{t('landing.features_desc')}</p>
 
-            <div className="feat">
-              <div className="fcard span2 reveal">
-                <div className="fc-text">
-                  <div className="ic">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg>
+            <div className="bento-grid reveal">
+              {/* Bento 1: Face-Lock (Lớn) */}
+              <div className="bento-card bento-wide">
+                <div className="bento-info">
+                  <span className="bento-icon"><Users size={22} color="#ec4899" /></span>
+                  <h3>Giữ mặt nhân vật & Logo sản phẩm xuyên suốt</h3>
+                  <p>Công nghệ Model Sheet Reference độc quyền khoá chặt các đặc trưng khuôn mặt diễn viên và logo bao bì sản phẩm. Không còn tình trạng lệch mặt giữa các cảnh.</p>
+                  <div className="bento-tags">
+                    <span>#FaceLock</span>
+                    <span>#ProductLock</span>
+                    <span>#SeriesMovie</span>
                   </div>
-                  <h3>{FEATURES[0].title}</h3>
-                  <p>{FEATURES[0].desc}</p>
                 </div>
-                <div className="fc-shots">
-                  {[1,2,3].map(k => <img key={k} loading="lazy" src={`https://picsum.photos/seed/aiac-f${k}/300/200`} alt="" />)}
+                <div className="bento-visual">
+                  <div className="face-demo-strip">
+                    <div className="face-pill">Cảnh 1: Cận mặt</div>
+                    <div className="face-pill">Cảnh 2: Góc nghiêng</div>
+                    <div className="face-pill">Cảnh 3: Toàn thân</div>
+                    <div className="face-pill active">100% Cùng 1 Diễn Viên</div>
+                  </div>
                 </div>
               </div>
 
-              {FEATURES.slice(1).map((f, idx) => (
-                <div key={idx} className="fcard reveal">
-                  <div className="ic">
-                    {idx === 0 ? (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>
-                    )}
-                  </div>
-                  <h3>{f.title}</h3>
-                  <p>{f.desc}</p>
-                </div>
-              ))}
+              {/* Bento 2: AI Auto Scripting */}
+              <div className="bento-card">
+                <span className="bento-icon"><Sparkles size={22} color="#f97316" /></span>
+                <h3>Viết kịch bản tự động bằng Tiếng Việt</h3>
+                <p>Không cần biết viết prompt tiếng Anh phức tạp. Bạn chỉ cần gõ ý tưởng tiếng Việt, Gemini AI sẽ tự phân bổ thành các cảnh quay điện ảnh chuyên nghiệp.</p>
+              </div>
+
+              {/* Bento 3: Native Audio & Auto Merge */}
+              <div className="bento-card">
+                <span className="bento-icon"><Film size={22} color="#a855f7" /></span>
+                <h3>Tự động ghép phim & Lồng tiếng AI</h3>
+                <p>Sau khi mọi cảnh render xong, hệ thống tự động ghép nối thành một video liền mạch kèm âm thanh hoặc voiceover. Tải về dùng ngay, không cần CapCut.</p>
+              </div>
+
+              {/* Bento 4: 1080p Upscale Lanczos */}
+              <div className="bento-card">
+                <span className="bento-icon"><Maximize2 size={22} color="#34d399" /></span>
+                <h3>Nâng cấp sắc nét 1080p Full HD</h3>
+                <p>Engine upscale tích hợp thuật toán Lanczos khử nhiễu, làm mịn chi tiết da và chữ trên sản phẩm khi bạn tải video về.</p>
+              </div>
+
+              {/* Bento 5: Kho trợ lý GPT độc quyền */}
+              <div className="bento-card">
+                <span className="bento-icon"><Layers size={22} color="#3b82f6" /></span>
+                <h3>Tặng kèm Kho Trợ Lý AI Chuyên Sâu</h3>
+                <p>Hơn 100+ trợ lý GPT chuyên biệt cho viết kịch bản viral, tối ưu quảng cáo, sáng tạo nội dung được mở khóa kèm các gói Pro.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
+        {/* ── THƯ VIỆN VIDEO MẪU (SAMPLES GALLERY) ── */}
+        <section className="blk" id="samples">
+          <div className="inner">
+            <div className="eyebrow reveal">{t('landing.samples_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.samples_title')}</h2>
+            <p className="sub reveal">{t('landing.samples_desc')}</p>
+
+            <div className="gallery-tabs reveal">
+              <button
+                className={`g-tab ${sampleTab === 'all' ? 'active' : ''}`}
+                onClick={() => setSampleTab('all')}
+              >
+                Tất cả mẫu
+              </button>
+              <button
+                className={`g-tab ${sampleTab === 'sell' ? 'active' : ''}`}
+                onClick={() => setSampleTab('sell')}
+              >
+                🛍️ Video Bán Hàng (9:16)
+              </button>
+              <button
+                className={`g-tab ${sampleTab === 'movie' ? 'active' : ''}`}
+                onClick={() => setSampleTab('movie')}
+              >
+                🎬 Phim ngắn giữ mặt
+              </button>
+              <button
+                className={`g-tab ${sampleTab === 'cinema' ? 'active' : ''}`}
+                onClick={() => setSampleTab('cinema')}
+              >
+                🌊 Điện ảnh 16:9
+              </button>
+            </div>
+
+            <div className="samples-grid reveal">
+              {filteredSamples.map((s, idx) => renderSample(s, idx))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── HOW IT WORKS (3 BƯỚC ĐƠN GIẢN) ── */}
         <section className="blk" id="how">
           <div className="inner">
             <div className="eyebrow reveal">{t('landing.how_eyebrow')}</div>
             <h2 className="h2 reveal">{t('landing.how_title')}</h2>
             <p className="sub reveal">{t('landing.how_desc')}</p>
-            <div className="steps">
-              {STEPS.map((st, i) => (
-                <div key={i} className="step reveal">
-                  <span className="n">{st.n}</span>
-                  <h3>{st.h}</h3>
-                  <p>{st.p}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
 
-        {/* WHY / NO NEED */}
-        <section className="blk" id="why">
-          <div className="inner">
-            <div className="eyebrow reveal">{t('landing.why_eyebrow')}</div>
-            <h2 className="h2 reveal">{t('landing.why_title_1')} <span className="g">{t('landing.why_title_highlight')}</span></h2>
-            <p className="sub reveal">{t('landing.why_desc')}</p>
-
-            <div className="nocards">
-              {NO_NEED.map((n, i) => (
-                <div key={i} className="nocard reveal">
-                  <span className="nc-ic"><GradIcon><path d={i===0 ? "M5 7h12M5 12h8M5 17h5" : i===1 ? "M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7" : i===2 ? "m3.6 12.4 8-8.4H20a.5.5 0 0 1 .5.5v8.4l-8 8z" : "M7.5 18a4 4 0 0 1 .4-8 5.5 5.5 0 0 1 10.6 1.5A3.5 3.5 0 0 1 17.5 18z"} /></GradIcon></span>
-                  <h4>Không cần <em>{n.thing}</em></h4>
-                  <p>{n.d}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="device-banner reveal">
-              <div className="db-left">
-                <span className="db-ic">
-                  <GradIcon><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 2.6 15.6 0 18M12 3c-2.6 2.4-2.6 15.6 0 18"/></GradIcon>
-                </span>
-                <div>
-                  <h3>{t('landing.web_title')}</h3>
-                  <p>{t('landing.web_desc')}</p>
-                </div>
+            <div className="steps-container reveal">
+              <div className="step-card">
+                <span className="step-num">01</span>
+                <h3>Nhập ý tưởng hoặc tải ảnh</h3>
+                <p>Mô tả nội dung bạn muốn làm bằng tiếng Việt, chọn tỉ lệ (9:16 hoặc 16:9), tải ảnh sản phẩm / người mẫu nếu có.</p>
               </div>
-              <div className="db-devices">
-                <span className="db-dev">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M11 18h2"/></svg>
-                  {t('landing.device_phone')}
-                </span>
-                <span className="db-dev">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.2"/><path d="M11 18h2"/></svg>
-                  {t('landing.device_tablet')}
-                </span>
-                <span className="db-dev">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="url(#aiacg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.6"/><path d="M2 20h20"/></svg>
-                  Laptop / PC
-                </span>
+              <div className="step-card">
+                <span className="step-num">02</span>
+                <h3>AI lên kịch bản chi tiết</h3>
+                <p>Hệ thống tự động phân chia mạch phim thành từng cảnh, viết prompt điện ảnh tối ưu riêng cho engine Google Veo 3.1.</p>
+              </div>
+              <div className="step-card">
+                <span className="step-num">03</span>
+                <h3>Render & nhận phim ghép</h3>
+                <p>Chỉ cần 1 cú click: Các cảnh được render song song, tự động ghép nối hoàn chỉnh thành 1 video duy nhất để tải về.</p>
               </div>
             </div>
           </div>
         </section>
 
-
-        {/* TESTIMONIALS */}
+        {/* ── TESTIMONIALS (ĐÁNH GIÁ NGƯỜI DÙNG) ── */}
         <section className="blk" id="testimonials">
           <div className="inner">
             <div className="eyebrow reveal">{t('landing.testimonials_eyebrow')}</div>
             <h2 className="h2 reveal">{t('landing.testimonials_title')}</h2>
-            <div className="testi reveal">
+
+            <div className="testi-grid reveal">
               {TESTIMONIALS.map((t, i) => (
-                <div key={i} className="tcard">
-                  <div className="av-row">
-                    <div className="av" style={{ background: t.col }}>{t.name[0]}</div>
-                    <div className="tc-meta">
+                <div key={i} className="testi-card">
+                  <div className="testi-av-row">
+                    <div className="testi-av" style={{ background: t.col }}>{t.name[0]}</div>
+                    <div className="testi-meta">
                       <b>{t.name}</b>
                       <span>{t.role}</span>
                     </div>
                   </div>
                   <p>{t.text}</p>
-                  <div className="stars">{Array.from({ length: 5 }).map((_, k) => <Star key={k} />)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* GUIDE */}
-        <section className="blk" id="guide">
-          <div className="inner">
-            <div className="eyebrow reveal">{t('landing.guide_eyebrow')}</div>
-            <h2 className="h2 reveal">{t('landing.guide_title')}</h2>
-            <p className="sub reveal">{t('landing.guide_desc')}</p>
-
-            <div className="guide3">
-              {GUIDES.map((g, i) => (
-                <div key={i} className="gcard reveal">
-                  <span className="gn">{g.n}</span>
-                  <div className="gic">
-                    {i === 0 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><path d="M17 13v4m-2-2h4"/></svg>}
-                    {i === 1 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 7H6a3 3 0 0 0 0 6h3m6 0h3a3 3 0 0 0 0-6h-3M8 10h8"/></svg>}
-                    {i === 2 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4l1.6 5.4L19 11l-5.4 1.6L12 18l-1.6-5.4L5 11l5.4-1.6z"/></svg>}
+                  <div className="stars">
+                    {Array.from({ length: 5 }).map((_, k) => (
+                      <Star key={k} size={14} fill="#fbbf24" color="#fbbf24" />
+                    ))}
                   </div>
-                  <h3>{g.title}</h3>
-                  <p>{g.desc}</p>
                 </div>
               ))}
             </div>
-
-            <div className="ghint reveal">{t('landing.guide_hint')}</div>
           </div>
         </section>
 
-        {/* PRICING */}
+        {/* ── BẢNG GIÁ (PRICING) ── */}
         <section className="blk" id="pricing">
           <div className="inner">
             <div className="eyebrow reveal">{t('landing.pricing_eyebrow')}</div>
             <h2 className="h2 reveal">{t('landing.pricing_title')}</h2>
-            <p className="sub reveal">{t('landing.pricing_desc')}</p>
+            <p className="sub reveal" dangerouslySetInnerHTML={{ __html: t('landing.pricing_desc') }} />
 
-            <div className="price">
-              {/* Free */}
-              <div className="pcard reveal">
-                <span className="tag" style={{ background: 'rgba(249,115,22,.14)', color: 'var(--accent)', border: '1px solid var(--line2)' }}>{t('landing.price_trial_tag')}</span>
-                <div className="name">{t('landing.price_free')}</div>
-                <div className="amt">0đ<small>{t('landing.price_free_period')}</small></div>
-                <ul>
-                  <li>{Check()} <b>24 {t('landing.hours')}</b> {t('landing.price_free_f1')}</li>
-                  <li>{Check()} Model Veo 3.1 Lite — <b>FREE</b></li>
-                  <li>{Check()} {t('landing.price_free_f3')}</li>
-                  <li>{Check()} 150MB {t('landing.storage')}</li>
+            <div className="price-grid reveal">
+              {/* Dùng thử */}
+              <div className="pcard">
+                <span className="tag tag-trial">{t('landing.price_trial_tag')}</span>
+                <div className="pname">{t('landing.price_free')}</div>
+                <div className="pamt">0đ<small>{t('landing.price_free_period')}</small></div>
+                <ul className="pfeatures">
+                  <li><Check size={16} /> <b>24 {t('landing.hours')}</b> {t('landing.price_free_f1')}</li>
+                  <li><Check size={16} /> Model Veo 3.1 Lite — <b>FREE</b></li>
+                  <li><Check size={16} /> {t('landing.price_free_f3')}</li>
+                  <li><Check size={16} /> 150MB {t('landing.storage')}</li>
                 </ul>
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">{t('landing.price_free_cta')}</a>
+                <a className="btn btn-ghost pbtn" href={registerHref}>{t('landing.price_free_cta')}</a>
               </div>
 
-              {/* Pro */}
-              <div className="pcard hot reveal">
-                <span className="tag">{t('landing.price_pro_tag')}</span>
-                <div className="name">Pro</div>
-                <div className="amt">249k<small>{t('landing.price_per_month')}</small></div>
-                <ul>
-                  <li>{Check()} {t('landing.price_pro_f1')}</li>
-                  <li>{Check()} <b>{t('landing.price_pro_f2a')}</b> {t('landing.price_pro_f2b')}</li>
-                  <li>{Check()} {t('landing.price_pro_f3')}</li>
-                  <li>{Check()} <b>1GB</b> {t('landing.storage')}</li>
-                  <li>{Check()} {t('landing.price_pro_f5')}</li>
+              {/* Gói 1 tháng Pro (Hot) */}
+              <div className="pcard hot">
+                <span className="tag tag-hot">{t('landing.price_pro_tag')}</span>
+                <div className="pname">Pro · 1 tháng</div>
+                <div className="pamt">249k<small>{t('landing.price_per_month')}</small></div>
+                <ul className="pfeatures">
+                  <li><Check size={16} /> {t('landing.price_pro_f1')}</li>
+                  <li><Check size={16} /> <b>{t('landing.price_pro_f2a')}</b> {t('landing.price_pro_f2b')}</li>
+                  <li><Check size={16} /> {t('landing.price_pro_f3')}</li>
+                  <li><Check size={16} /> <b>1GB</b> {t('landing.storage')}</li>
+                  <li><Check size={16} /> <b>Tặng 10</b> trợ lý AI chuyên sâu</li>
+                  <li><Check size={16} /> {t('landing.price_pro_f5')}</li>
                 </ul>
-                <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.price_pro_cta')}</a>
+                <a className="btn btn-grad pbtn" href={registerHref}>{t('landing.price_pro_cta')}</a>
               </div>
 
-              {/* Yearly */}
-              <div className="pcard reveal">
-                <span className="tag" style={{ background: 'rgba(16,185,129,.14)', color: 'var(--green)', border: '1px solid var(--line2)' }}>{t('landing.price_yearly_tag')}</span>
-                <div className="name">{t('landing.price_yearly_name')}</div>
-                <div className="amt">2.599k<small>{t('landing.price_per_year')}</small></div>
-                <ul>
-                  <li>{Check()} {t('landing.price_yearly_f1')}</li>
-                  <li>{Check()} {t('landing.price_yearly_f2')}</li>
-                  <li>{Check()} {t('landing.price_yearly_f3')}</li>
+              {/* Gói 6 tháng */}
+              <div className="pcard">
+                <span className="tag tag-save">{t('landing.price_m6_tag') || 'TIẾT KIỆM 5%'}</span>
+                <div className="pname">{t('landing.price_m6_name') || 'Pro · 6 tháng'}</div>
+                <div className="pamt">1.419k<small>{t('landing.price_m6_period') || '/6 tháng'}</small></div>
+                <ul className="pfeatures">
+                  <li><Check size={16} /> {t('landing.price_m6_f1') || 'Mọi tính năng gói Pro'}</li>
+                  <li><Check size={16} /> <b>Tặng 50</b> {t('landing.price_m6_f2') || 'trợ lý AI chuyên sâu'}</li>
+                  <li><Check size={16} /> 1GB lưu trữ & ưu tiên queue</li>
+                  <li><Check size={16} /> {t('landing.price_m6_f3') || 'Thanh toán 1 lần, dùng nửa năm'}</li>
                 </ul>
-                <a className="btn btn-ghost" href="https://app.aiautocut.com/register">{t('landing.price_yearly_cta')}</a>
+                <a className="btn btn-ghost pbtn" href={registerHref}>{t('landing.price_m6_cta') || 'Chọn gói 6 tháng'}</a>
+              </div>
+
+              {/* Gói 12 tháng */}
+              <div className="pcard">
+                <span className="tag tag-save">{t('landing.price_yearly_tag')}</span>
+                <div className="pname">{t('landing.price_yearly_name')}</div>
+                <div className="pamt">2.599k<small>{t('landing.price_per_year')}</small></div>
+                <ul className="pfeatures">
+                  <li><Check size={16} /> {t('landing.price_yearly_f1')}</li>
+                  <li><Check size={16} /> <b>Tặng 100</b> trợ lý AI độc quyền</li>
+                  <li><Check size={16} /> {t('landing.price_yearly_f2')}</li>
+                  <li><Check size={16} /> {t('landing.price_yearly_f3')}</li>
+                </ul>
+                <a className="btn btn-ghost pbtn" href={registerHref}>{t('landing.price_yearly_cta')}</a>
               </div>
             </div>
 
-            <p className="sub reveal" style={{ marginTop: 16, fontSize: 13 }}>{t('landing.pricing_note')}</p>
+            <p className="price-note reveal" dangerouslySetInnerHTML={{ __html: t('landing.pricing_note') }} />
+          </div>
+        </section>
 
-            {/* Final CTA band */}
-            <div className="band reveal">
-              <div className="band-left">
-                <h2>{t('landing.final_cta_title')}</h2>
-                <p>{t('landing.final_cta_desc')}</p>
-                <div className="band-form">
-                  <input className="band-input" type="text" placeholder={t('landing.final_cta_placeholder')} readOnly onClick={() => window.location.href = 'https://app.aiautocut.com/register'} />
-                  <a className="btn btn-grad" href="https://app.aiautocut.com/register">{t('landing.final_cta_btn')}</a>
+        {/* ── FAQ (CÂU HỎI THƯỜNG GẶP) ── */}
+        <section className="blk" id="faq">
+          <div className="inner">
+            <div className="eyebrow reveal">{t('landing.faq_eyebrow')}</div>
+            <h2 className="h2 reveal">{t('landing.faq_title')}</h2>
+            <p className="sub reveal">{t('landing.faq_desc')}</p>
+
+            <div className="faq-container reveal">
+              {[
+                { q: t('landing.faq_q1'), a: t('landing.faq_a1') },
+                { q: t('landing.faq_q2'), a: t('landing.faq_a2') },
+                { q: t('landing.faq_q3'), a: t('landing.faq_a3') },
+                { q: t('landing.faq_q4'), a: t('landing.faq_a4') },
+                { q: t('landing.faq_q5'), a: t('landing.faq_a5') },
+              ].map((item, idx) => (
+                <div key={idx} className={`faq-item ${openFaq === idx ? 'open' : ''}`}>
+                  <button className="faq-q" onClick={() => toggleFaq(idx)}>
+                    <span>{item.q}</span>
+                    {openFaq === idx ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                  {openFaq === idx && (
+                    <div className="faq-a">
+                      <p>{item.a}</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="band-right">
-                <img loading="lazy" src="https://picsum.photos/seed/aiac-cta2/500/340" alt="AI AutoCut video preview" />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── FINAL CTA BANNER ── */}
+        <section className="blk">
+          <div className="inner">
+            <div className="final-band reveal">
+              <div className="band-content">
+                <h2>{t('landing.final_cta_title')}</h2>
+                <p dangerouslySetInnerHTML={{ __html: t('landing.final_cta_desc') }} />
+                <div className="band-actions">
+                  <a className="btn btn-grad btn-lg" href={registerHref}>
+                    <Sparkles size={18} />
+                    {t('landing.final_cta_btn')}
+                  </a>
+                  <a className="btn btn-ghost btn-lg" href={loginHref}>
+                    {t('landing.login')}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* FOOTER */}
+        {/* ── FOOTER ── */}
         <footer>
           <div className="inner">
             <div className="foot-top">
               <div className="foot-brand">
-                <div className="brand"><span className="logo"><Logo /></span> AI AutoCut</div>
-                <p className="foot-desc">{t('landing.footer_desc')}</p>
+                <div className="brand">
+                  <span className="logo"><Logo /></span>
+                  <span className="brand-text">AI AutoCut</span>
+                </div>
+                <p className="foot-desc">{t('landing.footer_desc') || 'Nền tảng tạo video AI Veo 3.1 tự động hóa toàn diện từ ý tưởng đến thành phẩm.'}</p>
               </div>
+
               <div className="fcol">
                 <b>{t('landing.footer_product')}</b>
                 <a href="#features">{t('landing.nav_features')}</a>
+                <a href="#sell-video">{t('landing.nav_sell')}</a>
+                <a href="#samples">{t('landing.nav_samples')}</a>
                 <a href="#pricing">{t('landing.nav_pricing')}</a>
-                <a href="#">API</a>
-                <a href="#">Blog</a>
               </div>
+
               <div className="fcol">
                 <b>{t('landing.footer_support')}</b>
-                <a href="https://app.aiautocut.com/guide">{t('landing.nav_guide')}</a>
-                <a href="https://t.me/thaidem57" target="_blank" rel="noreferrer">Telegram</a>
+                <a href={isSameOrigin ? '/guide' : 'https://app.aiautocut.com/guide'}>{t('landing.nav_guide')}</a>
+                <a href="https://t.me/thaidem57" target="_blank" rel="noreferrer">Telegram: @thaidem57</a>
                 <a href="https://zalo.me/0366566303" target="_blank" rel="noreferrer">Zalo: 0366566303</a>
               </div>
-              <div className="fcol">
-                <b>{t('landing.footer_company')}</b>
-                <a href="#">{t('landing.footer_about')}</a>
-                <a href="#">Blog</a>
-                <a href="#">{t('landing.footer_careers')}</a>
-              </div>
+
               <div className="fcol">
                 <b>{t('landing.footer_policy')}</b>
-                <a href="#">{t('landing.footer_terms')}</a>
-                <a href="#">{t('landing.footer_privacy')}</a>
-                <a href="#">Tiếng Việt</a>
+                <a href="#">Điều khoản sử dụng</a>
+                <a href="#">Chính sách bảo mật</a>
+                <a href="#">Hỗ trợ 24/7</a>
               </div>
             </div>
-            <div className="foot-bottom"><span>© 2026 AI AutoCut. All rights reserved.</span></div>
+
+            <div className="foot-bottom">
+              <span>© 2026 AI AutoCut. All rights reserved. Powered by Google Veo 3.1 & Gemini.</span>
+            </div>
           </div>
         </footer>
       </div>

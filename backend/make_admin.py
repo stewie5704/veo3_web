@@ -10,6 +10,9 @@ import asyncio
 import sys
 import uuid
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal

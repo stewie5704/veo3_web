@@ -2,9 +2,18 @@ const $ = (id) => document.getElementById(id);
 
 function setStatus(html) { $("status").innerHTML = html; }
 
+let serverInitialized = false;
+
+$("server").addEventListener("input", () => {
+  serverInitialized = true;
+});
+
 async function refresh() {
   const { server, token } = await chrome.storage.local.get(["server", "token"]);
-  if (server) $("server").value = server;
+  if (server && !serverInitialized && document.activeElement !== $("server")) {
+    $("server").value = server;
+    serverInitialized = true;
+  }
   const loggedIn = !!token;
   $("logout").classList.toggle("hide", !loggedIn);
   $("connect").textContent = loggedIn ? "Kết nối lại" : "Đăng nhập & Kết nối";

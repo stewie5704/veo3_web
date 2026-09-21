@@ -158,13 +158,15 @@ CHUNK_SIZE = 15          # số cảnh mỗi chunk bung song song
 MAX_MR_CONCURRENCY = 5   # số call Gemini song song tối đa — match ~5 key user
 # Mỏ neo chuyển động — TRUNG TÍNH phong cách (đúng cho cả live-action lẫn anime/claymation): nhắc Veo
 # giữ chuyển động mạch lạc + phơi sáng/ánh sáng ổn định cả cảnh -> chống nhấp nháy & "thở sáng" giữa cảnh.
-_MOTION_ANCHOR = (" Smooth, coherent motion throughout; lighting and exposure stay consistent for the whole shot.")
+_MOTION_ANCHOR = (" Smooth, coherent physical motion throughout with grounded interaction; lighting and exposure stay consistent for the whole shot.")
 # Negative nâng cấp: thêm các artifact Veo 3.1 hay dính khi CÓ chuyển động (nhấp nháy/strobe/giật khung,
 # slow-motion/đổi tốc ngoài ý muốn, HDR cháy/banding/oversharpen) — đều xấu ở MỌI phong cách.
 _NEG_TAIL = (" Negative prompt: full-frame edge-to-edge, no borders/letterbox/pillarbox, no on-screen "
              "text, subtitles, captions, logos or watermark; no face distortion, warping, morphing, extra "
-             "fingers, duplicate limbs or plastic skin; no flickering, strobing, frame jitter or temporal "
-             "popping; no unintended slow-motion, speed ramps or stutter; no oversaturated HDR halos, "
+             "fingers, duplicate limbs, rubber limbs, plastic skin, wax skin or uncanny valley eyes; "
+             "no floating feet, detached shadows or physics clipping; "
+             "no flickering, strobing, frame jitter, temporal popping or background morphing; "
+             "no unintended slow-motion, speed ramps or stutter; no oversaturated HDR halos, "
              "colour banding or oversharpening; a single continuous shot — no montage, cutaways, "
              "jump cuts, flashbacks or scene transitions; no dialogue, voiceover, narration, singing, "
              "laughter or studio-audience sounds.")
@@ -1774,3 +1776,110 @@ Return ONLY valid JSON."""
     except Exception as e:
         log.exception("copy-idea error: %s", e)
         raise HTTPException(500, _ai_err("Lỗi phân tích", e))
+
+
+# ── Veo 3 Flow AI Prompt Enhancer (Meta-Framework) ─────────────────────────
+class EnhancePromptRequest(BaseModel):
+    prompt: str
+    aspect_ratio: str = "16:9"
+    camera_move: str | None = None
+    shot_size: str | None = None
+    lens: str | None = None
+    lighting: str | None = None
+    atmos: str | None = None
+    style: str | None = None
+
+
+class EnhancePromptResponse(BaseModel):
+    original_prompt: str
+    enhanced_prompt: str
+    camera_move: str = ""
+    lens: str = ""
+    lighting: str = ""
+    audio: str = ""
+    negative_prompt: str = ""
+
+
+@router.post("/enhance-prompt", response_model=EnhancePromptResponse)
+async def enhance_prompt(body: EnhancePromptRequest, user: User = Depends(get_current_user)):
+    """Trợ lý đạo diễn Veo 3 Flow: Biến ý tưởng ngắn (tiếng Việt/tiếng Anh) thành prompt điện ảnh 5 thành phần chuẩn Snubroot/Ramcana.
+    Tự động gắn lens, camera move, lighting, physics cues, foley audio line và negative tail.
+    Dùng Gemini key cá nhân nếu có, hoặc tự động fallback sang 9Router hệ thống."""
+    raw_prompt = _sanitize(body.prompt).strip()
+    if not raw_prompt:
+        raise HTTPException(400, "Vui lòng nhập ý tưởng hoặc câu prompt cần tối ưu.")
+
+    opts = []
+    if body.shot_size:
+        opts.append(f"Shot size preference: {body.shot_size}")
+    if body.lens:
+        opts.append(f"Lens specification: {body.lens}")
+    if body.camera_move:
+        opts.append(f"Camera movement: {body.camera_move}")
+    if body.lighting:
+        opts.append(f"Lighting & color mood: {body.lighting}")
+    if body.atmos:
+        opts.append(f"Physics / Atmosphere cues: {body.atmos}")
+    if body.style:
+        opts.append(f"Visual style: {body.style}")
+    pref_block = ("\nDirector specifications to incorporate:\n" + "\n".join(opts)) if opts else ""
+
+    system = f"""You are an elite Hollywood Cinematographer and Director of Photography specializing in Google Veo 3 and Veo 3.1 Flow video generation.
+Your mission is to transform the user's raw idea/prompt into a production-ready, cinematic masterpiece prompt following the strict 5-Part Directorial Formula (from Snubroot & Ramcana Veo Meta-Framework).
+
+Target Aspect Ratio: {body.aspect_ratio}{pref_block}
+
+USER INPUT:
+\"\"\"{raw_prompt}\"\"\"
+
+THE 5-PART DIRECTORIAL FORMULA:
+1. [Cinematography & Lens & Camera Movement]: Shot size (Close-Up, Medium, Wide...), specific focal length and aperture (e.g. 35mm f/1.8, 50mm f/1.4, 24mm anamorphic), and specific camera movement (e.g. slow push-in, low-angle tracking, handheld organic shake).
+2. [Subject & Physical Grounding]: Detailed description of who or what is present, grounded in reality with tangible physical interaction (e.g. fingers gripping a warm glass, feet crunching on autumn leaves, clothes fluttering).
+3. [Action & Micro-motions]: 2-3 observable, realistic physical movements. Avoid abstract emotions ("she looks sad") — show it through physical gestures (slowly exhales, gazes down, turns head toward the soft light).
+4. [Context, Setting & Atmospheric Physics]: Rich environmental context with living atmospheric particles (steam drifting, raindrops on glass, dust motes dancing in sunlight, wind rustling leaves).
+5. [Lighting & Palette]: Concrete physical light sources with color temperature (e.g. warm 3200K golden hour rim light, soft overcast 5500K window daylight, cyberpunk neon reflections in puddles) and subtle film grain/color grade.
+
+IMPORTANT RULES FOR VEO 3 FLOW:
+- Output MUST be 100% in ENGLISH for the main prompt.
+- Do NOT include any spoken dialogue, quotation marks, or words like "narrator/says/voiceover/speech".
+- Include a separate "audio" line for native ambient foley sound design (e.g. "Audio: rain tapping against glass, distant city hum, soft keyboard clicks; warm acoustic melody, low and unobtrusive. No spoken dialogue.").
+- Keep it concise, punchy, and dense with visual terminology (around 80-140 words for the main prompt body).
+
+Return ONLY a valid JSON object with the following schema:
+{{
+  "camera_move": "<camera movement term used>",
+  "lens": "<lens and aperture used>",
+  "lighting": "<lighting style and kelvin temp used>",
+  "audio": "<native audio foley line, format: Audio: ... No spoken dialogue.>",
+  "enhanced_prompt": "<The complete, polished English prompt starting with camera/lens, followed by subject, action, context, lighting, then the Audio line, then the negative prompt tail>"
+}}"""
+
+    gemini_key = dec(user.gemini_api_key) if user.gemini_api_key else None
+    try:
+        data = await asyncio.to_thread(_gemini_json, gemini_key, system, 1024)
+        if not isinstance(data, dict):
+            raise ValueError("Invalid JSON response from AI model")
+
+        enhanced = str(data.get("enhanced_prompt", "")).strip()
+        cam = str(data.get("camera_move", "")).strip()
+        lens = str(data.get("lens", "")).strip()
+        light = str(data.get("lighting", "")).strip()
+        audio = str(data.get("audio", "")).strip()
+
+        if audio and "audio:" not in enhanced.lower():
+            enhanced = enhanced.rstrip(".") + ". " + audio
+        if "negative prompt:" not in enhanced.lower():
+            enhanced = enhanced.rstrip(".") + "." + _MOTION_ANCHOR + _NEG_TAIL
+
+        return EnhancePromptResponse(
+            original_prompt=raw_prompt,
+            enhanced_prompt=enhanced,
+            camera_move=cam,
+            lens=lens,
+            lighting=light,
+            audio=audio,
+            negative_prompt=_NEG_TAIL.strip(),
+        )
+    except Exception as e:
+        log.exception("enhance_prompt error: %s", e)
+        raise HTTPException(500, _ai_err("Lỗi tối ưu prompt Veo 3 Flow", e))

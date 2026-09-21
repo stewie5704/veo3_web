@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { videosApi } from '../api/client'
 import VideoCard from '../components/VideoCard'
+import VeoDirectorToolbar from '../components/VeoDirectorToolbar'
 import { useT } from '../i18n'
 
 const MODELS = [
@@ -98,6 +99,8 @@ export default function CreateVideo({ user }: { user: any }) {
             <textarea className="cmp-hero" style={{ minHeight: 120 }} value={prompt} onChange={e => setPrompt(e.target.value)}
               placeholder={t('create.prompt_placeholder')} />
           </div>
+
+          <VeoDirectorToolbar prompt={prompt} onUpdatePrompt={setPrompt} aspectRatio={aspectRatio} />
 
           <div className="cmp-settings">
             <div className="cmp-ctrl">

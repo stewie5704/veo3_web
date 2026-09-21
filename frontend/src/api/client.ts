@@ -189,6 +189,24 @@ export const toolsApi = {
     api.post('/tools/sell-prompt', data).then(r => r.data),  // {prompt} — LLM viết prompt video bán hàng
   sellScript: (data: { product?: string; scene?: string; tone?: string; scene_count?: number; language?: string; duration?: number; has_kol?: boolean; brief?: string }) =>
     api.post('/tools/sell-script', data).then(r => r.data),  // {scenes:[{prompt,narration}]} — kịch bản nhiều cảnh, trung tính
+  enhancePrompt: (data: {
+    prompt: string
+    aspect_ratio?: string
+    camera_move?: string
+    shot_size?: string
+    lens?: string
+    lighting?: string
+    atmos?: string
+    style?: string
+  }) => api.post('/tools/enhance-prompt', data).then(r => r.data as {
+    original_prompt: string
+    enhanced_prompt: string
+    camera_move: string
+    lens: string
+    lighting: string
+    audio: string
+    negative_prompt: string
+  }),
 }
 
 export const charactersApi = {
