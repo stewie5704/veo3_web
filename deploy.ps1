@@ -194,7 +194,7 @@ if (-not $PSCmdlet.ShouldProcess("$($Vps):$RemotePath", "Deploy commit $localCom
 
 Write-Host ""
 Write-Host "==> [3/3] Pull, build, restart va health-check tren VPS..." -ForegroundColor Cyan
-$sshArgs = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15")
+$sshArgs = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new")
 if (-not [string]::IsNullOrWhiteSpace($IdentityFile)) {
   $identityPath = (Resolve-Path -LiteralPath $IdentityFile).Path
   $sshArgs += @("-i", $identityPath, "-o", "IdentitiesOnly=yes")
