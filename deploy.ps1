@@ -8,7 +8,7 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [switch]$BackendOnly,
-  [string]$Vps = "root@180.93.43.43",
+  [string]$Vps = "root@180.93.36.221",
   [string]$RemotePath = "/opt/veo3-web",
   [string]$IdentityFile = $env:VEO3_DEPLOY_IDENTITY
 )
