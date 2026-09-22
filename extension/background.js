@@ -460,6 +460,20 @@ connect();
 // ── popup messaging ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "status") { sendResponse(state); return false; }
+  if (msg.type === "open_flow") {
+    ensureLabsTab().then(async ({ tab }) => {
+      try {
+        if (tab && tab.id) {
+          await chrome.tabs.update(tab.id, { active: true });
+          if (tab.windowId) {
+            await chrome.windows.update(tab.windowId, { focused: true });
+          }
+        }
+      } catch (e) {}
+      sendResponse({ ok: true });
+    }).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
   if (msg.type === "reconnect") {
     try { if (ws) ws.close(); } catch (e) {}
     ws = null; state.error = ""; state.needLogin = false;

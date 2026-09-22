@@ -663,6 +663,41 @@ export default function Dashboard() {
         flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
         transition: 'margin-left 0.2s',
       }}>
+        {extError === 'ACCESS_TOKEN_REFRESH_NEEDED' && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(239,68,68,0.18), rgba(245,158,11,0.18))',
+            border: '1px solid rgba(239,68,68,0.45)',
+            borderRadius: 10,
+            padding: '12px 18px',
+            margin: '16px 24px 0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14,
+            fontSize: 13,
+            color: '#fef2f2',
+            boxShadow: '0 4px 16px rgba(239,68,68,0.12)',
+            zIndex: 40,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
+              <div>
+                <strong style={{ color: '#fca5a5', fontSize: 13.5 }}>Phiên Google Flow đã hết hạn:</strong>
+                <div style={{ color: '#d1d5db', fontSize: 12, marginTop: 2 }}>
+                  Tài khoản Google của bạn cần tải lại trang hoặc đăng nhập lại trên Google Flow để cấp token mới tạo video & ảnh.
+                </div>
+              </div>
+            </div>
+            <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noreferrer"
+              style={{
+                background: '#ef4444', color: '#fff', textDecoration: 'none', fontWeight: 600,
+                padding: '8px 16px', borderRadius: 8, whiteSpace: 'nowrap', fontSize: 12.5, flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(239,68,68,0.35)', display: 'inline-flex', alignItems: 'center', gap: 6
+              }}>
+              Mở Google Flow đăng nhập ↗
+            </a>
+          </div>
+        )}
         <main className="main-content" style={{ flex: 1, paddingBottom: logOpen ? 250 : 56 }}>
           <Routes>
             <Route path="/" element={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>{t('dash.loading')}</div>} />
