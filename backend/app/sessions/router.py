@@ -107,27 +107,31 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                     elif msg_type == "cookies":
                         # Extension sent Google cookies — store encrypted at rest
                         raw_cookies = msg.get("cookies", "")
-                        has_session = bool(raw_cookies and "session-token" in raw_cookies.lower())
-                        user.google_cookies = enc(raw_cookies) if has_session else None
+                        bearer = str(msg.get("bearer_token") or "")
+                        g_err = str(msg.get("google_session_error") or "")
+                        has_session = bool(
+                            (raw_cookies and len(raw_cookies) > 10)
+                            or bearer.startswith("ya29.")
+                        ) and (g_err != "ACCESS_TOKEN_REFRESH_NEEDED")
+
+                        user.google_cookies = enc(raw_cookies if raw_cookies else f"bearer_token={bearer}") if has_session else None
                         user.google_project_id = msg.get("project_id", "")
                         user.google_connected = has_session
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
-                        bearer = str(msg.get("bearer_token") or "")
                         if bearer and has_session:
                             _cached_bearers[user_id] = bearer
-                        g_err = str(msg.get("google_session_error") or "")
                         if not has_session and not g_err:
                             g_err = "NO_SESSION"
-                        if g_err:
+                        if g_err and not has_session:
                             _google_session_errors[user_id] = g_err
                         else:
                             _google_session_errors.pop(user_id, None)
                         await db.commit()
                         await _send_ws(user_id, websocket, {"type": "ok", "action": "cookies_saved"})
-                        log.info("Cookies saved for user %s, project=%s, session_err=%s, has_bearer=%s",
-                                 user_id, user.google_project_id, g_err or "none", bool(bearer))
+                        log.info("Cookies saved for user %s, project=%s, session_err=%s, has_bearer=%s, connected=%s",
+                                 user_id, user.google_project_id, g_err or "none", bool(bearer), has_session)
 
                     elif msg_type == "captcha":
                         # Extension sent a captcha token

