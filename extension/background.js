@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.4";
+const BRIDGE_VERSION = "1.5";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -40,24 +40,46 @@ function wsUrl(server, token) {
 
 // ── cookies + project id ───────────────────────────────────────────────────────
 async function gatherCookies() {
-  // The cookies API reads httpOnly cookies (e.g. __Secure-next-auth.session-token) that
-  // document.cookie can't — exactly what the server needs to mint the ya29 token.
-  const cks = await chrome.cookies.getAll({ url: "https://labs.google/" });
-  return cks.map((c) => `${c.name}=${c.value}`).join("; ");
+  try {
+    // The cookies API reads httpOnly cookies (e.g. __Secure-next-auth.session-token) that
+    // document.cookie can't — exactly what the server needs to mint the ya29 token.
+    // Lấy cookie từ cả domain "labs.google" (bao gồm mọi path /fx, /api) và các URL liên quan
+    const fromDomain = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
+    const fromUrlRoot = await chrome.cookies.getAll({ url: "https://labs.google/" }).catch(() => []);
+    const fromUrlFx = await chrome.cookies.getAll({ url: "https://labs.google/fx/" }).catch(() => []);
+    const fromUrlFlow = await chrome.cookies.getAll({ url: "https://labs.google/fx/tools/flow" }).catch(() => []);
+
+    const map = new Map();
+    for (const c of [...fromDomain, ...fromUrlRoot, ...fromUrlFx, ...fromUrlFlow]) {
+      if (c && c.name && !map.has(c.name)) {
+        map.set(c.name, c.value);
+      }
+    }
+    return Array.from(map.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
+  } catch (e) {
+    console.error("gatherCookies error:", e);
+    return "";
+  }
 }
 
 function _matchProject(url) {
-  const m = (url || "").match(/\/project\/([0-9a-fA-F-]{36})/);
+  // Bắt linh hoạt cả /project/<id> hoặc /projects/<id> (UUID v4 hoặc ID dạng chuỗi dài)
+  const m = (url || "").match(/\/projects?\/([0-9a-fA-F-]{32,36}|[a-zA-Z0-9_-]{16,})/);
   return m ? m[1] : "";
 }
 
 async function getProjectId() {
-  // 1) Đã có tab labs.google đang mở 1 project
-  const tabs = await chrome.tabs.query({ url: "https://labs.google/*" });
-  for (const t of tabs) {
-    const pid = _matchProject(t.url);
-    if (pid) return pid;
-  }
+  // 1) Tìm trong tất cả các tab đang mở
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const t of tabs) {
+      if (t.url && t.url.includes("labs.google")) {
+        const pid = _matchProject(t.url);
+        if (pid) return pid;
+      }
+    }
+  } catch (e) {}
+
   // 2) Fallback: mở Flow ngầm, đợi SPA redirect tới /project/<id> rồi đọc (tài khoản đã có project)
   try {
     const { tab, isNew } = await ensureLabsTab();
