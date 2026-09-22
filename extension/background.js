@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7";
+const BRIDGE_VERSION = "1.7.1";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -171,9 +171,7 @@ async function getProjectId() {
 
 async function checkGoogleSession() {
   try {
-    const res = await fetch("https://labs.google/fx/api/auth/session", {
-      headers: { "accept": "application/json", "referer": "https://labs.google/" },
-    });
+    const res = await fetch("https://labs.google/fx/api/auth/session");
     const data = await res.json().catch(() => ({}));
     if (data && data.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
       return { valid: false, error: "ACCESS_TOKEN_REFRESH_NEEDED", email: data.user?.email || "" };
@@ -187,27 +185,41 @@ async function checkGoogleSession() {
   }
 }
 
+let isPushingCookies = false;
+let lastPushTime = 0;
+
 async function pushCookies() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  const cookies = await gatherCookies();
-  const project_id = await getProjectId();
-  state.cookiesSent = !!cookies;
-  state.projectId = project_id;
+  const now = Date.now();
+  if (isPushingCookies || (now - lastPushTime < 4000)) return;
+  isPushingCookies = true;
+  lastPushTime = now;
 
-  const sessionCheck = await checkGoogleSession();
-  state.googleSessionValid = sessionCheck.valid;
-  state.googleSessionError = sessionCheck.error;
-  if (!sessionCheck.valid && sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
-    state.error = "Phiên Google đã hết hạn. Mở tab labs.google và đăng nhập lại.";
-  } else if (state.error && state.error.includes("Phiên Google")) {
-    state.error = "";
+  try {
+    const cookies = await gatherCookies();
+    const project_id = await getProjectId();
+    state.cookiesSent = !!cookies;
+    state.projectId = project_id;
+
+    const sessionCheck = await checkGoogleSession();
+    state.googleSessionValid = sessionCheck.valid;
+    state.googleSessionError = sessionCheck.error;
+    if (!sessionCheck.valid && sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
+      state.error = "Phiên Google đã hết hạn. Mở tab labs.google và đăng nhập lại.";
+    } else if (state.error && state.error.includes("Phiên Google")) {
+      state.error = "";
+    }
+
+    ws.send(JSON.stringify({
+      type: "cookies", cookies, project_id,
+      bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
+      google_session_error: sessionCheck.error,
+    }));
+  } catch (e) {
+    console.error("pushCookies error:", e);
+  } finally {
+    isPushingCookies = false;
   }
-
-  ws.send(JSON.stringify({
-    type: "cookies", cookies, project_id,
-    bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
-    google_session_error: sessionCheck.error,
-  }));
 }
 
 // ── reCAPTCHA Enterprise (run inside a logged-in labs.google tab) ───────────────
@@ -418,28 +430,29 @@ async function connect() {
 // keep the SW alive + reconnect + refresh cookies (session-token rotates)
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener(() => {
-  connect();
-  if (ws && ws.readyState === WebSocket.OPEN) pushCookies();
-});
-chrome.runtime.onStartup.addListener(connect);
-chrome.runtime.onInstalled.addListener(connect);
-
-// Tự động đẩy cookie mới ngay khi user tải lại hoặc đăng nhập trên labs.google
-chrome.cookies.onChanged.addListener((info) => {
-  if (info.cookie && info.cookie.domain && info.cookie.domain.includes("labs.google")) {
+  try {
+    connect();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      pushCookies();
+      pushCookies().catch(() => {});
     }
-  }
+  } catch (e) {}
+});
+chrome.runtime.onStartup.addListener(() => {
+  try { connect(); } catch (e) {}
+});
+chrome.runtime.onInstalled.addListener(() => {
+  try { connect(); } catch (e) {}
 });
 
 // Tự động kiểm tra project_id và cookie khi tab labs.google tải xong
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === "complete" && tab.url && tab.url.includes("labs.google")) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      pushCookies();
+  try {
+    if (changeInfo.status === "complete" && tab && tab.url && tab.url.includes("labs.google")) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        pushCookies().catch(() => {});
+      }
     }
-  }
+  } catch (e) {}
 });
 
 connect();
