@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.7";
+const BRIDGE_VERSION = "1.7.8";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -341,6 +341,7 @@ async function pushCookies() {
   lastPushTime = now;
 
   try {
+    const flowTabs = await findExistingFlowTabs();
     const cookies = await gatherCookies();
     const project_id = await getProjectId();
     const sessionCheck = await checkGoogleSession();
