@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.5";
+const BRIDGE_VERSION = "1.6";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -62,35 +62,106 @@ async function gatherCookies() {
   }
 }
 
-function _matchProject(url) {
-  // Bắt linh hoạt cả /project/<id> hoặc /projects/<id> (UUID v4 hoặc ID dạng chuỗi dài)
-  const m = (url || "").match(/\/projects?\/([0-9a-fA-F-]{32,36}|[a-zA-Z0-9_-]{16,})/);
-  return m ? m[1] : "";
+function _extractUuid(text) {
+  if (!text) return "";
+  const m = String(text).match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/);
+  if (m) return m[1].toLowerCase();
+  const m2 = String(text).match(/\/projects?\/([a-zA-Z0-9_-]{16,})/);
+  return m2 ? m2[1] : "";
+}
+
+async function findExistingFlowTabs() {
+  const allTabs = await chrome.tabs.query({}).catch(() => []);
+  const flowTabs = [];
+  for (const t of allTabs) {
+    const u = (t.url || "").toLowerCase();
+    const title = (t.title || "").toLowerCase();
+    if (u.includes("labs.google") || title.includes("google flow") || title.includes("flow")) {
+      flowTabs.push(t);
+    }
+  }
+  return flowTabs;
 }
 
 async function getProjectId() {
-  // 1) Tìm trong tất cả các tab đang mở
-  try {
-    const tabs = await chrome.tabs.query({});
-    for (const t of tabs) {
-      if (t.url && t.url.includes("labs.google")) {
-        const pid = _matchProject(t.url);
-        if (pid) return pid;
-      }
-    }
-  } catch (e) {}
+  const flowTabs = await findExistingFlowTabs();
 
-  // 2) Fallback: mở Flow ngầm, đợi SPA redirect tới /project/<id> rồi đọc (tài khoản đã có project)
+  // 1) Ưu tiên số 1: Quét URL của tất cả các tab Flow đã mở
+  for (const t of flowTabs) {
+    const pid = _extractUuid(t.url);
+    if (pid) return pid;
+  }
+
+  // 2) Đọc trực tiếp từ bên trong các tab Flow đang mở (DOM, window.location, localStorage)
+  for (const t of flowTabs) {
+    try {
+      const [res] = await chrome.scripting.executeScript({
+        target: { tabId: t.id },
+        world: "MAIN",
+        func: () => {
+          // A. Check window.location.href
+          const href = window.location.href || "";
+          const m = href.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i);
+          if (m) return m[1].toLowerCase();
+
+          // B. Check links thẻ dự án trong trang
+          const links = document.querySelectorAll('a[href*="/project/"]');
+          for (const l of links) {
+            if (l.href) {
+              const lm = l.href.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i);
+              if (lm) return lm[1].toLowerCase();
+            }
+          }
+
+          // C. Check localStorage
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              const v = localStorage.getItem(k);
+              const vm = String(v).match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i);
+              if (vm) return vm[1].toLowerCase();
+            }
+          } catch (e) {}
+
+          return "";
+        }
+      });
+      if (res && res.result) return res.result;
+    } catch (e) {}
+  }
+
+  // 3) Nếu user ĐÃ có tab Flow mở nhưng đang ở màn hình danh sách (chưa vào project):
+  // Tận dụng chính tab đó: thử click vào project đầu tiên trong danh sách, TUYỆT ĐỐI KHÔNG mở thêm tab rác!
+  if (flowTabs.length > 0) {
+    const t = flowTabs[0];
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: t.id },
+        func: () => {
+          const firstCard = document.querySelector('a[href*="/project/"]') ||
+                            document.querySelector('[data-testid*="project"]');
+          if (firstCard) firstCard.click();
+        }
+      });
+      await new Promise((r) => setTimeout(r, 1500));
+      const fresh = await chrome.tabs.get(t.id).catch(() => null);
+      const pid = _extractUuid(fresh && fresh.url);
+      if (pid) return pid;
+    } catch (e) {}
+    // Nếu vẫn chưa vào project, dừng lại ở đây (báo user chọn 1 project) thay vì mở thêm tab mới
+    return "";
+  }
+
+  // 4) CHỈ khi người dùng HOÀN TOÀN CHƯA MỞ tab Flow nào thì mới mở 1 tab mới duy nhất
   try {
-    const { tab, isNew } = await ensureLabsTab();
+    const { tab } = await ensureLabsTab();
     let pid = "";
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 8; i++) {
       const fresh = await chrome.tabs.get(tab.id).catch(() => null);
-      pid = _matchProject(fresh && fresh.url);
+      pid = _extractUuid(fresh && fresh.url);
       if (pid) break;
       await new Promise((r) => setTimeout(r, 1000));
     }
-    if (isNew && !pid) chrome.tabs.remove(tab.id).catch(() => {});
     return pid;
   } catch (e) {
     return "";
@@ -142,12 +213,16 @@ async function waitForRecaptcha(tabId, tries = 12) {
 }
 
 async function ensureLabsTab() {
-  const tabs = await chrome.tabs.query({ url: "https://labs.google/*" });
-  const flowTabs = (tabs || []).filter((t) =>
-    /\/fx\/(?:[a-z-]+\/)?tools\/flow(?:\/|$)/i.test(t.url || ""));
-  const projectTab = flowTabs.find((t) => /\/project\/[0-9a-f-]{36}/i.test(t.url || ""));
+  const flowTabs = await findExistingFlowTabs();
+
+  // 1) Nếu đã có tab chứa project, ưu tiên dùng ngay tab đó
+  const projectTab = flowTabs.find((t) => _extractUuid(t.url));
   if (projectTab) return { tab: projectTab, isNew: false };
-  if (flowTabs.length) return { tab: flowTabs[0], isNew: false };
+
+  // 2) Nếu đã có BẤT KỲ tab Flow nào mở -> DÙNG LẠI NGAY, TUYỆT ĐỐI KHÔNG MỞ THÊM TAB MỚI
+  if (flowTabs.length > 0) return { tab: flowTabs[0], isNew: false };
+
+  // 3) Chỉ khi KHÔNG CÓ tab Flow nào mới mở 1 tab
   let win = null;
   try { win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }); } catch (e) {}
   if (!win || win.id == null) {
