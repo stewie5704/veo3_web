@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.9";
+const BRIDGE_VERSION = "1.8.0";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -109,13 +109,12 @@ async function findExistingFlowTabs() {
   const allTabs = await chrome.tabs.query({}).catch(() => []);
   const flowTabs = [];
   for (const t of allTabs) {
-    if (!t.id || !t.url) continue;
-    try {
-      const parsed = new URL(t.url);
-      if (parsed.hostname === "labs.google" || parsed.hostname.endsWith(".labs.google")) {
-        flowTabs.push(t);
-      }
-    } catch (e) {}
+    if (!t.id) continue;
+    const u = (t.url || t.pendingUrl || "").toLowerCase();
+    const title = (t.title || "").toLowerCase();
+    if (u.includes("labs.google") || (title.includes("flow") && (u.includes("google") || !u))) {
+      flowTabs.push(t);
+    }
   }
   return flowTabs;
 }
@@ -125,7 +124,7 @@ async function getProjectId() {
 
   // 1) Ưu tiên số 1: Quét URL của tất cả các tab Flow đã mở
   for (const t of flowTabs) {
-    const pid = _extractUuid(t.url);
+    const pid = _extractUuid(t.url || t.pendingUrl);
     if (pid) return pid;
   }
 
@@ -210,6 +209,8 @@ async function checkGoogleSession() {
 
   for (const t of flowTabs) {
     if (!t.id) continue;
+    const u = (t.url || "").toLowerCase();
+    if (u && !u.includes("labs.google")) continue;
 
     // 1. Quét đồng bộ DOM, localStorage, sessionStorage, __NEXT_DATA__
     try {
@@ -373,11 +374,11 @@ async function pushCookies() {
     } else {
       isSessionOk = false;
       sessionErr = "NO_SESSION";
-      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in) bằng tài khoản Ultra.";
+      state.error = "";
     }
 
-    state.cookiesSent = isSessionOk;
-    state.projectId = project_id;
+    state.cookiesSent = !!(hasCookies || isSessionOk);
+    if (project_id) state.projectId = project_id;
     state.googleSessionValid = isSessionOk;
     state.googleSessionError = sessionErr;
 
@@ -392,7 +393,7 @@ async function pushCookies() {
       activeWs.send(JSON.stringify({
         type: "cookies",
         cookies: cookiesPayload,
-        project_id,
+        project_id: state.projectId || project_id,
         bridge_version: BRIDGE_VERSION,
         capabilities: BRIDGE_CAPABILITIES,
         google_session_error: sessionErr,
@@ -675,7 +676,13 @@ connect();
 
 // ── popup messaging ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === "status") { sendResponse(state); return false; }
+  if (msg.type === "status") {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connect().catch(() => {});
+    }
+    sendResponse(state);
+    return false;
+  }
   if (msg.type === "open_flow") {
     ensureLabsTab().then(async ({ tab }) => {
       try {

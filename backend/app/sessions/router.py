@@ -127,17 +127,20 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                             or bearer.startswith("ya29.")
                         ) and (g_err != "ACCESS_TOKEN_REFRESH_NEEDED")
 
-                        user.google_cookies = enc(raw_cookies if raw_cookies else f"bearer_token={bearer}") if has_session else None
-                        user.google_project_id = msg.get("project_id", "")
-                        user.google_connected = has_session
+                        cookie_to_save = raw_cookies if raw_cookies else (f"bearer_token={bearer}" if bearer else "")
+                        if cookie_to_save:
+                            user.google_cookies = enc(cookie_to_save)
+                        new_proj = msg.get("project_id", "")
+                        if new_proj:
+                            user.google_project_id = new_proj
+
+                        user.google_connected = bool(cookie_to_save and len(cookie_to_save) > 20)
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
-                        if bearer and has_session:
+                        if bearer:
                             _cached_bearers[user_id] = bearer
-                        if not has_session and not g_err:
-                            g_err = "NO_SESSION"
-                        if g_err and not has_session:
+                        if g_err == "ACCESS_TOKEN_REFRESH_NEEDED":
                             _google_session_errors[user_id] = g_err
                         else:
                             _google_session_errors.pop(user_id, None)

@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "VEO3 Web Bridge",
-  "version": "1.7.9",
+  "version": "1.8.0",
   "description": "Kết nối tài khoản Google Ultra của bạn với VEO3 Web để tạo video (gửi cookie + giải captcha).",
   "permissions": ["cookies", "tabs", "scripting", "alarms", "storage", "declarativeNetRequest"],
   "host_permissions": [
-    "<all_urls>",
     "https://labs.google/*",
     "https://*.google.com/*",
     "https://www.gstatic.com/*",

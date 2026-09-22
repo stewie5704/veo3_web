@@ -24,10 +24,10 @@ async function refresh() {
     const dot = st.connected ? '<span class="dot on"></span>Đã kết nối server'
                              : '<span class="dot off"></span>Mất kết nối';
     let ck = "";
-    if (!st.cookiesSent || st.googleSessionError === "NO_SESSION") {
-      ck = "⚠️ <b style='color:#fbbf24'>Chưa đăng nhập Google Flow!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#f59e0b;color:#111;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Bấm để mở tab Flow & Đăng nhập</button>";
-    } else if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
-      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Xoá phiên cũ & Mở tab đăng nhập lại</button>";
+    if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
+      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Mở tab Flow đăng nhập lại</button>";
+    } else if (!st.cookiesSent || st.googleSessionError === "NO_SESSION") {
+      ck = "⚠️ <span style='color:#fbbf24'>Chưa có phiên Flow (mở tab Google Flow)</span><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#f59e0b;color:#111;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Mở tab Google Flow</button>";
     } else {
       ck = "✅ đã gửi cookie Google Flow (Ultra)";
     }
@@ -40,9 +40,19 @@ async function refresh() {
 }
 
 $("connect").onclick = async () => {
-  const server = $("server").value.trim().replace(/\/+$/, "");
+  const { server: storedServer, token } = await chrome.storage.local.get(["server", "token"]);
+  const serverInput = $("server").value.trim().replace(/\/+$/, "");
+  const server = serverInput || storedServer || "https://app.aiautocut.com";
   const email = $("email").value.trim();
   const password = $("password").value;
+
+  // Nếu user đã có token và không nhập email/mật khẩu mới -> chỉ cần Reconnect
+  if (token && (!email || !password)) {
+    setStatus("⏳ Đang kết nối lại server…");
+    chrome.runtime.sendMessage({ type: "reconnect" }, () => setTimeout(refresh, 800));
+    return;
+  }
+
   if (!server || !email || !password) { setStatus("⚠️ Nhập đủ server, email, mật khẩu."); return; }
   setStatus("⏳ Đang đăng nhập…");
   try {
