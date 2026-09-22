@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # 9Router Fallback config
     system_9router_url: str = "http://127.0.0.1:20128/v1"
     system_9router_key: str = "sk-dummy"
-    system_9router_models: str = "gemini-2.5-flash"
+    system_9router_models: str = "ag/gemini-3.8-flash,ag/gemini-3.7-flash,ag/gemini-3.5-flash,gemini-2.5-flash"
 
 settings = Settings()
 
