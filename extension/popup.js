@@ -23,9 +23,13 @@ async function refresh() {
     if (!loggedIn) { setStatus('<span class="muted">Chưa đăng nhập.</span>'); return; }
     const dot = st.connected ? '<span class="dot on"></span>Đã kết nối server'
                              : '<span class="dot off"></span>Mất kết nối';
-    let ck = st.cookiesSent ? "✅ đã gửi cookie Google" : "⚠️ chưa lấy được cookie (đăng nhập labs.google?)";
-    if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
-      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer'>👉 Xoá phiên cũ & Mở tab đăng nhập lại</button>";
+    let ck = "";
+    if (!st.cookiesSent || st.googleSessionError === "NO_SESSION") {
+      ck = "⚠️ <b style='color:#fbbf24'>Chưa đăng nhập Google Flow!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#f59e0b;color:#111;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Bấm để mở tab Flow & Đăng nhập</button>";
+    } else if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
+      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;font-weight:700;border:none;border-radius:6px;padding:7px;font-size:12px;cursor:pointer'>👉 Xoá phiên cũ & Mở tab đăng nhập lại</button>";
+    } else {
+      ck = "✅ đã gửi cookie Google Flow (Ultra)";
     }
     const pj = st.projectId ? `✅ project: <code>${st.projectId.slice(0, 8)}…</code>`
                             : "⚠️ chưa mở project Flow (mở 1 project trên labs.google)";

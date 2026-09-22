@@ -584,11 +584,11 @@ export default function Dashboard() {
             {/* Connection status inline */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
               {extConnected ? (
-                extError === 'ACCESS_TOKEN_REFRESH_NEEDED' ? (
+                (extError === 'ACCESS_TOKEN_REFRESH_NEEDED' || extError === 'NO_SESSION') ? (
                   <span style={{ color: '#fbbf24', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}
-                    title="Phiên Google (labs.google) đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.">
+                    title={extError === 'ACCESS_TOKEN_REFRESH_NEEDED' ? "Phiên Google đã hết hạn. Mở tab Flow đăng nhập lại." : "Chưa đăng nhập Google Flow."}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 6px rgba(251,191,36,0.5)', flexShrink: 0 }} />
-                    Phiên Google hết hạn
+                    {extError === 'ACCESS_TOKEN_REFRESH_NEEDED' ? 'Phiên Google hết hạn' : 'Chưa đăng nhập Flow'}
                   </span>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -663,7 +663,7 @@ export default function Dashboard() {
         flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
         transition: 'margin-left 0.2s',
       }}>
-        {extError === 'ACCESS_TOKEN_REFRESH_NEEDED' && (
+        {(extError === 'ACCESS_TOKEN_REFRESH_NEEDED' || extError === 'NO_SESSION') && (
           <div style={{
             background: 'linear-gradient(90deg, rgba(239,68,68,0.18), rgba(245,158,11,0.18))',
             border: '1px solid rgba(239,68,68,0.45)',
@@ -682,9 +682,13 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
               <div>
-                <strong style={{ color: '#fca5a5', fontSize: 13.5 }}>Phiên Google Flow đã hết hạn:</strong>
+                <strong style={{ color: '#fca5a5', fontSize: 13.5 }}>
+                  {extError === 'ACCESS_TOKEN_REFRESH_NEEDED' ? 'Phiên Google Flow đã hết hạn:' : 'Chưa đăng nhập Google Flow:'}
+                </strong>
                 <div style={{ color: '#d1d5db', fontSize: 12, marginTop: 2 }}>
-                  Tài khoản Google của bạn cần tải lại trang hoặc đăng nhập lại trên Google Flow để cấp token mới tạo video & ảnh.
+                  {extError === 'ACCESS_TOKEN_REFRESH_NEEDED'
+                    ? 'Tài khoản Google Ultra của bạn cần được đăng nhập lại trên Google Flow để cấp token mới tạo video & ảnh.'
+                    : 'Bạn chưa đăng nhập tài khoản Google Ultra trên Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).'}
                 </div>
               </div>
             </div>

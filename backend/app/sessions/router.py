@@ -102,13 +102,16 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                     elif msg_type == "cookies":
                         # Extension sent Google cookies — store encrypted at rest
                         raw_cookies = msg.get("cookies", "")
-                        user.google_cookies = enc(raw_cookies)
+                        has_session = bool(raw_cookies and "__Secure-next-auth.session-token" in raw_cookies)
+                        user.google_cookies = enc(raw_cookies) if has_session else None
                         user.google_project_id = msg.get("project_id", "")
-                        user.google_connected = bool(raw_cookies)
+                        user.google_connected = has_session
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
                         g_err = str(msg.get("google_session_error") or "")
+                        if not has_session and not g_err:
+                            g_err = "NO_SESSION"
                         if g_err:
                             _google_session_errors[user_id] = g_err
                         else:

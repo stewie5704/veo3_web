@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.2";
+const BRIDGE_VERSION = "1.7.3";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -198,22 +198,25 @@ async function pushCookies() {
   try {
     const cookies = await gatherCookies();
     const project_id = await getProjectId();
-    state.cookiesSent = !!cookies;
+    const hasSessionToken = cookies.includes("__Secure-next-auth.session-token");
+    state.cookiesSent = hasSessionToken;
     state.projectId = project_id;
 
     const sessionCheck = await checkGoogleSession();
-    state.googleSessionValid = sessionCheck.valid;
-    state.googleSessionError = sessionCheck.error;
-    if (!sessionCheck.valid && sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
+    state.googleSessionValid = hasSessionToken && sessionCheck.valid;
+    state.googleSessionError = !hasSessionToken ? "NO_SESSION" : (sessionCheck.error || "");
+    if (!hasSessionToken || state.googleSessionError === "NO_SESSION") {
+      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in) bằng tài khoản Ultra.";
+    } else if (state.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
       state.error = "Phiên Google đã hết hạn. Mở tab labs.google và đăng nhập lại.";
-    } else if (state.error && state.error.includes("Phiên Google")) {
+    } else {
       state.error = "";
     }
 
     ws.send(JSON.stringify({
-      type: "cookies", cookies, project_id,
+      type: "cookies", cookies: hasSessionToken ? cookies : "", project_id,
       bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
-      google_session_error: sessionCheck.error,
+      google_session_error: state.googleSessionError,
     }));
   } catch (e) {
     console.error("pushCookies error:", e);
