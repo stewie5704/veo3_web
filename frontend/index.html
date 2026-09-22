@@ -2,35 +2,132 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- App subdomain: KHÔNG index (tránh trùng nội dung với trang marketing ở gốc aiautocut.com).
-         Trang được Google index là https://aiautocut.com/ (marketing/index.html). -->
-    <title>AI AutoCut — Ứng dụng tạo video AI</title>
-    <meta name="description" content="Ứng dụng AI AutoCut: tạo video AI nhiều cảnh từ ý tưởng với Veo 3.1." />
-    <meta name="author" content="AI AutoCut" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="canonical" href="https://aiautocut.com/" />
+    <!-- Primary Meta Tags -->
+    <title>AI AutoCut — Studio Làm Phim & Tạo Video AI Veo 3.1 Chuyên Nghiệp</title>
+    <meta name="title" content="AI AutoCut — Studio Làm Phim & Tạo Video AI Veo 3.1 Chuyên Nghiệp" />
+    <meta name="description" content="AI AutoCut là Studio làm phim AI & video bán hàng hàng đầu: biến 1 dòng ý tưởng thành tác phẩm điện ảnh hoàn chỉnh với Google Veo 3.1. Khóa mặt nhân vật 100%, tự viết kịch bản, lồng tiếng AI tiếng Việt và xuất video 4K tự động." />
+    <meta name="keywords" content="tạo video ai, studio làm phim ai, làm phim ai, google veo 3.1, video bán hàng tiktok shop, khóa mặt nhân vật ai, lồng tiếng ai tiếng việt, ai autocut, phim ngắn ai, video marketing ai" />
+    <meta name="author" content="AI AutoCut Studio" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://app.aiautocut.com/" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="geo.region" content="VN" />
+    <meta name="geo.placename" content="Vietnam" />
 
-    <!-- Open Graph -->
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://aiautocut.com/" />
-    <meta property="og:title" content="AI AutoCut — Tạo phim AI nhiều cảnh từ một dòng ý tưởng" />
-    <meta property="og:description" content="Viết kịch bản, giữ mặt nhân vật, render Veo 3.1 và tự ghép thành phim. Tạo video AI tiếng Việt chỉ từ một dòng ý tưởng." />
+    <meta property="og:url" content="https://app.aiautocut.com/" />
+    <meta property="og:title" content="AI AutoCut — Studio Làm Phim & Tạo Video AI Veo 3.1 Chuyên Nghiệp" />
+    <meta property="og:description" content="Biến 1 dòng ý tưởng thành bộ phim điện ảnh nhiều cảnh quay hoàn chỉnh. Khóa mặt diễn viên 100%, lồng tiếng AI tiếng Việt chuẩn xác và xuất phim 4K tự động." />
     <meta property="og:image" content="https://aiautocut.com/og.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="vi_VN" />
+    <meta property="og:site_name" content="AI AutoCut Studio" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AI AutoCut — Tạo phim AI nhiều cảnh" />
-    <meta name="twitter:description" content="Tạo video AI tiếng Việt nhiều cảnh từ một dòng ý tưởng với Veo 3.1." />
+    <meta name="twitter:url" content="https://app.aiautocut.com/" />
+    <meta name="twitter:title" content="AI AutoCut — Studio Làm Phim & Tạo Video AI Veo 3.1 Chuyên Nghiệp" />
+    <meta name="twitter:description" content="Biến 1 dòng ý tưởng thành bộ phim điện ảnh nhiều cảnh với Google Veo 3.1. Khóa mặt nhân vật 100%." />
+    <meta name="twitter:image" content="https://aiautocut.com/og.svg" />
+
+    <!-- Schema.org Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://app.aiautocut.com/#org",
+          "name": "AI AutoCut Studio",
+          "url": "https://app.aiautocut.com/",
+          "logo": "https://aiautocut.com/og.svg",
+          "sameAs": [
+            "https://t.me/thaidem57",
+            "https://zalo.me/0366566303"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://app.aiautocut.com/#website",
+          "url": "https://app.aiautocut.com/",
+          "name": "AI AutoCut Studio",
+          "inLanguage": "vi-VN",
+          "publisher": { "@id": "https://app.aiautocut.com/#org" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "AI AutoCut",
+          "applicationCategory": "MultimediaApplication",
+          "operatingSystem": "Web, macOS, Windows, iOS, Android",
+          "inLanguage": "vi-VN",
+          "url": "https://app.aiautocut.com/",
+          "description": "Studio sáng tạo video và làm phim AI chuyên nghiệp: tự viết kịch bản, giữ vững gương mặt nhân vật qua mọi phân cảnh, render từng cảnh bằng Google Veo 3.1 và tự ghép thành video hoàn chỉnh kèm lồng tiếng AI tiếng Việt.",
+          "offers": {
+            "@type": "AggregateOffer",
+            "priceCurrency": "VND",
+            "lowPrice": "0",
+            "highPrice": "2599000",
+            "offerCount": "4"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "ratingCount": "1280",
+            "bestRating": "5",
+            "worstRating": "1"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "AI AutoCut là gì và hoạt động như thế nào?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "AI AutoCut là nền tảng Studio làm phim & tạo video AI trọn gói: bạn chỉ cần nhập ý tưởng hoặc tải ảnh sản phẩm/nhân vật, AI sẽ tự động phân tích kịch bản thành các phân cảnh điện ảnh, render từng cảnh với Google Veo 3.1, lồng tiếng Việt và ghép nối thành video MP4 hoàn chỉnh."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Công nghệ Face-Lock giữ mặt nhân vật hoạt động ra sao?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Công nghệ Model Sheet Reference độc quyền của AI AutoCut phân tích và neo giữ các đặc điểm nhân dạng khuôn mặt diễn viên hoặc chi tiết bao bì sản phẩm, đảm bảo diện mạo đồng nhất 100% qua hàng chục phân cảnh và góc quay khác nhau."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "AI AutoCut có hỗ trợ lồng tiếng Tiếng Việt không?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Có. AI AutoCut tích hợp hơn 22+ diễn viên lồng tiếng AI tiếng Việt chất lượng cao chuẩn giọng miền Bắc và miền Nam, tự động đồng bộ khẩu hình và cảm xúc cho từng nhân vật trong phim."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Tôi có thể dùng thử miễn phí trước khi mua không?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Có. Mọi tài khoản mới đăng ký đều nhận được 24 giờ trải nghiệm miễn phí với model Veo 3.1 Lite không cần nhập thẻ tín dụng."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet" />
 
-    <!-- Favicon: scissors gradient (brand) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23F97316'/%3E%3Cstop offset='.56' stop-color='%23EC4899'/%3E%3Cstop offset='1' stop-color='%23A855F7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='none' stroke='url(%23g)' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='6' cy='6' r='2.4'/%3E%3Ccircle cx='6' cy='18' r='2.4'/%3E%3Cline x1='8.1' y1='7.6' x2='20' y2='18'/%3E%3Cline x1='8.1' y1='16.4' x2='20' y2='6'/%3E%3C/g%3E%3C/svg%3E" />
   </head>
   <body>
