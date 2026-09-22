@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.3";
+const BRIDGE_VERSION = "1.7.4";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -42,16 +42,18 @@ function wsUrl(server, token) {
 // ── cookies + project id ───────────────────────────────────────────────────────
 async function gatherCookies() {
   try {
-    // The cookies API reads httpOnly cookies (e.g. __Secure-next-auth.session-token) that
-    // document.cookie can't — exactly what the server needs to mint the ya29 token.
-    // Lấy cookie từ cả domain "labs.google" (bao gồm mọi path /fx, /api) và các URL liên quan
+    const urls = [
+      "https://labs.google/",
+      "https://labs.google/fx/",
+      "https://labs.google/fx/tools/flow",
+      "https://labs.google/fx/api/auth",
+      "https://labs.google/fx/api/auth/session",
+    ];
     const fromDomain = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
-    const fromUrlRoot = await chrome.cookies.getAll({ url: "https://labs.google/" }).catch(() => []);
-    const fromUrlFx = await chrome.cookies.getAll({ url: "https://labs.google/fx/" }).catch(() => []);
-    const fromUrlFlow = await chrome.cookies.getAll({ url: "https://labs.google/fx/tools/flow" }).catch(() => []);
+    const fromUrls = await Promise.all(urls.map(u => chrome.cookies.getAll({ url: u }).catch(() => [])));
 
     const map = new Map();
-    for (const c of [...fromDomain, ...fromUrlRoot, ...fromUrlFx, ...fromUrlFlow]) {
+    for (const c of [...fromDomain, ...fromUrls.flat()]) {
       if (c && c.name && !map.has(c.name)) {
         map.set(c.name, c.value);
       }
@@ -171,17 +173,30 @@ async function getProjectId() {
 
 async function checkGoogleSession() {
   try {
-    const res = await fetch("https://labs.google/fx/api/auth/session");
+    const res = await fetch("https://labs.google/fx/api/auth/session", {
+      credentials: "include",
+      cache: "no-store",
+      headers: { accept: "application/json" },
+    });
     const data = await res.json().catch(() => ({}));
     if (data && data.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
       return { valid: false, error: "ACCESS_TOKEN_REFRESH_NEEDED", email: data.user?.email || "" };
     }
-    if (data && (data.access_token || data.token || (data.user && !data.error))) {
+    let token = data && (data.access_token || data.token || data.accessToken);
+    if (!token && data) {
+      const s = JSON.stringify(data);
+      const m = s.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+      if (m) token = m[1];
+    }
+    if (token) {
+      return { valid: true, error: "", email: data.user?.email || "", access_token: token };
+    }
+    if (data && data.user && !data.error) {
       return { valid: true, error: "", email: data.user?.email || "" };
     }
     return { valid: false, error: "NO_SESSION", email: "" };
   } catch (e) {
-    return { valid: true, error: "" };
+    return { valid: false, error: "FETCH_FAILED" };
   }
 }
 
@@ -191,32 +206,40 @@ let lastPushTime = 0;
 async function pushCookies() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const now = Date.now();
-  if (isPushingCookies || (now - lastPushTime < 4000)) return;
+  if (isPushingCookies || (now - lastPushTime < 3000)) return;
   isPushingCookies = true;
   lastPushTime = now;
 
   try {
     const cookies = await gatherCookies();
     const project_id = await getProjectId();
-    const hasSessionToken = cookies.includes("__Secure-next-auth.session-token");
-    state.cookiesSent = hasSessionToken;
-    state.projectId = project_id;
-
     const sessionCheck = await checkGoogleSession();
-    state.googleSessionValid = hasSessionToken && sessionCheck.valid;
-    state.googleSessionError = !hasSessionToken ? "NO_SESSION" : (sessionCheck.error || "");
-    if (!hasSessionToken || state.googleSessionError === "NO_SESSION") {
-      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in) bằng tài khoản Ultra.";
-    } else if (state.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
-      state.error = "Phiên Google đã hết hạn. Mở tab labs.google và đăng nhập lại.";
+    const hasNextAuth = cookies.toLowerCase().includes("session-token");
+    const isSessionOk = sessionCheck.valid && hasNextAuth;
+
+    state.cookiesSent = !!cookies && hasNextAuth;
+    state.projectId = project_id;
+    state.googleSessionValid = isSessionOk;
+    state.googleSessionError = isSessionOk ? "" : (sessionCheck.error || (!hasNextAuth ? "NO_SESSION" : ""));
+
+    if (!isSessionOk) {
+      if (state.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
+        state.error = "Phiên Google đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.";
+      } else {
+        state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).";
+      }
     } else {
       state.error = "";
     }
 
     ws.send(JSON.stringify({
-      type: "cookies", cookies: hasSessionToken ? cookies : "", project_id,
-      bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
+      type: "cookies",
+      cookies: isSessionOk ? cookies : "",
+      project_id,
+      bridge_version: BRIDGE_VERSION,
+      capabilities: BRIDGE_CAPABILITIES,
       google_session_error: state.googleSessionError,
+      bearer_token: sessionCheck.access_token || "",
     }));
   } catch (e) {
     console.error("pushCookies error:", e);
@@ -464,31 +487,17 @@ connect();
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "status") { sendResponse(state); return false; }
   if (msg.type === "open_flow") {
-    (async () => {
+    ensureLabsTab().then(async ({ tab }) => {
       try {
-        // Xoá cookie session cũ đã hết hạn để Google Flow hiện nút Sign In
-        const cookies = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
-        for (const c of cookies) {
-          if (c.name && c.name.includes("next-auth")) {
-            const proto = c.secure ? "https:" : "http:";
-            const url = `${proto}//${c.domain.replace(/^\./, "")}${c.path}`;
-            await chrome.cookies.remove({ url, name: c.name }).catch(() => {});
-            await chrome.cookies.remove({ url: "https://labs.google/", name: c.name }).catch(() => {});
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const { tab } = await ensureLabsTab();
         if (tab && tab.id) {
-          await chrome.tabs.update(tab.id, { url: FLOW_URL, active: true });
+          await chrome.tabs.update(tab.id, { active: true });
           if (tab.windowId) {
             await chrome.windows.update(tab.windowId, { focused: true });
           }
         }
       } catch (e) {}
       sendResponse({ ok: true });
-    })();
+    }).catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (msg.type === "reconnect") {

@@ -199,6 +199,14 @@ def _require_flow_api_proxy(user_id: str) -> None:
 
 
 async def _get_bearer_token(cookies: str, user_id: str | None = None) -> str | None:
+    if user_id:
+        try:
+            from app.sessions.router import get_cached_bearer
+            cached = get_cached_bearer(user_id)
+            if cached:
+                return cached
+        except Exception:
+            pass
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(AUTH_SESSION_URL, headers={
