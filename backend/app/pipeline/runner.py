@@ -207,6 +207,21 @@ async def _get_bearer_token(cookies: str, user_id: str | None = None) -> str | N
                 return cached
         except Exception:
             pass
+
+    if cookies and "ya29_token=" in cookies:
+        for part in cookies.split(";"):
+            part = part.strip()
+            if part.startswith("ya29_token="):
+                tok = part.split("=", 1)[1].strip()
+                if tok.startswith("ya29."):
+                    return tok
+
+    if cookies and "ya29." in cookies:
+        import re
+        m = re.search(r'(ya29\.[a-zA-Z0-9_-]+)', cookies)
+        if m:
+            return m.group(1)
+
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(AUTH_SESSION_URL, headers={

