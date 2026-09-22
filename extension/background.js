@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.8";
+const BRIDGE_VERSION = "1.7.9";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -109,11 +109,13 @@ async function findExistingFlowTabs() {
   const allTabs = await chrome.tabs.query({}).catch(() => []);
   const flowTabs = [];
   for (const t of allTabs) {
-    const u = (t.url || "").toLowerCase();
-    const title = (t.title || "").toLowerCase();
-    if (u.includes("labs.google") || title.includes("google flow") || title.includes("flow")) {
-      flowTabs.push(t);
-    }
+    if (!t.id || !t.url) continue;
+    try {
+      const parsed = new URL(t.url);
+      if (parsed.hostname === "labs.google" || parsed.hostname.endsWith(".labs.google")) {
+        flowTabs.push(t);
+      }
+    } catch (e) {}
   }
   return flowTabs;
 }
@@ -385,22 +387,25 @@ async function pushCookies() {
       cookiesPayload = cookiesPayload ? `${cookiesPayload}; ya29_token=${bearerToSend}` : `ya29_token=${bearerToSend}`;
     }
 
-    ws.send(JSON.stringify({
-      type: "cookies",
-      cookies: cookiesPayload,
-      project_id,
-      bridge_version: BRIDGE_VERSION,
-      capabilities: BRIDGE_CAPABILITIES,
-      google_session_error: sessionErr,
-      bearer_token: bearerToSend,
-      debug: {
-        cookies_len: cookiesPayload.length,
-        has_session_token: hasNextAuth,
-        has_bearer: !!bearerToSend,
-        flow_tabs: flowTabs.length,
-        session_check_err: sessionCheck.error,
-      }
-    }));
+    const activeWs = ws;
+    if (activeWs && activeWs.readyState === WebSocket.OPEN) {
+      activeWs.send(JSON.stringify({
+        type: "cookies",
+        cookies: cookiesPayload,
+        project_id,
+        bridge_version: BRIDGE_VERSION,
+        capabilities: BRIDGE_CAPABILITIES,
+        google_session_error: sessionErr,
+        bearer_token: bearerToSend,
+        debug: {
+          cookies_len: cookiesPayload.length,
+          has_session_token: hasNextAuth,
+          has_bearer: !!bearerToSend,
+          flow_tabs: flowTabs.length,
+          session_check_err: sessionCheck.error,
+        }
+      }));
+    }
   } catch (e) {
     console.error("pushCookies error:", e);
   } finally {
@@ -575,18 +580,41 @@ async function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
   everOpened = false;
-  try { ws = new WebSocket(wsUrl(server, token)); }
-  catch (e) { state.error = "URL server sai: " + e; return; }
+  let socket;
+  try {
+    socket = new WebSocket(wsUrl(server, token));
+    ws = socket;
+  } catch (e) {
+    state.error = "URL server sai: " + e;
+    return;
+  }
 
-  ws.onopen = () => {
+  socket.onopen = () => {
+    if (ws !== socket) {
+      try { socket.close(); } catch (e) {}
+      return;
+    }
     everOpened = true; state.connected = true; state.error = ""; state.needLogin = false;
-    ws.send(JSON.stringify({ type: "hello", bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES }));
+    try {
+      socket.send(JSON.stringify({ type: "hello", bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES }));
+    } catch (e) {
+      console.error("socket send hello error:", e);
+    }
     pushCookies();
   };
-  ws.onerror = () => { try { ws.close(); } catch (e) {} };
-  ws.onclose = async (ev) => {
-    state.connected = false;
-    ws = null;
+
+  socket.onerror = (err) => {
+    console.warn("WebSocket error:", err);
+  };
+
+  socket.onclose = async (ev) => {
+    if (ws === socket) {
+      state.connected = false;
+      ws = null;
+    } else {
+      return;
+    }
+
     // Server từ chối rõ ràng (close code) -> token hỏng.
     if (ev && (ev.code === 4001 || ev.code === 4002)) { await killTokenAndPromptLogin(); return; }
     // Bắt tay bị 403 (reject trước accept) -> client thấy code 1006, KHÔNG bao giờ open.
@@ -598,17 +626,19 @@ async function connect() {
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, 3000); // rớt tạm thời -> thử lại
   };
-  ws.onmessage = async (ev) => {
+
+  socket.onmessage = async (ev) => {
+    if (ws !== socket) return;
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.type === "connected") { state.connected = true; pushCookies(); }
-    else if (msg.type === "ping") { try { ws.send(JSON.stringify({ type: "pong" })); } catch (e) {} }
+    else if (msg.type === "ping") { try { socket.send(JSON.stringify({ type: "pong" })); } catch (e) {} }
     else if (msg.type === "get_captcha") {
       const r = await solveCaptcha(msg.action || "VIDEO_GENERATION");
-      try { ws.send(JSON.stringify({ type: "captcha", token: r.token || "", err: r.err || "" })); } catch (e) {}
+      try { socket.send(JSON.stringify({ type: "captcha", token: r.token || "", err: r.err || "" })); } catch (e) {}
     }
     else if (msg.type === "api_request") {
       const r = await proxyFlowApi(msg);
-      try { ws.send(JSON.stringify({ type: "api_response", ...r })); } catch (e) {}
+      try { socket.send(JSON.stringify({ type: "api_response", ...r })); } catch (e) {}
     }
   };
 }
@@ -661,9 +691,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg.type === "reconnect") {
-    try { if (ws) ws.close(); } catch (e) {}
-    ws = null; state.error = ""; state.needLogin = false;
     clearTimeout(reconnectTimer);
+    if (ws) {
+      const old = ws;
+      ws = null;
+      try {
+        old.onopen = null;
+        old.onmessage = null;
+        old.onerror = null;
+        old.onclose = null;
+        old.close();
+      } catch (e) {}
+    }
+    state.error = ""; state.needLogin = false;
     connect().then(() => sendResponse({ ok: true }));
     return true;
   }
