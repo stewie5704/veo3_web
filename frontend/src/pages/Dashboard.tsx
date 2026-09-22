@@ -173,6 +173,35 @@ export default function Dashboard() {
     return <VerifyEmail email={user.email} onVerified={() => authApi.me().then(setUser)} />
   }
 
+  // Màn hình khởi tạo ban đầu trong lúc tải thông tin tài khoản
+  if (!user) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#09090b',
+        color: '#9ca3af',
+        gap: 16
+      }}>
+        <div style={{
+          width: 46, height: 46, borderRadius: 12,
+          background: 'linear-gradient(135deg, #F97316 0%, #EC4899 50%, #8B5CF6 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 16px -2px rgba(249, 115, 22, 0.4)',
+        }}>
+          <Scissors size={22} color="#fff" strokeWidth={2.4} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#a1a1aa' }}>
+          <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+          <span>{t('dash.loading')}</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app-layout">
 
@@ -626,7 +655,7 @@ export default function Dashboard() {
             <Route path="/guide" element={<Guide />} />
             <Route path="/support" element={<Support />} />
             <Route path="/settings" element={<Settings2 user={user} onUpdate={setUser} />} />
-            {user?.is_admin && <Route path="/admin" element={<Admin />} />}
+            <Route path="/admin" element={user?.is_admin ? <Admin /> : <Projects user={user} onCreated={loadProjects} />} />
           </Routes>
         </main>
 

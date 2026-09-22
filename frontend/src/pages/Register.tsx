@@ -28,17 +28,17 @@ export default function Register() {
     setLoading(true)
     try {
       const res = await authApi.register({ 
-        email: form.email, 
-        username: form.username, 
+        email: form.email.trim().toLowerCase(), 
+        username: form.username.trim(), 
         password: form.password, 
-        ref: ref || undefined,
+        ref: ref ? ref.trim() : undefined,
         cookie_ref: savedRef || undefined 
       })
       localStorage.setItem('token', res.access_token)
       // Clear cookie after successful reg
       localStorage.removeItem('veo_ref_code')
       localStorage.removeItem('veo_ref_time')
-      nav('/', { replace: true })
+      window.location.href = '/projects'
     } catch (err: any) {
       setError(err.response?.data?.detail || t('auth.register_failed'))
     } finally {

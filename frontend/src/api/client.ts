@@ -11,7 +11,14 @@ api.interceptors.request.use(cfg => {
 api.interceptors.response.use(
   r => r,
   err => {
-    if (err.response?.status === 401) {
+    // Chỉ điều hướng về /login khi gặp 401 trên các API được bảo vệ (sau khi đã đăng nhập).
+    // Tuyệt đối KHÔNG điều hướng nếu lỗi 401 xảy ra tại /auth/login, /auth/register, hoặc đang ở trang /login /register.
+    // Nếu điều hướng ở đây, trình duyệt sẽ bị reload cứng làm mất form và không hiện thông báo lỗi cho người dùng!
+    const url = err.config?.url || ''
+    const isAuthReq = url.includes('/auth/login') || url.includes('/auth/register')
+    const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/register'
+
+    if (err.response?.status === 401 && !isAuthReq && !isAuthPage) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }

@@ -14,11 +14,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -34,6 +29,12 @@ class UserResponse(BaseModel):
     email_verify_required: bool = False   # cờ hệ thống (settings) — frontend dựa vào để bắt xác minh
 
     model_config = {"from_attributes": True}
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse | None = None
 
 
 class UpdateGeminiKey(BaseModel):

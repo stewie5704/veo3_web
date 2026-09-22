@@ -1,25 +1,46 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Scissors } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Scissors, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useT } from '../i18n'
 
 export default function Login() {
-  const nav = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const t = useT()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(''); setLoading(true)
+    const email = form.email.trim()
+    const password = form.password
+    if (!email || !password) {
+      setError('Vui lòng nhập đầy đủ email và mật khẩu')
+      return
+    }
+
+    setError('')
+    setLoading(true)
     try {
-      const res = await authApi.login(form)
+      const res = await authApi.login({ email, password })
+      if (!res?.access_token) {
+        throw new Error('Không nhận được token xác thực từ máy chủ')
+      }
       localStorage.setItem('token', res.access_token)
-      nav('/', { replace: true })
+
+      // Kiểm tra vai trò tài khoản để chuyển thẳng vào đúng trang
+      let target = '/projects'
+      try {
+        const u = await authApi.me()
+        if (u?.is_admin) target = '/admin'
+      } catch {
+        // Fallback sang /projects nếu call me() tạm thời lỗi mạng
+      }
+      window.location.href = target
     } catch (err: any) {
-      setError(err.response?.data?.detail || t('auth.login_failed'))
+      const msg = err.response?.data?.detail || err.message || t('auth.login_failed')
+      setError(typeof msg === 'string' ? msg : JSON.stringify(msg))
     } finally {
       setLoading(false)
     }
@@ -58,27 +79,71 @@ export default function Login() {
         </div>
 
         {error && (
-          <div className="alert alert-error">
-            <span>⚠️</span> {error}
+          <div className="alert alert-error" style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+            borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+            color: '#fca5a5', fontSize: 13, marginBottom: 18,
+          }}>
+            <span style={{ fontSize: 16 }}>⚠️</span> <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label className="form-label">Email</label>
-            <input id="login-email" className="form-input" type="email"
+            <input
+              id="login-email"
+              className="form-input"
+              type="email"
               placeholder="you@example.com"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              autoComplete="email" required />
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              autoComplete="email"
+              required
+            />
           </div>
           <div className="form-group" style={{ marginBottom: 24 }}>
             <label className="form-label">{t('auth.password')}</label>
-            <input id="login-password" className="form-input" type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              autoComplete="current-password" required />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="login-password"
+                className="form-input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                autoComplete="current-password"
+                style={{ paddingRight: 42 }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(s => !s)}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                tabIndex={-1}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <button id="login-submit" type="submit" className="btn btn-primary btn-lg"
             style={{ width: '100%' }} disabled={loading}>

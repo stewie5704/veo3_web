@@ -150,8 +150,8 @@ async def register(body: RegisterRequest, request: Request, db: AsyncSession = D
 async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     # Rate-limit login: chống brute-force cả theo IP lẫn theo email.
     rate_limit(f"login:{client_ip(request)}", limit=20, window=300)
-    rate_limit(f"login-email:{body.email.lower()}", limit=10, window=300)
-    body.email = body.email.lower()
+    body.email = body.email.strip().lower()
+    rate_limit(f"login-email:{body.email}", limit=10, window=300)
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
@@ -159,9 +159,10 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
 
     user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)  # cột là TIMESTAMP WITHOUT TZ (Postgres)
     await db.commit()
+    await db.refresh(user)
 
     token = create_access_token({"sub": user.id})
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token, user=user)
 
 
 @router.post("/extension-token", response_model=TokenResponse)
