@@ -179,34 +179,48 @@ export default function Dashboard() {
       {/* ── Sidebar (thu gọn / xả ra) ── */}
       <nav style={{
         width: navWidth, minHeight: '100vh', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 60,
-        background: 'rgba(10,8,6,0.96)', borderRight: '1px solid rgba(249,115,22,0.08)',
+        background: 'rgba(9, 9, 11, 0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        borderRight: '1px solid rgba(255, 255, 255, 0.07)',
         display: 'flex', flexDirection: 'column', alignItems: navExpanded ? 'stretch' : 'center',
-        padding: navExpanded ? '14px 10px' : '14px 0', gap: 4,
-        transition: 'width 0.2s ease', overflowY: 'auto',
+        padding: navExpanded ? '14px 10px' : '14px 6px', gap: 4,
+        transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)', overflowY: 'auto',
       }}>
         {/* Logo + brand + toggle */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, width: '100%',
           flexDirection: navExpanded ? 'row' : 'column',
           justifyContent: navExpanded ? 'space-between' : 'center',
+          padding: navExpanded ? '0 4px' : 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'var(--grad)',
+              background: 'linear-gradient(135deg, #F97316 0%, #EC4899 50%, #8B5CF6 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 18px -4px rgba(236,72,153,0.5)',
+              boxShadow: '0 4px 16px -2px rgba(249, 115, 22, 0.4)',
             }}>
-              <Scissors size={16} color="#fff" strokeWidth={2.2} />
+              <Scissors size={16} color="#fff" strokeWidth={2.4} />
             </div>
-            {navExpanded && <span style={{ fontWeight: 800, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>AI AutoCut</span>}
+            {navExpanded && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontWeight: 800, fontSize: 14.5, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>
+                  AI AutoCut
+                </span>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(249,115,22,0.15)', color: '#fb923c', border: '1px solid rgba(249,115,22,0.25)', letterSpacing: '0.04em' }}>
+                  PRO
+                </span>
+              </div>
+            )}
           </div>
           <button onClick={toggleNav} title={navExpanded ? t('dash.collapse') : t('dash.expand')} style={{
-            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a08060',
-          }}>
-            {navExpanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' }}>
+            {navExpanded ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
           </button>
         </div>
 
@@ -216,39 +230,40 @@ export default function Dashboard() {
           if (n.path === '/projects') {
             const curTab = new URLSearchParams(loc.search).get('tab') || 'new'
             return (
-              <div key="/projects" style={{ width: navExpanded ? '100%' : 40 }}>
+              <div key="/projects" style={{ width: navExpanded ? '100%' : 44 }}>
                 <button onClick={() => navExpanded ? setProjectsOpen(o => !o) : nav('/projects')} title={t('nav.create_video')}
                   style={{
-                    width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 11,
-                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 12px' : 0,
-                    background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
-                    border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-                    color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
-                  }}>
-                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.create_video')}</span>}
-                  {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: projectsOpen ? 'rotate(180deg)' : 'none' }} />}
-                  {active && !navExpanded && (
-                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
-                  )}
+                    width: '100%', height: 38, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 10px' : 0,
+                    background: active ? 'rgba(249, 115, 22, 0.12)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(249, 115, 22, 0.3)' : 'transparent'}`,
+                    color: active ? '#fb923c' : '#9ca3af',
+                    boxShadow: active ? '0 0 16px -3px rgba(249, 115, 22, 0.2)' : 'none',
+                    transition: 'all .16s ease', position: 'relative',
+                  }}
+                  onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.9} style={{ flexShrink: 0 }} />
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: active ? 600 : 500, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>{t('nav.create_video')}</span>}
+                  {navExpanded && <ChevronDown size={13} style={{ transition: 'transform .2s', transform: projectsOpen ? 'rotate(180deg)' : 'none', opacity: 0.7 }} />}
                 </button>
                 {navExpanded && projectsOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '3px 0 4px', paddingLeft: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '4px 0 6px 14px', paddingLeft: 10, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                     {PROJECTS_SUB.map(s => {
                       const SIcon = s.icon
                       const sActive = loc.pathname === '/projects' && curTab === s.tab
                       return (
                         <Link key={s.tab} to={`/projects?tab=${s.tab}`} title={s.label}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
-                            fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8,
+                            fontSize: 12, fontWeight: sActive ? 600 : 500, textDecoration: 'none', transition: 'all .15s',
                             background: sActive ? 'rgba(249,115,22,0.14)' : 'transparent',
-                            color: sActive ? '#fb923c' : '#80705c',
+                            color: sActive ? '#fb923c' : '#9ca3af',
                           }}
-                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
-                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}>
-                          <SIcon size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> {s.label}
+                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                          <SIcon size={13} strokeWidth={2} style={{ flexShrink: 0, opacity: sActive ? 1 : 0.8 }} /> {s.label}
                         </Link>
                       )
                     })}
@@ -260,39 +275,40 @@ export default function Dashboard() {
           if (n.path === '/tools') {
             const curT = new URLSearchParams(loc.search).get('t') || 'i2v'
             return (
-              <div key="/tools" style={{ width: navExpanded ? '100%' : 40 }}>
+              <div key="/tools" style={{ width: navExpanded ? '100%' : 44 }}>
                 <button onClick={() => navExpanded ? setToolsOpen(o => !o) : nav('/tools')} title={t('nav.tools')}
                   style={{
-                    width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 11,
-                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 12px' : 0,
-                    background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
-                    border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-                    color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
-                  }}>
-                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.tools')}</span>}
-                  {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: toolsOpen ? 'rotate(180deg)' : 'none' }} />}
-                  {active && !navExpanded && (
-                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
-                  )}
+                    width: '100%', height: 38, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 10px' : 0,
+                    background: active ? 'rgba(249, 115, 22, 0.12)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(249, 115, 22, 0.3)' : 'transparent'}`,
+                    color: active ? '#fb923c' : '#9ca3af',
+                    boxShadow: active ? '0 0 16px -3px rgba(249, 115, 22, 0.2)' : 'none',
+                    transition: 'all .16s ease', position: 'relative',
+                  }}
+                  onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.9} style={{ flexShrink: 0 }} />
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: active ? 600 : 500, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>{t('nav.tools')}</span>}
+                  {navExpanded && <ChevronDown size={13} style={{ transition: 'transform .2s', transform: toolsOpen ? 'rotate(180deg)' : 'none', opacity: 0.7 }} />}
                 </button>
                 {navExpanded && toolsOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '3px 0 4px', paddingLeft: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '4px 0 6px 14px', paddingLeft: 10, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                     {TOOL_SUB.map(s => {
                       const SIcon = s.icon
                       const sActive = loc.pathname === '/tools' && curT === s.t
                       return (
                         <Link key={s.t} to={`/tools?t=${s.t}`} title={s.label}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
-                            fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8,
+                            fontSize: 12, fontWeight: sActive ? 600 : 500, textDecoration: 'none', transition: 'all .15s',
                             background: sActive ? 'rgba(249,115,22,0.14)' : 'transparent',
-                            color: sActive ? '#fb923c' : '#80705c',
+                            color: sActive ? '#fb923c' : '#9ca3af',
                           }}
-                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
-                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}>
-                          <SIcon size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> {s.label}
+                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                          <SIcon size={13} strokeWidth={2} style={{ flexShrink: 0, opacity: sActive ? 1 : 0.8 }} /> {s.label}
                         </Link>
                       )
                     })}
@@ -304,39 +320,40 @@ export default function Dashboard() {
           if (n.path === '/guide') {
             const curS = new URLSearchParams(loc.search).get('s') || ''
             return (
-              <div key="/guide" style={{ width: navExpanded ? '100%' : 40 }}>
+              <div key="/guide" style={{ width: navExpanded ? '100%' : 44 }}>
                 <button onClick={() => navExpanded ? setGuideOpen(o => !o) : nav('/guide')} title={t('nav.guide')}
                   style={{
-                    width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 11,
-                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 12px' : 0,
-                    background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
-                    border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-                    color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
-                  }}>
-                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>{t('nav.guide')}</span>}
-                  {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: guideOpen ? 'rotate(180deg)' : 'none' }} />}
-                  {active && !navExpanded && (
-                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
-                  )}
+                    width: '100%', height: 38, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 10px' : 0,
+                    background: active ? 'rgba(249, 115, 22, 0.12)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(249, 115, 22, 0.3)' : 'transparent'}`,
+                    color: active ? '#fb923c' : '#9ca3af',
+                    boxShadow: active ? '0 0 16px -3px rgba(249, 115, 22, 0.2)' : 'none',
+                    transition: 'all .16s ease', position: 'relative',
+                  }}
+                  onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.9} style={{ flexShrink: 0 }} />
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: active ? 600 : 500, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>{t('nav.guide')}</span>}
+                  {navExpanded && <ChevronDown size={13} style={{ transition: 'transform .2s', transform: guideOpen ? 'rotate(180deg)' : 'none', opacity: 0.7 }} />}
                 </button>
                 {navExpanded && guideOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '3px 0 4px', paddingLeft: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '4px 0 6px 14px', paddingLeft: 10, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                     {GUIDE_SUB.map(s => {
                       const SIcon = s.icon
                       const sActive = loc.pathname === '/guide' && curS === s.s
                       return (
                         <Link key={s.s} to={`/guide?s=${s.s}`} title={s.label}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
-                            fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8,
+                            fontSize: 12, fontWeight: sActive ? 600 : 500, textDecoration: 'none', transition: 'all .15s',
                             background: sActive ? 'rgba(249,115,22,0.14)' : 'transparent',
-                            color: sActive ? '#fb923c' : '#80705c',
+                            color: sActive ? '#fb923c' : '#9ca3af',
                           }}
-                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
-                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}>
-                          <SIcon size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> {s.label}
+                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                          <SIcon size={13} strokeWidth={2} style={{ flexShrink: 0, opacity: sActive ? 1 : 0.8 }} /> {s.label}
                         </Link>
                       )
                     })}
@@ -348,39 +365,40 @@ export default function Dashboard() {
           if (n.path === '/admin') {
             const curS = new URLSearchParams(loc.search).get('s') || 'overview'
             return (
-              <div key="/admin" style={{ width: navExpanded ? '100%' : 40 }}>
+              <div key="/admin" style={{ width: navExpanded ? '100%' : 44 }}>
                 <button onClick={() => navExpanded ? setAdminOpen(o => !o) : nav('/admin')} title="Admin"
                   style={{
-                    width: '100%', height: 40, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 11,
-                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 12px' : 0,
-                    background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
-                    border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-                    color: active ? '#fb923c' : '#80705c', transition: 'all .18s', position: 'relative',
-                  }}>
-                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: 'left' }}>Admin</span>}
-                  {navExpanded && <ChevronDown size={14} style={{ transition: 'transform .2s', transform: adminOpen ? 'rotate(180deg)' : 'none' }} />}
-                  {active && !navExpanded && (
-                    <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
-                  )}
+                    width: '100%', height: 38, borderRadius: 10, boxSizing: 'border-box', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    justifyContent: navExpanded ? 'flex-start' : 'center', padding: navExpanded ? '0 10px' : 0,
+                    background: active ? 'rgba(249, 115, 22, 0.12)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(249, 115, 22, 0.3)' : 'transparent'}`,
+                    color: active ? '#fb923c' : '#9ca3af',
+                    boxShadow: active ? '0 0 16px -3px rgba(249, 115, 22, 0.2)' : 'none',
+                    transition: 'all .16s ease', position: 'relative',
+                  }}
+                  onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                  onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.9} style={{ flexShrink: 0 }} />
+                  {navExpanded && <span style={{ fontSize: 13, fontWeight: active ? 600 : 500, flex: 1, textAlign: 'left', letterSpacing: '-0.01em' }}>Admin</span>}
+                  {navExpanded && <ChevronDown size={13} style={{ transition: 'transform .2s', transform: adminOpen ? 'rotate(180deg)' : 'none', opacity: 0.7 }} />}
                 </button>
                 {navExpanded && adminOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '3px 0 4px', paddingLeft: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '4px 0 6px 14px', paddingLeft: 10, borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                     {ADMIN_SUB.map(s => {
                       const SIcon = s.icon
                       const sActive = loc.pathname === '/admin' && curS === s.s
                       return (
                         <Link key={s.s} to={`/admin?s=${s.s}`} title={s.label}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 9, padding: '7px 11px', borderRadius: 8,
-                            fontSize: 12.5, fontWeight: 500, textDecoration: 'none', transition: 'all .15s',
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8,
+                            fontSize: 12, fontWeight: sActive ? 600 : 500, textDecoration: 'none', transition: 'all .15s',
                             background: sActive ? 'rgba(249,115,22,0.14)' : 'transparent',
-                            color: sActive ? '#fb923c' : '#80705c',
+                            color: sActive ? '#fb923c' : '#9ca3af',
                           }}
-                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
-                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}>
-                          <SIcon size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> {s.label}
+                          onMouseEnter={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+                          onMouseLeave={e => { if (!sActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}>
+                          <SIcon size={13} strokeWidth={2} style={{ flexShrink: 0, opacity: sActive ? 1 : 0.8 }} /> {s.label}
                         </Link>
                       )
                     })}
@@ -391,30 +409,28 @@ export default function Dashboard() {
           }
           return (
             <Link key={n.path} to={n.path} title={n.label} style={{
-              width: navExpanded ? '100%' : 40, height: 40, borderRadius: 10, boxSizing: 'border-box',
-              display: 'flex', alignItems: 'center', gap: 11,
+              width: navExpanded ? '100%' : 44, height: 38, borderRadius: 10, boxSizing: 'border-box',
+              display: 'flex', alignItems: 'center', gap: 10,
               justifyContent: navExpanded ? 'flex-start' : 'center',
-              padding: navExpanded ? '0 12px' : 0,
-              background: active ? 'rgba(249,115,22,0.18)' : 'transparent',
-              border: `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'transparent'}`,
-              color: active ? '#fb923c' : '#80705c',
-              transition: 'background 0.18s, color 0.18s', textDecoration: 'none',
+              padding: navExpanded ? '0 10px' : 0,
+              background: active ? 'rgba(249, 115, 22, 0.12)' : 'transparent',
+              border: `1px solid ${active ? 'rgba(249, 115, 22, 0.3)' : 'transparent'}`,
+              color: active ? '#fb923c' : '#9ca3af',
+              boxShadow: active ? '0 0 16px -3px rgba(249, 115, 22, 0.2)' : 'none',
+              transition: 'all 0.16s ease', textDecoration: 'none',
               position: 'relative',
             }}
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#e0c0a0' } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#80705c' } }}
+              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#f3f4f6' } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9ca3af' } }}
             >
-              <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-              {navExpanded && <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{n.label}</span>}
-              {active && !navExpanded && (
-                <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />
-              )}
+              <Icon size={16} strokeWidth={active ? 2.2 : 1.9} style={{ flexShrink: 0 }} />
+              {navExpanded && <span style={{ fontSize: 13, fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{n.label}</span>}
             </Link>
           )
         })}
 
         {/* Bottom: LangSwitch + credits + user */}
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           {/* Custom Lang Switch for Sidebar */}
           <button title={t('settings.language') || 'Language'} onClick={() => {
             const newLang = localStorage.getItem('lang') === 'vi' ? 'en' : 'vi';
@@ -422,62 +438,79 @@ export default function Dashboard() {
             window.location.reload();
           }}
             style={{
-              width: navExpanded ? '100%' : 34, height: 34, borderRadius: 8, background: 'transparent',
+              width: navExpanded ? '100%' : 36, height: 34, borderRadius: 9, background: 'rgba(255,255,255,0.02)',
               border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#80705c',
-              transition: 'all 0.15s', fontSize: 13, fontWeight: 600, gap: 6,
-              padding: navExpanded ? '0 12px' : 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
+              transition: 'all 0.15s', fontSize: 12, fontWeight: 500, gap: 6,
+              padding: navExpanded ? '0 10px' : 0,
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#e0c0a0'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#80705c'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9ca3af'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)' }}
           >
-            <span style={{ fontSize: 14 }}>🌐</span>
+            <span style={{ fontSize: 13 }}>🌐</span>
             {navExpanded && <span>{localStorage.getItem('lang') === 'en' ? 'English' : 'Tiếng Việt'}</span>}
           </button>
+
           {credits !== null && (
             <div title={t('dash.gems_remaining', { count: credits })} style={{
-              minWidth: 34, height: 34, borderRadius: 8, padding: '0 9px',
-              background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              width: navExpanded ? '100%' : 36, height: 34, borderRadius: 9, padding: navExpanded ? '0 10px' : 0,
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(249, 115, 22, 0.12))',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              boxShadow: '0 2px 10px -2px rgba(245, 158, 11, 0.15)',
             }}>
-              <Gem size={14} color="#fb923c" />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#fb923c', whiteSpace: 'nowrap' }}>{credits}</span>
+              <Gem size={14} color="#f59e0b" />
+              {navExpanded && <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fbbf24', whiteSpace: 'nowrap' }}>{credits} 💎</span>}
             </div>
           )}
+
           {/* Worker status */}
           {workerStatus && (workerStatus.processing > 0 || workerStatus.pending > 0) && (
             <div title={t('dash.worker_status', { processing: workerStatus.processing, pending: workerStatus.pending })}
               style={{
-                width: 34, height: 34, borderRadius: 8, position: 'relative',
+                width: navExpanded ? '100%' : 36, height: 30, borderRadius: 9,
                 background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexDirection: 'column', gap: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: navExpanded ? '0 10px' : 0,
               }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', animation: 'pulse-dot 1.4s infinite' }} />
-              <span style={{ fontSize: 9, color: 'var(--green)', fontWeight: 700, marginTop: 1 }}>{workerStatus.processing}</span>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80', animation: 'pulse-dot 1.4s infinite' }} />
+              {navExpanded && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>Rendering: {workerStatus.processing}</span>}
             </div>
           )}
 
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #f97316, #ea580c)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer',
-          }} title={user?.username} onClick={() => nav('/settings')}>
-            {user?.username?.[0]?.toUpperCase()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: navExpanded ? 'space-between' : 'center', marginTop: 2 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #f97316, #ec4899)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.15)',
+            }} title={user?.username} onClick={() => nav('/settings')}>
+              {user?.username?.[0]?.toUpperCase()}
+            </div>
+            {navExpanded && (
+              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#f3f4f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.username || 'User'}
+                </div>
+                <div style={{ fontSize: 10, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.email || ''}
+                </div>
+              </div>
+            )}
+            <button title={t('auth.logout')} onClick={() => { localStorage.removeItem('token'); nav('/login') }}
+              style={{
+                width: 30, height: 30, borderRadius: 8, background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280',
+                transition: 'all 0.15s', flexShrink: 0,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.1)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(248,113,113,0.3)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#6b7280'; (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)' }}
+            >
+              <LogOut size={13} />
+            </button>
           </div>
-          <button title={t('auth.logout')} onClick={() => { localStorage.removeItem('token'); nav('/login') }}
-            style={{
-              width: 34, height: 34, borderRadius: 8, background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#50402e',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(248,113,113,0.3)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#50402e'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)' }}
-          >
-            <LogOut size={14} />
-          </button>
         </div>
       </nav>
 
@@ -485,36 +518,41 @@ export default function Dashboard() {
       {isProjectDetail && (
         <div style={{
           width: 280, minHeight: '100vh', position: 'fixed', top: 0, left: navWidth, bottom: 0, zIndex: 50,
-          background: 'rgba(12,9,6,0.9)', borderRight: '1px solid rgba(249,115,22,0.07)',
-          transition: 'left 0.2s ease',
+          background: 'rgba(12, 12, 16, 0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           paddingBottom: logOpen ? 240 : 36,
         }}>
           {/* Panel header */}
-          <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+          <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#e5e7eb', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 {t('dash.projects')}
               </div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={loadProjects}
-                  style={{ width: 26, height: 26, borderRadius: 7, background: 'transparent', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                <button onClick={loadProjects} title="Tải lại"
+                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9ca3af'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}>
                   <RefreshCw size={11} />
                 </button>
-                <button onClick={() => nav('/projects')}
-                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fb923c' }}>
-                  <Plus size={12} />
+                <button onClick={() => nav('/projects')} title="Dự án mới"
+                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fb923c', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,115,22,0.25)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(249,115,22,0.15)' }}>
+                  <Plus size={13} />
                 </button>
               </div>
             </div>
             {/* Connection status inline */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: extConnected ? 'var(--green)' : 'rgba(248,113,113,0.6)', flexShrink: 0 }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: extConnected ? '#4ade80' : '#f87171', boxShadow: extConnected ? '0 0 6px rgba(74,222,128,0.5)' : 'none', flexShrink: 0 }} />
               {extConnected ? (
-                <span style={{ color: 'var(--green)' }}>{t('dash.ultra_connected')}</span>
+                <span style={{ color: '#4ade80', fontWeight: 500 }}>{t('dash.ultra_connected')}</span>
               ) : (
                 <Link to="/settings" title={t('dash.click_to_connect')}
-                  style={{ color: 'rgba(248,113,113,0.85)', textDecoration: 'underline', cursor: 'pointer' }}>
+                  style={{ color: '#f87171', textDecoration: 'none', cursor: 'pointer', opacity: 0.9 }}>
                   {t('dash.not_connected')}
                 </Link>
               )}
@@ -524,15 +562,15 @@ export default function Dashboard() {
           {/* Project list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px' }}>
             {projects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text3)', fontSize: 12 }}>
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: '#6b7280', fontSize: 12 }}>
                 <div style={{
-                  width: 46, height: 46, margin: '0 auto 12px', borderRadius: 14,
+                  width: 44, height: 44, margin: '0 auto 12px', borderRadius: 12,
                   background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <FolderOpen size={20} color="#fb923c" />
+                  <FolderOpen size={18} color="#fb923c" />
                 </div>
-                <div style={{ color: 'var(--text2)', fontWeight: 600, marginBottom: 4 }}>{t('dash.no_projects')}</div>
+                <div style={{ color: '#e5e7eb', fontWeight: 600, marginBottom: 4 }}>{t('dash.no_projects')}</div>
                 <div style={{ marginBottom: 14, lineHeight: 1.5 }}>{t('dash.create_first_project')}</div>
                 <button className="btn btn-primary btn-sm" onClick={() => nav('/projects')}>
                   <Plus size={12} /> {t('dash.create_project')}
@@ -544,22 +582,22 @@ export default function Dashboard() {
                 <div key={p.id}
                   onClick={() => nav(`/projects/${p.id}`)}
                   style={{
-                    padding: '10px 11px', borderRadius: 9, cursor: 'pointer', marginBottom: 3,
+                    padding: '9px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: 3,
                     border: `1px solid ${isSelected ? 'rgba(249,115,22,0.35)' : 'rgba(255,255,255,0.04)'}`,
                     background: isSelected ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.02)',
-                    transition: 'all 0.15s', position: 'relative',
+                    transition: 'all 0.15s ease', position: 'relative',
                   }}
-                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
                   onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)' }}
                 >
-                  {isSelected && <div style={{ position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 2, borderRadius: '0 2px 2px 0', background: '#f97316' }} />}
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isSelected ? '#fdba74' : 'var(--text)' }}>
+                  {isSelected && <div style={{ position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 2.5, borderRadius: '0 2px 2px 0', background: '#f97316' }} />}
+                  <div style={{ fontSize: 12.5, fontWeight: isSelected ? 600 : 500, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isSelected ? '#fed7aa' : '#e5e7eb' }}>
                     {p.name}
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, color: isSelected ? 'rgba(249,115,22,0.7)' : 'var(--text3)' }}>{p.scene_count} scenes</span>
+                    <span style={{ fontSize: 10, color: isSelected ? 'rgba(249,115,22,0.8)' : '#9ca3af' }}>{p.scene_count} scenes</span>
                     {p.chain_mode && <span style={{ fontSize: 9, color: '#fb923c' }}>⛓</span>}
-                    <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 'auto' }}>
+                    <span style={{ fontSize: 10, color: '#6b7280', marginLeft: 'auto' }}>
                       {new Date(p.created_at).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
@@ -595,33 +633,34 @@ export default function Dashboard() {
         {/* ── Log console ── */}
         <div style={{
           position: 'fixed', bottom: 0, left: navWidth + (isProjectDetail ? 280 : 0), right: 0,
-          background: 'rgba(8,6,4,0.97)', backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(249,115,22,0.08)', zIndex: 100,
-          transition: 'left 0.2s',
+          background: 'rgba(9, 9, 13, 0.94)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.07)', zIndex: 100,
+          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
           <div onClick={() => { setLogOpen(o => !o); setUnread(0) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              padding: '7px 18px', cursor: 'pointer', userSelect: 'none',
+              padding: '6px 18px', cursor: 'pointer', userSelect: 'none',
+              background: 'rgba(255, 255, 255, 0.015)',
             }}>
-            <Terminal size={12} color="#50402e" />
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, fontFamily: 'monospace' }}>{t('dash.logs')}</span>
+            <Terminal size={12} color="#9ca3af" />
+            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.04em' }}>{t('dash.logs')}</span>
             {unread > 0 && (
-              <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 99, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>
+              <span style={{ background: '#f97316', color: '#fff', borderRadius: 99, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>
                 {unread}
               </span>
             )}
-            <span style={{ marginLeft: 'auto', color: 'var(--text3)' }}>
+            <span style={{ marginLeft: 'auto', color: '#6b7280' }}>
               {logOpen ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
             </span>
           </div>
           {logOpen && (
-            <div style={{ height: 200, overflowY: 'auto', padding: '8px 18px', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.7, background: 'rgba(0,0,0,0.3)' }}>
-              {logs.length === 0 && <div style={{ color: 'var(--text3)' }}>{t('dash.no_logs')}</div>}
+            <div style={{ height: 190, overflowY: 'auto', padding: '10px 18px', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.7, background: 'rgba(0,0,0,0.5)' }}>
+              {logs.length === 0 && <div style={{ color: '#6b7280' }}>{t('dash.no_logs')}</div>}
               {logs.map((l, i) => (
-                <div key={i} style={{ color: l.level === 'error' ? '#f87171' : l.level === 'warn' ? '#fbbf24' : '#504030' }}>
-                  <span style={{ color: '#302010', marginRight: 10 }}>{l.ts}</span>
-                  <span style={{ color: l.level === 'error' ? '#f87171' : l.level === 'warn' ? '#fbbf24' : '#a08060' }}>{l.msg}</span>
+                <div key={i} style={{ color: l.level === 'error' ? '#f87171' : l.level === 'warn' ? '#fbbf24' : '#9ca3af', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ color: '#4b5563', fontSize: 10 }}>[{l.ts}]</span>
+                  <span>{l.msg}</span>
                 </div>
               ))}
               <div ref={logEndRef} />

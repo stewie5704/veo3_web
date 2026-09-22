@@ -682,13 +682,31 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
     <div style={{ maxWidth: tab === 'sell' ? '100%' : 1120, margin: '0 auto' }}>
       <div className="fx-grain" aria-hidden="true" />
       {/* Overlay đã tắt */}
-      {/* Header — chế độ chọn ở sidebar (mục con của "Tạo video") */}
-      <div className="page-header">
+      {/* Header with Segmented Mode Switcher */}
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
         <div>
-          <div className="page-title" style={{ margin: 0 }}>{t('project.create_video')}</div>
+          <div className="page-title" style={{ margin: 0, gap: 10 }}>
+            <Sparkles size={22} className="text-orange-400" />
+            <span>{t('project.create_video')}</span>
+          </div>
           <div className="page-subtitle">
             {tab === 'new' ? t('project.tab_new') : tab === 'batch' ? t('project.tab_batch') : tab === 'copy' ? t('project.tab_copy') : t('project.tab_sell')}
           </div>
+        </div>
+
+        <div className="cmp-tabs">
+          <button type="button" className={tab === 'new' ? 'on' : ''} onClick={() => { setTab('new'); nav('/projects?tab=new') }}>
+            <Sparkles size={14} /> {t('project.tab_new')}
+          </button>
+          <button type="button" className={tab === 'batch' ? 'on' : ''} onClick={() => { setTab('batch'); nav('/projects?tab=batch') }}>
+            <PenLine size={14} /> {t('project.tab_batch')}
+          </button>
+          <button type="button" className={tab === 'copy' ? 'on' : ''} onClick={() => { setTab('copy'); nav('/projects?tab=copy') }}>
+            <Link2 size={14} /> {t('project.tab_copy')}
+          </button>
+          <button type="button" className={tab === 'sell' ? 'on' : ''} onClick={() => { setTab('sell'); nav('/projects?tab=sell') }}>
+            <Clapperboard size={14} /> {t('project.tab_sell')}
+          </button>
         </div>
       </div>
 
@@ -822,12 +840,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                   </div>
                 </div>
                 <div className="cmp-ctrl">
-                  <div className="cmp-label">{t('project.aspect_ratio')}</div>
-                  <div className="selwrap">
-                    <select className="cmp-sel" value={aspect} onChange={e => setAspect(e.target.value)}>
-                      {ASPECTS.map(a => <option key={a}>{a}</option>)}
-                    </select>
-                    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  <div className="cmp-label">{t('project.aspect_ratio')} <span className="rv">{aspect}</span></div>
+                  <div className="seg2" style={{ height: 42 }}>
+                    <button type="button" className={aspect === '16:9' ? 'on' : ''} onClick={() => setAspect('16:9')} title="Ngang 16:9 (YouTube, Máy tính)">
+                      <span style={{ display: 'inline-block', width: 13, height: 8, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                      16:9
+                    </button>
+                    <button type="button" className={aspect === '9:16' ? 'on' : ''} onClick={() => setAspect('9:16')} title="Dọc 9:16 (TikTok, Reels, Shorts)">
+                      <span style={{ display: 'inline-block', width: 8, height: 13, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                      9:16
+                    </button>
+                    <button type="button" className={aspect === '1:1' ? 'on' : ''} onClick={() => setAspect('1:1')} title="Vuông 1:1 (Instagram, Feed)">
+                      <span style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                      1:1
+                    </button>
                   </div>
                 </div>
                 <div className="cmp-ctrl">
@@ -1071,8 +1097,8 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
           {step === 'review' && (<>
             <div className="cmp-body">
             {/* Banner ước tính */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '14px 16px', marginBottom: 16,
-              background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', borderRadius: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', padding: '16px 20px', marginBottom: 18,
+              background: 'linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(236,72,153,0.04) 100%)', border: '1px solid rgba(249,115,22,0.22)', borderRadius: 14, backdropFilter: 'blur(12px)' }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>{t('project.video_length')}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent3)' }}>~{fmtLen(reviewLenSec)}</div>
@@ -1088,9 +1114,14 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 <div style={{ fontSize: 16, fontWeight: 600, color: reviewCost === 0 ? 'var(--green)' : 'var(--yellow)' }}>{reviewCost === 0 ? 'FREE' : `${reviewCost} 💎`}</div>
               </div>
               <div style={{ flex: 1 }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right', lineHeight: 1.5 }}>
-                {modelObjNew.label} · {aspect}
-                {(selectedChars.size > 0 || Object.values(charIdsMap).filter(Boolean).length > 0) && <><br />{t('project.locked_faces', { count: new Set([...selectedChars, ...Object.keys(charIdsMap).filter(k => charIdsMap[k])]).size })}</>}
+              <div style={{ fontSize: 11.5, color: 'var(--text3)', textAlign: 'right', lineHeight: 1.5 }}>
+                <span className="clean-pill" style={{ marginRight: 6 }}>{modelObjNew.label.split('—')[0].trim()}</span>
+                <span className="clean-pill">{aspect}</span>
+                {(selectedChars.size > 0 || Object.values(charIdsMap).filter(Boolean).length > 0) && (
+                  <div style={{ marginTop: 5, color: 'var(--accent2)', fontWeight: 600 }}>
+                    {t('project.locked_faces', { count: new Set([...selectedChars, ...Object.keys(charIdsMap).filter(k => charIdsMap[k])]).size })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1340,12 +1371,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">{t('project.aspect_ratio')}</div>
-                <div className="selwrap">
-                  <select className="cmp-sel" value={bAspect} onChange={e => setBAspect(e.target.value)}>
-                    {ASPECTS.map(a => <option key={a}>{a}</option>)}
-                  </select>
-                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                <div className="cmp-label">{t('project.aspect_ratio')} <span className="rv">{bAspect}</span></div>
+                <div className="seg2" style={{ height: 42 }}>
+                  <button type="button" className={bAspect === '16:9' ? 'on' : ''} onClick={() => setBAspect('16:9')} title="Ngang 16:9">
+                    <span style={{ display: 'inline-block', width: 13, height: 8, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    16:9
+                  </button>
+                  <button type="button" className={bAspect === '9:16' ? 'on' : ''} onClick={() => setBAspect('9:16')} title="Dọc 9:16">
+                    <span style={{ display: 'inline-block', width: 8, height: 13, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    9:16
+                  </button>
+                  <button type="button" className={bAspect === '1:1' ? 'on' : ''} onClick={() => setBAspect('1:1')} title="Vuông 1:1">
+                    <span style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    1:1
+                  </button>
                 </div>
               </div>
               <div className="cmp-ctrl">
@@ -1432,14 +1471,20 @@ export default function Projects({ user, onCreated }: { user: any; onCreated?: (
                 </div>
               </div>
               <div className="cmp-ctrl">
-                <div className="cmp-label">{t('project.frame')}</div>
-                <div className="selwrap">
-                  <select className="cmp-sel" value={copyAspect} onChange={e => setCopyAspect(e.target.value)}>
-                    <option value="9:16">{t('project.frame_vertical')}</option>
-                    <option value="16:9">{t('project.frame_horizontal')}</option>
-                    <option value="1:1">{t('project.frame_square')}</option>
-                  </select>
-                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                <div className="cmp-label">{t('project.frame')} <span className="rv">{copyAspect}</span></div>
+                <div className="seg2" style={{ height: 42 }}>
+                  <button type="button" className={copyAspect === '9:16' ? 'on' : ''} onClick={() => setCopyAspect('9:16')} title={t('project.frame_vertical')}>
+                    <span style={{ display: 'inline-block', width: 8, height: 13, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    9:16
+                  </button>
+                  <button type="button" className={copyAspect === '16:9' ? 'on' : ''} onClick={() => setCopyAspect('16:9')} title={t('project.frame_horizontal')}>
+                    <span style={{ display: 'inline-block', width: 13, height: 8, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    16:9
+                  </button>
+                  <button type="button" className={copyAspect === '1:1' ? 'on' : ''} onClick={() => setCopyAspect('1:1')} title={t('project.frame_square')}>
+                    <span style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid currentColor', borderRadius: 2, marginRight: 5 }} />
+                    1:1
+                  </button>
                 </div>
               </div>
               <div className="cmp-ctrl" style={{ gridColumn: '1 / -1' }}>

@@ -932,22 +932,20 @@ export default function ProjectDetail({ user, onUpdate }: { user: any; onUpdate?
       )}
 
       {/* Project meta */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          {([
-            [Cpu, t('scene.meta_quality'), (project.model_key ?? '').replace(/_/g, ' ')],
-            [RectangleHorizontal, t('scene.meta_ratio'), project.aspect_ratio],
-            [Clock, t('scene.meta_duration'), `${project.duration_seconds}s/${t('scene.per_scene')}`],
-            [Languages, t('scene.meta_language'), project.language === 'vi' ? 'Tiếng Việt' : 'English'],
-            [Calendar, t('scene.meta_created'), new Date(project.created_at).toLocaleDateString('vi-VN')],
-          ] as const).map(([Icon, k, v]) => (
-            <div key={k} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Icon size={13} style={{ color: 'var(--text3)' }} />
-              <span style={{ color: 'var(--text2)' }}>{k}:</span>
-              <span style={{ fontWeight: 500 }}>{v}</span>
-            </div>
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {([
+          [Cpu, t('scene.meta_quality'), (project.model_key ?? '').replace(/^veo_3_1_t2v_/, '').replace(/_/g, ' ')],
+          [RectangleHorizontal, t('scene.meta_ratio'), project.aspect_ratio],
+          [Clock, t('scene.meta_duration'), `${project.duration_seconds}s/${t('scene.per_scene')}`],
+          [Languages, t('scene.meta_language'), project.language === 'vi' ? 'Tiếng Việt' : 'English'],
+          [Calendar, t('scene.meta_created'), new Date(project.created_at).toLocaleDateString('vi-VN')],
+        ] as const).map(([Icon, k, v]) => (
+          <div key={k} className="clean-pill" style={{ padding: '6px 12px', fontSize: 12, borderRadius: 10 }}>
+            <Icon size={13} style={{ color: 'var(--accent2)' }} />
+            <span style={{ color: 'var(--text3)' }}>{k}:</span>
+            <span style={{ fontWeight: 600, color: '#f3f4f6' }}>{v}</span>
+          </div>
+        ))}
       </div>
 
       {/* Nhân vật giữ mặt của dự án */}
