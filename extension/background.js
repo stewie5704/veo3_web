@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.1";
+const BRIDGE_VERSION = "1.7.2";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -461,17 +461,31 @@ connect();
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "status") { sendResponse(state); return false; }
   if (msg.type === "open_flow") {
-    ensureLabsTab().then(async ({ tab }) => {
+    (async () => {
       try {
+        // Xoá cookie session cũ đã hết hạn để Google Flow hiện nút Sign In
+        const cookies = await chrome.cookies.getAll({ domain: "labs.google" }).catch(() => []);
+        for (const c of cookies) {
+          if (c.name && c.name.includes("next-auth")) {
+            const proto = c.secure ? "https:" : "http:";
+            const url = `${proto}//${c.domain.replace(/^\./, "")}${c.path}`;
+            await chrome.cookies.remove({ url, name: c.name }).catch(() => {});
+            await chrome.cookies.remove({ url: "https://labs.google/", name: c.name }).catch(() => {});
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const { tab } = await ensureLabsTab();
         if (tab && tab.id) {
-          await chrome.tabs.update(tab.id, { active: true });
+          await chrome.tabs.update(tab.id, { url: FLOW_URL, active: true });
           if (tab.windowId) {
             await chrome.windows.update(tab.windowId, { focused: true });
           }
         }
       } catch (e) {}
       sendResponse({ ok: true });
-    }).catch(() => sendResponse({ ok: false }));
+    })();
     return true;
   }
   if (msg.type === "reconnect") {

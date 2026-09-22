@@ -25,7 +25,7 @@ async function refresh() {
                              : '<span class="dot off"></span>Mất kết nối';
     let ck = st.cookiesSent ? "✅ đã gửi cookie Google" : "⚠️ chưa lấy được cookie (đăng nhập labs.google?)";
     if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
-      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer'>👉 Mở Google Flow đăng nhập lại</button>";
+      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b><br><button id='openFlowBtn' style='margin-top:6px;width:100%;background:#ef4444;color:#fff;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer'>👉 Xoá phiên cũ & Mở tab đăng nhập lại</button>";
     }
     const pj = st.projectId ? `✅ project: <code>${st.projectId.slice(0, 8)}…</code>`
                             : "⚠️ chưa mở project Flow (mở 1 project trên labs.google)";
