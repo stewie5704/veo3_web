@@ -40,6 +40,15 @@ _api_waiters: Dict[str, tuple[str, asyncio.Future]] = {}
 _api_last_submit: Dict[str, float] = {}
 _api_blocked: Dict[str, str] = {}
 _api_blocked_until: Dict[str, float] = {}
+_google_session_errors: Dict[str, str] = {}
+
+
+def set_google_session_error(user_id: str, error: str = "") -> None:
+    if error:
+        _google_session_errors[user_id] = error
+    else:
+        _google_session_errors.pop(user_id, None)
+
 
 
 async def _send_ws(user_id: str, ws: WebSocket, payload: dict) -> None:
@@ -99,9 +108,15 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                         _extension_caps[user_id] = {
                             str(x) for x in (msg.get("capabilities") or []) if isinstance(x, str)
                         }
+                        g_err = str(msg.get("google_session_error") or "")
+                        if g_err:
+                            _google_session_errors[user_id] = g_err
+                        else:
+                            _google_session_errors.pop(user_id, None)
                         await db.commit()
                         await _send_ws(user_id, websocket, {"type": "ok", "action": "cookies_saved"})
-                        log.info("Cookies saved for user %s, project=%s", user_id, user.google_project_id)
+                        log.info("Cookies saved for user %s, project=%s, session_err=%s",
+                                 user_id, user.google_project_id, g_err or "none")
 
                     elif msg_type == "captcha":
                         # Extension sent a captcha token
@@ -316,6 +331,7 @@ def get_extension_status(user_id: str) -> dict:
         "socket_connected": user_id in _ws_connections,
         "has_captcha_cache": user_id in _captcha_cache,
         "flow_api_proxy": has_flow_api_proxy(user_id),
+        "google_session_error": _google_session_errors.get(user_id, ""),
     }
 
 

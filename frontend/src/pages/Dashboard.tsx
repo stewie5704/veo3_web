@@ -35,6 +35,7 @@ type NavItem = { path: string; icon: any; label: string; exact?: boolean; userOn
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [extConnected, setExtConnected] = useState(false)
+  const [extError, setExtError] = useState('')
   const [credits, setCredits] = useState<number | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [logs, setLogs] = useState<typeof logStore>([])
@@ -138,7 +139,13 @@ export default function Dashboard() {
   // Poll extension status (do NOT open a /ws/extension socket here — that would shadow the
   // real extension's connection on the server and break captcha).
   useEffect(() => {
-    const poll = () => extensionApi.status().then(s => setExtConnected(!!s.connected)).catch(() => setExtConnected(false))
+    const poll = () => extensionApi.status().then(s => {
+      setExtConnected(!!s.connected)
+      setExtError(s.google_session_error || '')
+    }).catch(() => {
+      setExtConnected(false)
+      setExtError('')
+    })
     poll()
     const timer = setInterval(poll, 5000)
     return () => clearInterval(timer)
@@ -576,14 +583,27 @@ export default function Dashboard() {
             </div>
             {/* Connection status inline */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: extConnected ? '#4ade80' : '#f87171', boxShadow: extConnected ? '0 0 6px rgba(74,222,128,0.5)' : 'none', flexShrink: 0 }} />
               {extConnected ? (
-                <span style={{ color: '#4ade80', fontWeight: 500 }}>{t('dash.ultra_connected')}</span>
+                extError === 'ACCESS_TOKEN_REFRESH_NEEDED' ? (
+                  <span style={{ color: '#fbbf24', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}
+                    title="Phiên Google (labs.google) đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.">
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 6px rgba(251,191,36,0.5)', flexShrink: 0 }} />
+                    Phiên Google hết hạn
+                  </span>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 6px rgba(74,222,128,0.5)', flexShrink: 0 }} />
+                    <span style={{ color: '#4ade80', fontWeight: 500 }}>{t('dash.ultra_connected')}</span>
+                  </div>
+                )
               ) : (
-                <Link to="/settings" title={t('dash.click_to_connect')}
-                  style={{ color: '#f87171', textDecoration: 'none', cursor: 'pointer', opacity: 0.9 }}>
-                  {t('dash.not_connected')}
-                </Link>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f87171', flexShrink: 0 }} />
+                  <Link to="/settings" title={t('dash.click_to_connect')}
+                    style={{ color: '#f87171', textDecoration: 'none', cursor: 'pointer', opacity: 0.9 }}>
+                    {t('dash.not_connected')}
+                  </Link>
+                </div>
               )}
             </div>
           </div>

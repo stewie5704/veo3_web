@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.6";
+const BRIDGE_VERSION = "1.7";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -15,6 +15,7 @@ let reconnectTimer = null;
 const state = {
   connected: false, cookiesSent: false, projectId: "", error: "", needLogin: false,
   bridgeVersion: BRIDGE_VERSION, flowApiProxy: true,
+  googleSessionValid: true, googleSessionError: "",
 };
 
 // Token còn hợp lệ không? 401/403 = chết -> đừng reconnect nữa, bắt user đăng nhập lại.
@@ -168,15 +169,44 @@ async function getProjectId() {
   }
 }
 
+async function checkGoogleSession() {
+  try {
+    const res = await fetch("https://labs.google/fx/api/auth/session", {
+      headers: { "accept": "application/json", "referer": "https://labs.google/" },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data && data.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
+      return { valid: false, error: "ACCESS_TOKEN_REFRESH_NEEDED", email: data.user?.email || "" };
+    }
+    if (data && (data.access_token || data.token || (data.user && !data.error))) {
+      return { valid: true, error: "", email: data.user?.email || "" };
+    }
+    return { valid: false, error: "NO_SESSION", email: "" };
+  } catch (e) {
+    return { valid: true, error: "" };
+  }
+}
+
 async function pushCookies() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const cookies = await gatherCookies();
   const project_id = await getProjectId();
   state.cookiesSent = !!cookies;
   state.projectId = project_id;
+
+  const sessionCheck = await checkGoogleSession();
+  state.googleSessionValid = sessionCheck.valid;
+  state.googleSessionError = sessionCheck.error;
+  if (!sessionCheck.valid && sessionCheck.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
+    state.error = "Phiên Google đã hết hạn. Mở tab labs.google và đăng nhập lại.";
+  } else if (state.error && state.error.includes("Phiên Google")) {
+    state.error = "";
+  }
+
   ws.send(JSON.stringify({
     type: "cookies", cookies, project_id,
     bridge_version: BRIDGE_VERSION, capabilities: BRIDGE_CAPABILITIES,
+    google_session_error: sessionCheck.error,
   }));
 }
 
@@ -393,6 +423,25 @@ chrome.alarms.onAlarm.addListener(() => {
 });
 chrome.runtime.onStartup.addListener(connect);
 chrome.runtime.onInstalled.addListener(connect);
+
+// Tự động đẩy cookie mới ngay khi user tải lại hoặc đăng nhập trên labs.google
+chrome.cookies.onChanged.addListener((info) => {
+  if (info.cookie && info.cookie.domain && info.cookie.domain.includes("labs.google")) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      pushCookies();
+    }
+  }
+});
+
+// Tự động kiểm tra project_id và cookie khi tab labs.google tải xong
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete" && tab.url && tab.url.includes("labs.google")) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      pushCookies();
+    }
+  }
+});
+
 connect();
 
 // ── popup messaging ──────────────────────────────────────────────────────────

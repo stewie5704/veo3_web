@@ -180,7 +180,7 @@ async def generate_ai_portrait_one(
         from app.pipeline.runner import FlowBridgeUnavailableError
         if isinstance(exc, FlowBridgeUnavailableError):
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        raise
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/generate-ai-portraits", response_model=list[CharacterResponse])

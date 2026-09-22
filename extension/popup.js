@@ -23,7 +23,10 @@ async function refresh() {
     if (!loggedIn) { setStatus('<span class="muted">Chưa đăng nhập.</span>'); return; }
     const dot = st.connected ? '<span class="dot on"></span>Đã kết nối server'
                              : '<span class="dot off"></span>Mất kết nối';
-    const ck = st.cookiesSent ? "✅ đã gửi cookie Google" : "⚠️ chưa lấy được cookie (đăng nhập labs.google?)";
+    let ck = st.cookiesSent ? "✅ đã gửi cookie Google" : "⚠️ chưa lấy được cookie (đăng nhập labs.google?)";
+    if (st.googleSessionError === "ACCESS_TOKEN_REFRESH_NEEDED") {
+      ck = "❌ <b style='color:#f87171'>Phiên Google hết hạn!</b> Mở tab labs.google đăng nhập lại";
+    }
     const pj = st.projectId ? `✅ project: <code>${st.projectId.slice(0, 8)}…</code>`
                             : "⚠️ chưa mở project Flow (mở 1 project trên labs.google)";
     const err = st.error ? `<br><span style="color:#fca5a5">${st.error}</span>` : "";

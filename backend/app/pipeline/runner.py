@@ -198,7 +198,7 @@ def _require_flow_api_proxy(user_id: str) -> None:
         raise FlowBridgeUnavailableError(error)
 
 
-async def _get_bearer_token(cookies: str) -> str | None:
+async def _get_bearer_token(cookies: str, user_id: str | None = None) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(AUTH_SESSION_URL, headers={
@@ -213,7 +213,19 @@ async def _get_bearer_token(cookies: str) -> str | None:
     # nếu không mọi cảnh sẽ 401. Trả None để caller báo "phiên hết hạn" rõ ràng.
     if isinstance(data, dict) and data.get("error"):
         log.warning("Google session needs refresh: error=%s expires=%s", data.get("error"), data.get("expires"))
+        if user_id:
+            try:
+                from app.sessions.router import set_google_session_error
+                set_google_session_error(user_id, str(data.get("error") or "ACCESS_TOKEN_REFRESH_NEEDED"))
+            except Exception:
+                pass
         return None
+    if user_id:
+        try:
+            from app.sessions.router import set_google_session_error
+            set_google_session_error(user_id, "")
+        except Exception:
+            pass
     # The token can sit under various keys; scan for ya29.* and fall back to common names.
     return _extract_token(data) or data.get("accessToken") or data.get("token")
 
@@ -472,7 +484,7 @@ async def generate_images_flow(*, user_id: str, cookies: str, project_id: str, p
     from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
     _require_flow_api_proxy(user_id)
-    token = await _get_bearer_token(cookies)
+    token = await _get_bearer_token(cookies, user_id=user_id)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
     use_proxy = has_flow_api_proxy(user_id)
@@ -776,7 +788,7 @@ async def _generate_one(*, user_id: str, cookies: str, project_id: str, prompt: 
     from app.sessions.router import request_captcha, has_flow_api_proxy, get_extension_status
 
     _require_flow_api_proxy(user_id)
-    token = await _get_bearer_token(cookies)
+    token = await _get_bearer_token(cookies, user_id=user_id)
     if not token:
         raise RuntimeError(SESSION_EXPIRED_MSG)
 
