@@ -6,7 +6,7 @@
 
 const FLOW_URL = "https://labs.google/fx/tools/flow";
 const SITEKEY_FALLBACK = "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV";
-const BRIDGE_VERSION = "1.7.6";
+const BRIDGE_VERSION = "1.7.7";
 const BRIDGE_CAPABILITIES = ["flow_api_proxy", "flow_api_proxy_v4"];
 
 let ws = null;
@@ -362,15 +362,15 @@ async function pushCookies() {
       isSessionOk = false;
       sessionErr = "ACCESS_TOKEN_REFRESH_NEEDED";
       state.error = "Phiên Google đã hết hạn. Hãy mở tab Google Flow và đăng nhập lại.";
-    } else if (bearerToSend || hasNextAuth || hasCookies) {
-      // Có bearer hoặc session-token hoặc cookies -> phiên hợp lệ
+    } else if (bearerToSend || hasNextAuth) {
+      // Bắt buộc có token bearer (ya29.) hoặc cookie session-token thực sự
       isSessionOk = true;
       sessionErr = "";
       state.error = "";
     } else {
       isSessionOk = false;
       sessionErr = "NO_SESSION";
-      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in).";
+      state.error = "Chưa đăng nhập Google Flow. Hãy mở tab Google Flow và bấm Đăng nhập (Sign in) bằng tài khoản Ultra.";
     }
 
     state.cookiesSent = isSessionOk;
@@ -392,6 +392,13 @@ async function pushCookies() {
       capabilities: BRIDGE_CAPABILITIES,
       google_session_error: sessionErr,
       bearer_token: bearerToSend,
+      debug: {
+        cookies_len: cookiesPayload.length,
+        has_session_token: hasNextAuth,
+        has_bearer: !!bearerToSend,
+        flow_tabs: flowTabs.length,
+        session_check_err: sessionCheck.error,
+      }
     }));
   } catch (e) {
     console.error("pushCookies error:", e);

@@ -123,7 +123,7 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                                 bearer = m.group(1)
 
                         has_session = bool(
-                            (raw_cookies and len(raw_cookies) > 10)
+                            (raw_cookies and "session-token" in raw_cookies.lower())
                             or bearer.startswith("ya29.")
                         ) and (g_err != "ACCESS_TOKEN_REFRESH_NEEDED")
 
@@ -143,8 +143,8 @@ async def extension_ws(websocket: WebSocket, token: str = ""):
                             _google_session_errors.pop(user_id, None)
                         await db.commit()
                         await _send_ws(user_id, websocket, {"type": "ok", "action": "cookies_saved"})
-                        log.info("Cookies saved for user %s, project=%s, session_err=%s, has_bearer=%s, connected=%s",
-                                 user_id, user.google_project_id, g_err or "none", bool(bearer), has_session)
+                        log.warning("Cookies WS for user %s: has_session=%s, has_session_tok=%s, has_bearer=%s, proj=%s, debug=%s",
+                                    user_id, has_session, ("session-token" in raw_cookies.lower()), bool(bearer), user.google_project_id, msg.get("debug"))
 
                     elif msg_type == "captcha":
                         # Extension sent a captcha token
