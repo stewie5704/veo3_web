@@ -4,7 +4,7 @@ import { useT, LangSwitch } from '../i18n'
 import {
   Sparkles, Play, Check, Zap, Film, ShoppingBag, Clapperboard,
   Layers, CheckCircle2, XCircle, Volume2, VolumeX, Video, Mic,
-  ChevronDown, ArrowRight, ShieldCheck, Cpu
+  ChevronDown, ArrowRight, ShieldCheck, Cpu, Menu, X
 } from 'lucide-react'
 
 // ==========================================================================
@@ -119,6 +119,9 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const toggleFaq = (idx: number) => setOpenFaq(openFaq === idx ? null : idx)
 
+  // Mobile navigation menu state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   // Toggle Sound
   const toggleSound = () => {
     if (heroVideoRef.current) {
@@ -206,7 +209,7 @@ export default function Landing() {
           <div className="header-inner">
             <a href="#" className="brand" aria-label="AI AutoCut Studio Trang Chủ">
               <span className="brand-logo"><Logo /></span>
-              <span>AI AutoCut</span>
+              <span className="brand-title">AI AutoCut</span>
               <span className="brand-badge">STUDIO</span>
             </a>
 
@@ -226,9 +229,36 @@ export default function Landing() {
                 <Sparkles size={14} />
                 <span>Thử Nghiệm 0Đ</span>
               </a>
+              <button
+                type="button"
+                className="mobile-menu-btn"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Menu điều hướng"
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
             </div>
           </div>
         </div>
+
+        {mobileMenuOpen && (
+          <div className="mobile-menu">
+            <a href="#showcase" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Trường Quay</a>
+            <a href="#showreel" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Showreel</a>
+            <a href="#features" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Năng Lực</a>
+            <a href="#pipeline" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Quy Trình</a>
+            <a href="#pricing" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Bảng Giá</a>
+            <a href="#faq" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Hỏi Đáp</a>
+            <div className="mobile-actions">
+              <a className="btn btn-ghost" href={loginHref}>{t('landing.login')}</a>
+              <a className="btn btn-primary" href={registerHref}>
+                <Sparkles size={14} />
+                <span>Thử Nghiệm 0Đ</span>
+              </a>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ── MAIN CONTENT ── */}
